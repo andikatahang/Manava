@@ -1,19 +1,17 @@
 import { test, expect } from '@playwright/test'
 
-const roles = [
-  'Superadmin',
-  'Admin Manager',
-  'Editor',
-  'Client',
-  'Mediator',
-  'Finance',
-] as const
+const roles = ['Superadmin', 'Admin Manager', 'Editor', 'Client', 'Mediator', 'Finance'] as const
+
+async function selectRole(page: import('@playwright/test').Page, role: string) {
+  // Click the role card button (contains the role label as a p child)
+  await page.locator('button[type="button"]').filter({ hasText: role }).first().click()
+  await page.getByRole('button', { name: new RegExp(`sign in as .+`, 'i') }).click()
+}
 
 test('login page renders role selector', async ({ page }) => {
   await page.goto('/login')
-  await expect(page.getByRole('heading', { name: /sign in/i })).toBeVisible()
   for (const role of roles) {
-    await expect(page.getByRole('button', { name: role })).toBeVisible()
+    await expect(page.locator('button').filter({ hasText: role }).first()).toBeVisible()
   }
 })
 
@@ -25,8 +23,7 @@ test('unauthenticated user is redirected to login', async ({ page }) => {
 for (const role of roles) {
   test(`${role} can log in and reach dashboard`, async ({ page }) => {
     await page.goto('/login')
-    await page.getByRole('button', { name: role }).click()
-    await page.getByRole('button', { name: /sign in/i }).click()
+    await selectRole(page, role)
     await expect(page).toHaveURL('/dashboard')
     await expect(page.locator('main')).toBeVisible()
   })

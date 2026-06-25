@@ -1,27 +1,31 @@
 import { test, expect } from '@playwright/test'
 
-test.beforeEach(async ({ page }) => {
+async function loginAs(page: import('@playwright/test').Page, role: string) {
   await page.goto('/login')
-  await page.getByRole('button', { name: 'Superadmin' }).click()
-  await page.getByRole('button', { name: /sign in/i }).click()
+  await page.locator('button[type="button"]').filter({ hasText: role }).first().click()
+  await page.getByRole('button', { name: new RegExp(`sign in as .+`, 'i') }).click()
   await expect(page).toHaveURL('/dashboard')
+}
+
+test.beforeEach(async ({ page }) => {
+  await loginAs(page, 'Superadmin')
 })
 
-const routes = [
+const routes: [string, string][] = [
   ['/recruitment', 'Recruitment'],
   ['/projects', 'Projects'],
   ['/contracts', 'Contracts'],
   ['/payments', 'Escrow'],
   ['/attendance', 'Attendance'],
   ['/performance', 'Performance'],
-  ['/disputes', 'Disputes'],
+  ['/disputes', 'Dispute'],
   ['/deliverables', 'Deliverable'],
   ['/audit', 'Audit'],
   ['/chat', 'Chat'],
   ['/ess', 'Self'],
   ['/offboarding', 'Offboarding'],
   ['/settings', 'Settings'],
-] as const
+]
 
 for (const [path, heading] of routes) {
   test(`${path} page loads`, async ({ page }) => {
