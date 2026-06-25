@@ -76,11 +76,11 @@ function AppRoutes() {
         <Route path="/login" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage role={role} />} />
         <Route path="/recruitment" element={<RoleGuard role={role}><RecruitmentPage role={role} /></RoleGuard>} />
-        <Route path="/projects" element={<RoleGuard role={role}><ProjectsPage /></RoleGuard>} />
+        <Route path="/projects" element={<RoleGuard role={role}><ProjectsPage role={role} /></RoleGuard>} />
         <Route path="/contracts" element={<RoleGuard role={role}><ContractsPage /></RoleGuard>} />
         <Route path="/payments" element={<RoleGuard role={role}><PaymentsPage /></RoleGuard>} />
         <Route path="/attendance" element={<RoleGuard role={role}><AttendancePage /></RoleGuard>} />
-        <Route path="/performance" element={<RoleGuard role={role}><PerformancePage /></RoleGuard>} />
+        <Route path="/performance" element={<RoleGuard role={role}><PerformancePage role={role} /></RoleGuard>} />
         <Route path="/disputes" element={<RoleGuard role={role}><DisputesPage role={role} /></RoleGuard>} />
         <Route path="/deliverables" element={<RoleGuard role={role}><DeliverablesPage /></RoleGuard>} />
         <Route path="/audit" element={<RoleGuard role={role}><AuditTrailPage /></RoleGuard>} />

@@ -1,4 +1,4 @@
-import type { User, Editor, Applicant, JobPosting, Project, Dispute, EditorMetrics, Payslip, AttendanceRecord, LeaveRequest, EscrowAccount, Transaction, Message, RevisionRequest } from '../types'
+import type { User, Editor, Applicant, JobPosting, Project, Dispute, EditorMetrics, Payslip, AttendanceRecord, LeaveRequest, EscrowAccount, Transaction, Message, RevisionRequest, RevisionEnvelope } from '../types'
 
 export const currentUser: User = {
   user_id: 'u1',
@@ -132,4 +132,52 @@ export const mockRevisions: RevisionRequest[] = [
   { revision_id: 'r1', project_id: 'p1', request_text: 'Photo #7 has a slight color cast on the product. Please fix the white balance.', ai_label: 'minor', ai_confidence: 0.88, final_label: 'minor', price: 0, status: 'accepted', created_at: '2026-06-14T09:00:00' },
   { revision_id: 'r2', project_id: 'p4', request_text: 'Add a completely different background concept with outdoor natural setting', ai_label: 'major', ai_confidence: 0.95, final_label: 'major', price: 320000, status: 'awaiting_topup', created_at: '2026-06-22T10:00:00' },
   { revision_id: 'r3', project_id: 'p5', request_text: 'Adjust the lighting to be softer on all 50 headshots', ai_label: 'minor', ai_confidence: 0.72, final_label: undefined, status: 'disputed', created_at: '2026-06-19T14:00:00' },
+  { revision_id: 'r4', project_id: 'p3', request_text: 'Increase warmth in ceremony scene by 10–15%.', ai_label: 'minor', ai_confidence: 0.91, final_label: 'minor', price: 0, status: 'resubmitted', created_at: '2026-06-01T10:00:00' },
+  { revision_id: 'r5', project_id: 'p3', request_text: 'Lower contrast in reception footage — client prefers a matte film look.', ai_label: 'minor', ai_confidence: 0.84, final_label: 'minor', price: 0, status: 'resolved', created_at: '2026-06-05T11:00:00' },
+]
+
+export const mockRevisionEnvelopes: RevisionEnvelope[] = [
+  { envelope_id: 'env1', project_id: 'p1', included_scope: 'Color correction, white balance, minor blemish removal, background cleanup for all 20 photos', excluded_scope: 'Full background replacement, object addition/removal, skin texture overhaul', allowance_count: 5, allowance_consumed: 1 },
+  { envelope_id: 'env2', project_id: 'p2', included_scope: 'Color grading, audio sync, basic cuts and transitions, title cards per brand guide', excluded_scope: 'Motion graphics creation, VFX, footage reshoots, major restructuring', allowance_count: 3, allowance_consumed: 0 },
+  { envelope_id: 'env3', project_id: 'p3', included_scope: 'Cinematic color grade, exposure correction, highlight/shadow recovery for entire 90-min film', excluded_scope: 'Music soundtrack changes, video effects, scene cuts, reshoots', allowance_count: 3, allowance_consumed: 2 },
+  { envelope_id: 'env4', project_id: 'p4', included_scope: 'Natural skin retouch, blemish removal, subtle brightening for 15 portraits', excluded_scope: 'Background changes, composite work, heavy manipulation, body reshaping', allowance_count: 3, allowance_consumed: 2 },
+  { envelope_id: 'env5', project_id: 'p5', included_scope: 'Professional headshot retouch: skin tone, eye sharpening, clothing wrinkle reduction for 50 photos', excluded_scope: 'Hair replacement, background swap, body reshaping, adding/removing subjects', allowance_count: 3, allowance_consumed: 3 },
+  { envelope_id: 'env6', project_id: 'p6', included_scope: 'Product video editing, color matching to brand guidelines, logo overlay for 5 videos (30s each)', excluded_scope: '3D rendering, animated infographics, voiceover production, reshoots', allowance_count: 3, allowance_consumed: 0 },
+]
+
+export interface KpiSnapshot {
+  editor_id: string
+  quarter: string
+  avg_client_rating: number
+  completion_rate: number
+  manager_rating: number
+  kpi_average: number
+}
+
+export const mockKpiHistory: KpiSnapshot[] = [
+  // Budi Santoso – consistent excellent
+  { editor_id: 'e1', quarter: 'Q3 2025', avg_client_rating: 4.5, completion_rate: 88, manager_rating: 4.2, kpi_average: 4.3 },
+  { editor_id: 'e1', quarter: 'Q4 2025', avg_client_rating: 4.6, completion_rate: 91, manager_rating: 4.3, kpi_average: 4.5 },
+  { editor_id: 'e1', quarter: 'Q1 2026', avg_client_rating: 4.7, completion_rate: 93, manager_rating: 4.4, kpi_average: 4.6 },
+  { editor_id: 'e1', quarter: 'Q2 2026', avg_client_rating: 4.8, completion_rate: 94, manager_rating: 4.5, kpi_average: 4.7 },
+  // Sari Dewi – improving
+  { editor_id: 'e2', quarter: 'Q3 2025', avg_client_rating: 3.9, completion_rate: 78, manager_rating: 3.8, kpi_average: 3.8 },
+  { editor_id: 'e2', quarter: 'Q4 2025', avg_client_rating: 4.1, completion_rate: 82, manager_rating: 4.0, kpi_average: 4.0 },
+  { editor_id: 'e2', quarter: 'Q1 2026', avg_client_rating: 4.3, completion_rate: 85, manager_rating: 4.1, kpi_average: 4.2 },
+  { editor_id: 'e2', quarter: 'Q2 2026', avg_client_rating: 4.5, completion_rate: 88, manager_rating: 4.2, kpi_average: 4.3 },
+  // Andi Kurniawan – stable mid
+  { editor_id: 'e3', quarter: 'Q3 2025', avg_client_rating: 3.8, completion_rate: 72, manager_rating: 3.4, kpi_average: 3.6 },
+  { editor_id: 'e3', quarter: 'Q4 2025', avg_client_rating: 3.9, completion_rate: 74, manager_rating: 3.5, kpi_average: 3.7 },
+  { editor_id: 'e3', quarter: 'Q1 2026', avg_client_rating: 3.9, completion_rate: 74, manager_rating: 3.5, kpi_average: 3.7 },
+  { editor_id: 'e3', quarter: 'Q2 2026', avg_client_rating: 3.9, completion_rate: 75, manager_rating: 3.5, kpi_average: 3.7 },
+  // Maya Putri – top performer throughout
+  { editor_id: 'e4', quarter: 'Q3 2025', avg_client_rating: 4.7, completion_rate: 94, manager_rating: 4.6, kpi_average: 4.7 },
+  { editor_id: 'e4', quarter: 'Q4 2025', avg_client_rating: 4.8, completion_rate: 95, manager_rating: 4.7, kpi_average: 4.8 },
+  { editor_id: 'e4', quarter: 'Q1 2026', avg_client_rating: 4.8, completion_rate: 96, manager_rating: 4.7, kpi_average: 4.8 },
+  { editor_id: 'e4', quarter: 'Q2 2026', avg_client_rating: 4.9, completion_rate: 97, manager_rating: 4.8, kpi_average: 4.9 },
+  // Rizky Hakim – declining
+  { editor_id: 'e5', quarter: 'Q3 2025', avg_client_rating: 3.8, completion_rate: 79, manager_rating: 3.6, kpi_average: 3.7 },
+  { editor_id: 'e5', quarter: 'Q4 2025', avg_client_rating: 3.3, completion_rate: 70, manager_rating: 3.0, kpi_average: 3.2 },
+  { editor_id: 'e5', quarter: 'Q1 2026', avg_client_rating: 3.0, completion_rate: 65, manager_rating: 2.8, kpi_average: 2.9 },
+  { editor_id: 'e5', quarter: 'Q2 2026', avg_client_rating: 2.8, completion_rate: 60, manager_rating: 2.5, kpi_average: 2.6 },
 ]
