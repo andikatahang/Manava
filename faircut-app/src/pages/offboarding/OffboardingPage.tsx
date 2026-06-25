@@ -200,7 +200,6 @@ export default function OffboardingPage() {
                       {PHASES.map((phase, i) => {
                         const done = i < c.phase
                         const active = i === c.phase
-                        const Icon = phase.icon
                         return (
                           <div key={phase.label} className={`flex items-center gap-4 p-3 rounded-xl ${done ? 'bg-emerald-50' : active ? 'bg-navy-50 border border-navy/15' : 'bg-gray-50'}`}>
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${done ? 'bg-emerald-500' : active ? 'bg-navy' : 'bg-gray-200'}`}>
