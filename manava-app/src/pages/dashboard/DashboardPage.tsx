@@ -1,8 +1,11 @@
-import { Briefcase, Users, AlertTriangle, CreditCard, TrendingUp, Clock, Search, MessageSquare, CheckCircle2 } from 'lucide-react'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Briefcase, Users, AlertTriangle, CreditCard, TrendingUp, Clock, Search, MessageSquare, CheckCircle2, LogIn, LogOut, Star, RotateCcw, ArrowRight } from 'lucide-react'
 import { StatCard } from '../../components/ui/StatCard'
 import { StatusBadge } from '../../components/ui/Badge'
 import { formatCurrency, formatDate } from '../../lib/utils'
-import { mockProjects, mockEditors, mockDisputes, mockTransactions } from '../../data/mockData'
+import { mockProjects, mockEditors, mockDisputes, mockTransactions, mockKpiHistory } from '../../data/mockData'
+import { progressPercent, progressColor } from '../projects/lifecycle'
 import type { UserRole } from '../../types'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
 
@@ -105,8 +108,177 @@ function ClientDashboardView() {
   )
 }
 
+function EditorDashboardView() {
+  // Demo identity: Budi Santoso (e1)
+  const me = mockEditors[0]
+  const ongoing = mockProjects.filter(p => ['in_progress', 'revision'].includes(p.status))
+  const awaitingReview = mockProjects.filter(p => p.status === 'in_review')
+  const inRevision = mockProjects.filter(p => p.status === 'revision')
+  const activeCount = ongoing.length + awaitingReview.length
+
+  const kpiData = mockKpiHistory
+    .filter(k => k.editor_id === me.editor_id)
+    .map(k => ({ quarter: k.quarter, kpi: k.kpi_average }))
+
+  const now = new Date()
+  const [clockedIn, setClockedIn] = useState(false)
+  const [inAt, setInAt] = useState<string | null>(null)
+  const today = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })
+
+  function toggleClock() {
+    if (!clockedIn) {
+      setClockedIn(true)
+      setInAt(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }))
+    } else {
+      setClockedIn(false)
+    }
+  }
+
+  const stats = [
+    { label: 'Proyek Aktif', value: activeCount, color: 'text-blue-600' },
+    { label: 'Menunggu Tinjauan', value: awaitingReview.length, color: 'text-navy' },
+    { label: 'Revisi Berjalan', value: inRevision.length, color: inRevision.length ? 'text-amber-600' : 'text-navy' },
+    { label: 'Rating Saya', value: me.rating.toFixed(1), color: 'text-emerald-600', star: true },
+  ]
+
+  return (
+    <div className="space-y-6">
+      {/* Absensi quick action + stats */}
+      <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
+        {/* Absensi card */}
+        <div className="card flex flex-col">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-navy/45 uppercase tracking-wider">Absensi hari ini</p>
+            <Clock className="w-4 h-4 text-navy/30" />
+          </div>
+          <p className="text-sm font-medium text-navy mt-1.5 capitalize">{today}</p>
+          <div className="mt-3 flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${clockedIn ? 'bg-emerald-500' : 'bg-navy/25'}`} />
+            <span className="text-sm text-navy/70">
+              {clockedIn ? `Masuk pukul ${inAt}` : 'Belum melakukan clock-in'}
+            </span>
+          </div>
+          <button
+            onClick={toggleClock}
+            className={`mt-4 w-full inline-flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold transition-colors ${
+              clockedIn
+                ? 'bg-white border border-border text-navy hover:bg-navy-50'
+                : 'bg-navy text-white hover:bg-navy-600'
+            }`}
+          >
+            {clockedIn ? <><LogOut className="w-4 h-4" /> Clock Out</> : <><LogIn className="w-4 h-4" /> Clock In</>}
+          </button>
+          <Link to="/attendance" className="mt-3 text-xs text-navy/50 hover:text-navy transition-colors inline-flex items-center gap-1">
+            Lihat riwayat absensi <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-4">
+          {stats.map(s => (
+            <div key={s.label} className="card flex flex-col justify-center">
+              <p className={`text-3xl font-bold leading-none ${s.color} flex items-center gap-1.5`}>
+                {s.star && <Star className="w-5 h-5 fill-current" />}{s.value}
+              </p>
+              <p className="text-sm text-navy/55 mt-2">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Charts */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* KPI trend */}
+        <div className="lg:col-span-2 card">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="font-semibold text-navy">Tren KPI Saya</h3>
+              <p className="text-xs text-navy/50 mt-0.5">Rata-rata KPI per kuartal</p>
+            </div>
+            <div className="flex items-center gap-1.5 text-emerald-600 text-sm font-medium">
+              <TrendingUp className="w-4 h-4" /> Stabil
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={kpiData}>
+              <XAxis dataKey="quarter" tick={{ fontSize: 12, fill: '#022E5799' }} axisLine={false} tickLine={false} />
+              <YAxis hide domain={[0, 5]} />
+              <Tooltip formatter={(v) => [Number(v).toFixed(1), 'KPI']} contentStyle={{ borderRadius: '10px', border: '1px solid #E8EDF2', fontSize: '12px' }} />
+              <Line type="monotone" dataKey="kpi" stroke="#022E57" strokeWidth={2.5} dot={{ fill: '#022E57', r: 4 }} activeDot={{ r: 6 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Projects per month */}
+        <div className="card">
+          <h3 className="font-semibold text-navy mb-4">Proyek per Bulan</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={projectData} barSize={10}>
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#022E5799' }} axisLine={false} tickLine={false} />
+              <YAxis hide />
+              <Tooltip contentStyle={{ borderRadius: '10px', border: '1px solid #E8EDF2', fontSize: '12px' }} />
+              <Bar dataKey="completed" fill="#022E57" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="cancelled" fill="#E8EDF2" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+          <div className="flex gap-4 mt-2">
+            <div className="flex items-center gap-1.5 text-xs text-navy/60"><span className="w-3 h-3 bg-navy rounded-sm inline-block" /> Selesai</div>
+            <div className="flex items-center gap-1.5 text-xs text-navy/60"><span className="w-3 h-3 bg-border rounded-sm inline-block" /> Dibatalkan</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Proyek yang sedang dikerjakan */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-navy">Proyek yang sedang dikerjakan</h3>
+          <Link to="/projects" className="text-xs text-navy/50 hover:text-navy font-medium">Lihat semua →</Link>
+        </div>
+        {ongoing.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-navy/35">
+            <CheckCircle2 className="w-8 h-8 mb-2 opacity-50" />
+            <p className="text-sm">Tidak ada proyek aktif saat ini</p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {ongoing.map(p => {
+              const pct = progressPercent(p.status)
+              const color = progressColor(p.status)
+              return (
+                <Link
+                  key={p.project_id}
+                  to={`/projects/${p.project_id}`}
+                  className="flex items-center gap-4 p-3 rounded-xl border border-border hover:border-navy/20 hover:bg-navy-50/30 transition-colors group"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-navy truncate">{p.title}</p>
+                      {p.status === 'revision' && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full shrink-0">
+                          <RotateCcw className="w-2.5 h-2.5" /> Revisi
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-navy/45 mt-0.5">{p.client_name}</p>
+                    <div className="mt-2 h-1.5 bg-navy/8 rounded-full overflow-hidden max-w-xs">
+                      <span className="block h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold tabular-nums shrink-0" style={{ color }}>{pct}%</span>
+                  <ArrowRight className="w-4 h-4 text-navy/25 group-hover:text-navy group-hover:translate-x-0.5 transition-all shrink-0" />
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function DashboardPage({ role }: { role: UserRole }) {
   if (role === 'client') return <ClientDashboardView />
+  if (role === 'editor') return <EditorDashboardView />
   const activeProjects = mockProjects.filter(p => ['in_progress','in_review','revision'].includes(p.status)).length
   const openDisputes = mockDisputes.filter(d => d.status === 'open' || d.status === 'in_mediation').length
   const totalRevenue = mockTransactions.filter(t => t.type === 'escrow_release' && t.status === 'success').reduce((s, t) => s + t.amount, 0)

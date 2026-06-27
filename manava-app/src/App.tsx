@@ -12,6 +12,7 @@ import AttendancePage from './pages/attendance/AttendancePage'
 import PerformancePage from './pages/performance/PerformancePage'
 import DisputesPage from './pages/disputes/DisputesPage'
 import ProjectsPage from './pages/projects/ProjectsPage'
+import ProjectDetailPage from './pages/projects/ProjectDetailPage'
 import ESSPage from './pages/ess/ESSPage'
 import ChatPage from './pages/chat/ChatPage'
 import OffboardingPage from './pages/offboarding/OffboardingPage'
@@ -31,12 +32,10 @@ const ALLOWED_PATHS: Record<UserRole, string[]> = {
     '/settings', '/offboarding',
   ],
   editor: [
-    '/dashboard', '/projects', '/contracts', '/chat', '/deliverables',
-    '/ess', '/attendance', '/settings',
+    '/dashboard', '/projects', '/chat', '/ess', '/attendance', '/settings',
   ],
   client: [
-    '/dashboard', '/browse-editors', '/projects', '/contracts', '/deliverables', '/chat',
-    '/payments', '/disputes', '/settings',
+    '/dashboard', '/browse-editors', '/projects', '/settings',
   ],
   mediator: [
     '/dashboard', '/disputes', '/projects', '/settings',
@@ -49,7 +48,9 @@ const ALLOWED_PATHS: Record<UserRole, string[]> = {
 function RoleGuard({ role, children }: { role: UserRole; children: React.ReactNode }) {
   const location = useLocation()
   const allowed = ALLOWED_PATHS[role] ?? ALLOWED_PATHS.superadmin
-  if (!allowed.includes(location.pathname)) {
+  const path = location.pathname
+  const isAllowed = allowed.some(p => path === p || path.startsWith(`${p}/`))
+  if (!isAllowed) {
     return <Navigate to="/dashboard" replace />
   }
   return <>{children}</>
@@ -78,6 +79,7 @@ function AppRoutes() {
         <Route path="/dashboard" element={<DashboardPage role={role} />} />
         <Route path="/recruitment" element={<RoleGuard role={role}><RecruitmentPage role={role} /></RoleGuard>} />
         <Route path="/projects" element={<RoleGuard role={role}><ProjectsPage role={role} /></RoleGuard>} />
+        <Route path="/projects/:id" element={<RoleGuard role={role}><ProjectDetailPage role={role} /></RoleGuard>} />
         <Route path="/contracts" element={<RoleGuard role={role}><ContractsPage /></RoleGuard>} />
         <Route path="/payments" element={<RoleGuard role={role}><PaymentsPage role={role} /></RoleGuard>} />
         <Route path="/attendance" element={<RoleGuard role={role}><AttendancePage role={role} /></RoleGuard>} />

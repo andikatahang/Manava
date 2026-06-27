@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { Bell, Search, CheckCheck, AlertTriangle, FileText, CreditCard, User, Clock, PackageCheck, X, Menu } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Bell, MessageSquare, CheckCheck, AlertTriangle, FileText, CreditCard, User, Clock, PackageCheck, X, Menu } from 'lucide-react'
 import type { UserRole } from '../../types'
 
 const pageTitles: Record<string, string> = {
@@ -94,8 +95,13 @@ interface HeaderProps {
 }
 
 export function Header({ pathname, role, onMenuClick }: HeaderProps) {
-  const title = pageTitles[pathname] ?? 'Manava'
+  const title = pathname.startsWith('/projects/')
+    ? 'Detail Proyek'
+    : pathname === '/projects' && (role === 'client' || role === 'editor')
+      ? 'Proyek Saya'
+      : pageTitles[pathname] ?? 'Manava'
   const [open, setOpen] = useState(false)
+  const showChat = role === 'editor' || role === 'superadmin'
   const [notifs, setNotifs] = useState<Notification[]>(() => NOTIFS_BY_ROLE[role] ?? [])
   const unread = notifs.filter(n => !n.read).length
   const panelRef = useRef<HTMLDivElement>(null)
@@ -132,16 +138,7 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
         <h1 className="text-base font-semibold text-navy">{title}</h1>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="relative hidden sm:flex items-center">
-          <Search className="absolute left-3 w-4 h-4 text-navy/30" />
-          <input
-            type="text"
-            placeholder="Cari…"
-            className="pl-9 pr-4 py-2 text-sm bg-primary-200 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-navy/20 w-52 text-navy placeholder:text-navy/30"
-          />
-        </div>
-
+      <div className="flex items-center gap-1.5">
         {/* Bell */}
         <div className="relative" ref={panelRef}>
           <button
@@ -216,6 +213,18 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
             </div>
           )}
         </div>
+
+        {/* Quick chat — to the right of the bell */}
+        {showChat && (
+          <Link
+            to="/chat"
+            className="p-2 rounded-xl hover:bg-navy-50 text-navy/50 hover:text-navy transition-colors"
+            aria-label="Buka chat"
+            title="Chat"
+          >
+            <MessageSquare className="w-5 h-5" />
+          </Link>
+        )}
       </div>
     </header>
   )

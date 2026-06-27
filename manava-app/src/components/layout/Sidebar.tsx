@@ -36,9 +36,6 @@ const navByRole: Record<UserRole, NavItem[]> = {
   editor: [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/projects', icon: Briefcase, label: 'Proyek Saya' },
-    { to: '/contracts', icon: FileText, label: 'Kontrak' },
-    { to: '/chat', icon: MessageSquare, label: 'Chat' },
-    { to: '/deliverables', icon: PackageCheck, label: 'Hasil Kerja' },
     { to: '/ess', icon: UserCheck, label: 'Layanan Mandiri' },
     { to: '/attendance', icon: Clock, label: 'Absensi' },
   ],
@@ -46,11 +43,6 @@ const navByRole: Record<UserRole, NavItem[]> = {
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/browse-editors', icon: Search, label: 'Cari Editor' },
     { to: '/projects', icon: Briefcase, label: 'Proyek Saya' },
-    { to: '/contracts', icon: FileText, label: 'Kontrak' },
-    { to: '/deliverables', icon: PackageCheck, label: 'Hasil Kerja' },
-    { to: '/chat', icon: MessageSquare, label: 'Chat' },
-    { to: '/payments', icon: CreditCard, label: 'Pembayaran' },
-    { to: '/disputes', icon: AlertTriangle, label: 'Sengketa' },
   ],
   mediator: [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },

@@ -65,6 +65,9 @@ export function StatusBadge({ status }: { status: string }) {
     // Transaction
     success:            { label: 'Berhasil', variant: 'green' },
     failed:             { label: 'Gagal', variant: 'red' },
+    // Deliverable versions
+    pending_review:     { label: 'Menunggu Tinjauan', variant: 'yellow' },
+    revision_requested: { label: 'Diminta Revisi', variant: 'yellow' },
     // Revision
     minor:              { label: 'Minor', variant: 'green' },
     major:              { label: 'Major', variant: 'red' },
