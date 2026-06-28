@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  FileText, Calendar, Clock, Download, Plus, History,
+  FileText, Calendar, Clock, Download, Plus, History, Wallet,
   CheckCircle2, XCircle, AlertCircle, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
@@ -9,7 +9,9 @@ import { formatCurrency, formatDate } from '../../lib/utils'
 import { mockPayslips, mockLeaveRequests, mockAttendance } from '../../data/mockData'
 import { MY_EDITOR } from '../../data/myEditor'
 
-type HistoryView = 'attendance' | 'payslips' | null
+type Page = 'menu' | 'absensi-cuti' | 'gaji'
+
+const SERIF = "ui-serif, Georgia, 'Times New Roman', serif"
 
 const MONTH_FULL = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember']
 
@@ -83,21 +85,21 @@ function AttendanceCalendar({ records, initialYear, initialMonth, navigable }: {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
-        <div className="card text-center py-3">
+        <div className="card-svc text-center py-3">
           <p className="text-xl font-bold text-emerald-600">{present}</p>
           <p className="text-xs text-navy/50 mt-0.5">Hadir</p>
         </div>
-        <div className="card text-center py-3">
+        <div className="card-svc text-center py-3">
           <p className="text-xl font-bold text-red-500">{absent}</p>
           <p className="text-xs text-navy/50 mt-0.5">Absen</p>
         </div>
-        <div className="card text-center py-3">
+        <div className="card-svc text-center py-3">
           <p className="text-xl font-bold text-blue-500">{leave}</p>
           <p className="text-xs text-navy/50 mt-0.5">Cuti</p>
         </div>
       </div>
 
-      <div className="card">
+      <div className="card-svc">
         <div className="flex items-center justify-between mb-4">
           {navigable ? (
             <button onClick={prev} className="p-1.5 rounded-lg hover:bg-navy-50 text-navy/50 hover:text-navy transition-colors">
@@ -159,7 +161,7 @@ function AttendanceCalendar({ records, initialYear, initialMonth, navigable }: {
 
 function PayslipCard({ ps }: { ps: typeof mockPayslips[number] }) {
   return (
-    <div className="card space-y-4">
+    <div className="card-svc space-y-4">
       <div className="flex items-start justify-between">
         <div>
           <p className="font-semibold text-navy">{formatDate(ps.period_start)} – {formatDate(ps.period_end)}</p>
@@ -189,7 +191,7 @@ function PayslipCard({ ps }: { ps: typeof mockPayslips[number] }) {
         ))}
       </div>
 
-      <div className="flex items-center justify-between bg-navy-50 rounded-xl px-4 py-3">
+      <div className="flex items-center justify-between bg-navy-50 rounded-lg px-4 py-3">
         <span className="text-sm font-semibold text-navy">Gaji Bersih</span>
         <span className="text-lg font-bold text-navy">{formatCurrency(ps.net_salary)}</span>
       </div>
@@ -198,6 +200,30 @@ function PayslipCard({ ps }: { ps: typeof mockPayslips[number] }) {
         <Download className="w-3.5 h-3.5" /> Unduh PDF
       </button>
     </div>
+  )
+}
+
+// Navigation card in the image's style: warm-gray surface, media zone breathing
+// at the top, serif title + muted description anchored at the bottom, sharp radius.
+function ServiceCard({ icon: Icon, title, desc, onClick }: {
+  icon: typeof Clock
+  title: string
+  desc: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="group text-left flex flex-col min-h-[248px] rounded-[8px] p-7 bg-[#fbfbfb] border border-black/[0.05] shadow-[0_1px_2px_rgba(2,21,38,0.04)] hover:border-black/[0.1] hover:shadow-[0_14px_44px_-16px_rgba(2,21,38,0.18)] hover:-translate-y-0.5 transition-all duration-200 motion-reduce:hover:translate-y-0"
+    >
+      <div className="flex-1 flex items-center justify-center min-h-[120px] mb-7">
+        <Icon className="w-14 h-14 text-navy/15 group-hover:text-navy/25 transition-colors" strokeWidth={1.25} />
+      </div>
+      <div>
+        <h3 className="text-[22px] leading-tight tracking-[-0.01em] text-[#021526]" style={{ fontFamily: SERIF }}>{title}</h3>
+        <p className="text-[14px] leading-relaxed text-[#596074] mt-1.5">{desc}</p>
+      </div>
+    </button>
   )
 }
 
@@ -210,7 +236,7 @@ function SectionHeader({ icon: Icon, title, subtitle, onHistory }: {
   return (
     <div className="flex items-center justify-between mb-3">
       <div className="flex items-center gap-2.5">
-        <span className="w-8 h-8 rounded-xl bg-navy-50 flex items-center justify-center text-navy shrink-0">
+        <span className="w-8 h-8 rounded-lg bg-navy-50 flex items-center justify-center text-navy shrink-0">
           <Icon className="w-4 h-4" />
         </span>
         <div>
@@ -230,8 +256,20 @@ function SectionHeader({ icon: Icon, title, subtitle, onHistory }: {
   )
 }
 
+function BackLink({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex items-center gap-1.5 text-sm font-medium text-navy/60 hover:text-navy transition-colors"
+    >
+      <ChevronLeft className="w-4 h-4" /> {label}
+    </button>
+  )
+}
+
 export default function ESSPage() {
-  const [history, setHistory] = useState<HistoryView>(null)
+  const [page, setPage] = useState<Page>('menu')
+  const [history, setHistory] = useState(false)
   const [leaveModal, setLeaveModal] = useState(false)
   const [leaveForm, setLeaveForm] = useState({ type: 'cuti', start: '', end: '', reason: '' })
 
@@ -244,185 +282,206 @@ export default function ESSPage() {
   const pastPayslips = myPayslips.filter(p => p !== currentPayslip)
   const currentLabel = `${MONTH_FULL[CURRENT.month]} ${CURRENT.year}`
 
-  // ── History sub-views (the only nested pages) ───────────────────────────
-  if (history) {
+  function open(p: Page) { setPage(p); setHistory(false) }
+
+  // ── Menu ────────────────────────────────────────────────────────────────
+  if (page === 'menu') {
     return (
-      <div className="space-y-5">
-        <button
-          onClick={() => setHistory(null)}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-navy/60 hover:text-navy transition-colors"
-        >
-          <ChevronLeft className="w-4 h-4" /> Layanan Mandiri
-        </button>
-        <h2 className="text-lg font-bold text-navy">
-          {history === 'attendance' ? 'Riwayat Absensi' : 'Riwayat Slip Gaji'}
-        </h2>
-
-        {history === 'attendance' && (
-          <AttendanceCalendar records={mockAttendance} initialYear={PREV.year} initialMonth={PREV.month} navigable />
-        )}
-
-        {history === 'payslips' && (
-          pastPayslips.length === 0 ? (
-            <div className="card text-center py-12 text-navy/30">
-              <FileText className="w-8 h-8 mx-auto mb-2 opacity-40" />
-              <p className="text-sm">Belum ada slip gaji bulan sebelumnya</p>
-            </div>
-          ) : (
-            <div className="grid lg:grid-cols-2 gap-5">
-              {pastPayslips.map(ps => <PayslipCard key={ps.payslip_id} ps={ps} />)}
-            </div>
-          )
-        )}
+      <div className="max-w-3xl space-y-6">
+        <div>
+          <h2 className="text-base font-semibold text-navy">Layanan Mandiri</h2>
+          <p className="text-sm text-navy/50 mt-0.5">Kelola data kepegawaian Anda. Pilih layanan untuk melanjutkan.</p>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-5">
+          <ServiceCard
+            icon={Clock}
+            title="Absensi & Cuti"
+            desc="Pantau kehadiran bulan ini, ajukan cuti, dan tinjau riwayat absensi."
+            onClick={() => open('absensi-cuti')}
+          />
+          <ServiceCard
+            icon={Wallet}
+            title="Gaji"
+            desc="Lihat slip gaji bulan berjalan beserta riwayat penggajian Anda."
+            onClick={() => open('gaji')}
+          />
+        </div>
       </div>
     )
   }
 
-  // ── Combined self-service page ──────────────────────────────────────────
+  // ── Absensi & Cuti ──────────────────────────────────────────────────────
+  if (page === 'absensi-cuti') {
+    if (history) {
+      return (
+        <div className="space-y-5">
+          <BackLink label="Absensi & Cuti" onClick={() => setHistory(false)} />
+          <h2 className="text-lg font-bold text-navy">Riwayat Absensi</h2>
+          <AttendanceCalendar records={mockAttendance} initialYear={PREV.year} initialMonth={PREV.month} navigable />
+        </div>
+      )
+    }
+    return (
+      <div className="max-w-3xl space-y-8">
+        <div className="space-y-3">
+          <BackLink label="Layanan Mandiri" onClick={() => setPage('menu')} />
+          <h2 className="text-lg font-bold text-navy">Absensi & Cuti</h2>
+        </div>
+
+        {/* Absensi — current month */}
+        <section>
+          <SectionHeader icon={Clock} title="Absensi" subtitle={currentLabel} onHistory={() => setHistory(true)} />
+          <AttendanceCalendar records={mockAttendance} initialYear={CURRENT.year} initialMonth={CURRENT.month} navigable={false} />
+        </section>
+
+        {/* Cuti & Izin */}
+        <section>
+          <SectionHeader icon={Calendar} title="Cuti & Izin" subtitle="Sisa kuota & permohonan" />
+          <div className="space-y-5">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="card-svc">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="w-4 h-4 text-blue-500" />
+                  <p className="text-sm font-semibold text-navy">Cuti Tahunan</p>
+                </div>
+                <p className="text-2xl font-bold text-navy">{LEAVE_BALANCE.cuti.total - LEAVE_BALANCE.cuti.used} <span className="text-base font-normal text-navy/40">hari tersisa</span></p>
+                <LeaveBar used={LEAVE_BALANCE.cuti.used} total={LEAVE_BALANCE.cuti.total} color="bg-blue-500" />
+              </div>
+              <div className="card-svc">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertCircle className="w-4 h-4 text-amber-500" />
+                  <p className="text-sm font-semibold text-navy">Izin / Sakit</p>
+                </div>
+                <p className="text-2xl font-bold text-navy">{LEAVE_BALANCE.izin.total - LEAVE_BALANCE.izin.used} <span className="text-base font-normal text-navy/40">hari tersisa</span></p>
+                <LeaveBar used={LEAVE_BALANCE.izin.used} total={LEAVE_BALANCE.izin.total} color="bg-amber-500" />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-navy/50 uppercase tracking-wider">Riwayat Permohonan</p>
+              <button onClick={() => setLeaveModal(true)} className="btn-primary text-sm py-2">
+                <Plus className="w-3.5 h-3.5" /> Ajukan Cuti
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {myLeave.length === 0 && (
+                <div className="card-svc text-center py-10 text-navy/30">
+                  <Calendar className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">Belum ada permohonan cuti</p>
+                </div>
+              )}
+              {myLeave.map(l => (
+                <div key={l.leave_id} className="card-svc">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-navy capitalize">{l.leave_type === 'cuti' ? 'Cuti Tahunan' : 'Izin / Sakit'}</span>
+                        <StatusBadge status={l.status} />
+                      </div>
+                      <p className="text-xs text-navy/50">
+                        {formatDate(l.start_date)} – {formatDate(l.end_date)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-navy/40">
+                      {l.status === 'approved' && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+                      {l.status === 'rejected' && <XCircle className="w-4 h-4 text-red-400" />}
+                      {l.status === 'pending' && <Clock className="w-4 h-4 text-amber-500" />}
+                      Diajukan {formatDate(l.created_at)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Leave Request Modal */}
+        <Modal open={leaveModal} onClose={() => setLeaveModal(false)} title="Ajukan Cuti">
+          <div className="space-y-4">
+            <div>
+              <label className="label">Jenis Cuti</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[['cuti', 'Cuti Tahunan', LEAVE_BALANCE.cuti.total - LEAVE_BALANCE.cuti.used], ['izin', 'Izin / Sakit', LEAVE_BALANCE.izin.total - LEAVE_BALANCE.izin.used]].map(([val, label, bal]) => (
+                  <button
+                    key={val}
+                    onClick={() => setLeaveForm(f => ({ ...f, type: val as string }))}
+                    className={`p-3 rounded-xl border text-left transition-all ${leaveForm.type === val ? 'border-navy bg-navy-50' : 'border-border hover:border-navy/30'}`}
+                  >
+                    <p className="text-sm font-medium text-navy">{label}</p>
+                    <p className="text-xs text-navy/50 mt-0.5">{bal} hari tersisa</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Tanggal Mulai</label>
+                <input type="date" value={leaveForm.start} onChange={e => setLeaveForm(f => ({ ...f, start: e.target.value }))} className="input" />
+              </div>
+              <div>
+                <label className="label">Tanggal Selesai</label>
+                <input type="date" value={leaveForm.end} onChange={e => setLeaveForm(f => ({ ...f, end: e.target.value }))} className="input" />
+              </div>
+            </div>
+            <div>
+              <label className="label">Alasan</label>
+              <textarea rows={3} value={leaveForm.reason} onChange={e => setLeaveForm(f => ({ ...f, reason: e.target.value }))} className="input resize-none" placeholder="Alasan singkat cuti..." />
+            </div>
+            {leaveForm.start && leaveForm.end && leaveForm.start <= leaveForm.end && (
+              <div className="bg-navy-50/60 rounded-xl px-4 py-3 text-sm flex justify-between">
+                <span className="text-navy/60">Durasi</span>
+                <span className="font-semibold text-navy">
+                  {Math.round((new Date(leaveForm.end).getTime() - new Date(leaveForm.start).getTime()) / 86400000) + 1} hari
+                </span>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setLeaveModal(false)} className="btn-secondary">Batal</button>
+              <button onClick={() => setLeaveModal(false)} className="btn-primary">Kirim Permohonan</button>
+            </div>
+          </div>
+        </Modal>
+      </div>
+    )
+  }
+
+  // ── Gaji ────────────────────────────────────────────────────────────────
+  if (history) {
+    return (
+      <div className="space-y-5">
+        <BackLink label="Gaji" onClick={() => setHistory(false)} />
+        <h2 className="text-lg font-bold text-navy">Riwayat Slip Gaji</h2>
+        {pastPayslips.length === 0 ? (
+          <div className="card-svc text-center py-12 text-navy/30">
+            <FileText className="w-8 h-8 mx-auto mb-2 opacity-40" />
+            <p className="text-sm">Belum ada slip gaji bulan sebelumnya</p>
+          </div>
+        ) : (
+          <div className="grid lg:grid-cols-2 gap-5">
+            {pastPayslips.map(ps => <PayslipCard key={ps.payslip_id} ps={ps} />)}
+          </div>
+        )}
+      </div>
+    )
+  }
   return (
     <div className="max-w-3xl space-y-8">
-      <div>
-        <h2 className="text-base font-semibold text-navy">Layanan Mandiri</h2>
-        <p className="text-sm text-navy/50 mt-0.5">Absensi, slip gaji, dan cuti Anda untuk {currentLabel}.</p>
+      <div className="space-y-3">
+        <BackLink label="Layanan Mandiri" onClick={() => setPage('menu')} />
+        <h2 className="text-lg font-bold text-navy">Gaji</h2>
       </div>
-
-      {/* Absensi — current month */}
       <section>
-        <SectionHeader
-          icon={Clock}
-          title="Absensi"
-          subtitle={currentLabel}
-          onHistory={() => setHistory('attendance')}
-        />
-        <AttendanceCalendar records={mockAttendance} initialYear={CURRENT.year} initialMonth={CURRENT.month} navigable={false} />
-      </section>
-
-      {/* Slip Gaji — current month */}
-      <section>
-        <SectionHeader
-          icon={FileText}
-          title="Slip Gaji"
-          subtitle={currentLabel}
-          onHistory={() => setHistory('payslips')}
-        />
+        <SectionHeader icon={FileText} title="Slip Gaji" subtitle={currentLabel} onHistory={() => setHistory(true)} />
         {currentPayslip ? (
           <PayslipCard ps={currentPayslip} />
         ) : (
-          <div className="card text-center py-10 text-navy/30">
+          <div className="card-svc text-center py-10 text-navy/30">
             <FileText className="w-8 h-8 mx-auto mb-2 opacity-40" />
             <p className="text-sm">Belum ada slip gaji bulan ini</p>
           </div>
         )}
       </section>
-
-      {/* Cuti & Izin */}
-      <section>
-        <SectionHeader icon={Calendar} title="Cuti & Izin" subtitle="Sisa kuota & permohonan" />
-        <div className="space-y-5">
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="card">
-              <div className="flex items-center gap-2 mb-2">
-                <Calendar className="w-4 h-4 text-blue-500" />
-                <p className="text-sm font-semibold text-navy">Cuti Tahunan</p>
-              </div>
-              <p className="text-2xl font-bold text-navy">{LEAVE_BALANCE.cuti.total - LEAVE_BALANCE.cuti.used} <span className="text-base font-normal text-navy/40">hari tersisa</span></p>
-              <LeaveBar used={LEAVE_BALANCE.cuti.used} total={LEAVE_BALANCE.cuti.total} color="bg-blue-500" />
-            </div>
-            <div className="card">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertCircle className="w-4 h-4 text-amber-500" />
-                <p className="text-sm font-semibold text-navy">Izin / Sakit</p>
-              </div>
-              <p className="text-2xl font-bold text-navy">{LEAVE_BALANCE.izin.total - LEAVE_BALANCE.izin.used} <span className="text-base font-normal text-navy/40">hari tersisa</span></p>
-              <LeaveBar used={LEAVE_BALANCE.izin.used} total={LEAVE_BALANCE.izin.total} color="bg-amber-500" />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-navy/50 uppercase tracking-wider">Riwayat Permohonan</p>
-            <button onClick={() => setLeaveModal(true)} className="btn-primary text-sm py-2">
-              <Plus className="w-3.5 h-3.5" /> Ajukan Cuti
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {myLeave.length === 0 && (
-              <div className="card text-center py-10 text-navy/30">
-                <Calendar className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">Belum ada permohonan cuti</p>
-              </div>
-            )}
-            {myLeave.map(l => (
-              <div key={l.leave_id} className="card">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-semibold text-navy capitalize">{l.leave_type === 'cuti' ? 'Cuti Tahunan' : 'Izin / Sakit'}</span>
-                      <StatusBadge status={l.status} />
-                    </div>
-                    <p className="text-xs text-navy/50">
-                      {formatDate(l.start_date)} – {formatDate(l.end_date)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-navy/40">
-                    {l.status === 'approved' && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
-                    {l.status === 'rejected' && <XCircle className="w-4 h-4 text-red-400" />}
-                    {l.status === 'pending' && <Clock className="w-4 h-4 text-amber-500" />}
-                    Diajukan {formatDate(l.created_at)}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Leave Request Modal */}
-      <Modal open={leaveModal} onClose={() => setLeaveModal(false)} title="Ajukan Cuti">
-        <div className="space-y-4">
-          <div>
-            <label className="label">Jenis Cuti</label>
-            <div className="grid grid-cols-2 gap-2">
-              {[['cuti', 'Cuti Tahunan', LEAVE_BALANCE.cuti.total - LEAVE_BALANCE.cuti.used], ['izin', 'Izin / Sakit', LEAVE_BALANCE.izin.total - LEAVE_BALANCE.izin.used]].map(([val, label, bal]) => (
-                <button
-                  key={val}
-                  onClick={() => setLeaveForm(f => ({ ...f, type: val as string }))}
-                  className={`p-3 rounded-xl border text-left transition-all ${leaveForm.type === val ? 'border-navy bg-navy-50' : 'border-border hover:border-navy/30'}`}
-                >
-                  <p className="text-sm font-medium text-navy">{label}</p>
-                  <p className="text-xs text-navy/50 mt-0.5">{bal} hari tersisa</p>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Tanggal Mulai</label>
-              <input type="date" value={leaveForm.start} onChange={e => setLeaveForm(f => ({ ...f, start: e.target.value }))} className="input" />
-            </div>
-            <div>
-              <label className="label">Tanggal Selesai</label>
-              <input type="date" value={leaveForm.end} onChange={e => setLeaveForm(f => ({ ...f, end: e.target.value }))} className="input" />
-            </div>
-          </div>
-          <div>
-            <label className="label">Alasan</label>
-            <textarea rows={3} value={leaveForm.reason} onChange={e => setLeaveForm(f => ({ ...f, reason: e.target.value }))} className="input resize-none" placeholder="Alasan singkat cuti..." />
-          </div>
-          {leaveForm.start && leaveForm.end && leaveForm.start <= leaveForm.end && (
-            <div className="bg-navy-50/60 rounded-xl px-4 py-3 text-sm flex justify-between">
-              <span className="text-navy/60">Durasi</span>
-              <span className="font-semibold text-navy">
-                {Math.round((new Date(leaveForm.end).getTime() - new Date(leaveForm.start).getTime()) / 86400000) + 1} hari
-              </span>
-            </div>
-          )}
-          <div className="flex justify-end gap-2">
-            <button onClick={() => setLeaveModal(false)} className="btn-secondary">Batal</button>
-            <button onClick={() => setLeaveModal(false)} className="btn-primary">Kirim Permohonan</button>
-          </div>
-        </div>
-      </Modal>
     </div>
   )
 }

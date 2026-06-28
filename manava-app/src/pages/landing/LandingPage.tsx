@@ -223,10 +223,10 @@ function Features() {
               desc={desc}
               media={
                 <div className="flex items-start justify-between">
-                  <div className="w-12 h-12 rounded-[16px] bg-[#021526] flex items-center justify-center transition-transform duration-200 group-hover:-translate-y-0.5">
+                  <div className="w-12 h-12 rounded-[8px] bg-[#021526] flex items-center justify-center transition-transform duration-200 group-hover:-translate-y-0.5">
                     <Icon className="w-5 h-5 text-white" />
                   </div>
-                  <span className="text-[11px] font-medium text-[#596074] bg-white/70 border border-black/[0.05] px-3 py-1 rounded-full whitespace-nowrap">
+                  <span className="text-[8px] font-medium text-[#596074] bg-white/70 border border-black/[0.05] px-3 py-1 rounded-full whitespace-nowrap">
                     {tag}
                   </span>
                 </div>
@@ -271,19 +271,19 @@ function HowItWorks() {
           title="Tertib, dari pemesanan hingga rekening."
           subtitle="Tiga tahap menjaga setiap pekerjaan tetap terprediksi bagi studio dan klien."
         />
-        <div className="grid md:grid-cols-3 gap-3.5">
+        <div className="grid md:grid-cols-3 gap-2">
           {steps.map(({ icon: Icon, step, title, desc }) => (
             <article
               key={step}
-              className="p-7 rounded-[20px] bg-[#0c2438] border border-white/[0.08] hover:border-white/[0.16] transition-colors duration-200"
+              className="p-7 rounded-[8px] bg-[#0c2438] border border-white/[0.08] hover:border-white/[0.16] transition-colors duration-200"
             >
               <div className="flex items-center justify-between mb-7">
-                <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center">
+                <div className="w-14 h-14 rounded-full bg-[#fbfbfb] flex items-center justify-center">
                   <Icon className="w-6 h-6 text-[#021526]" />
                 </div>
-                <span className="text-[13px] font-semibold text-[#D0F100] tabular-nums">{step}</span>
+                <span className="text-[18px] font-semibold text-[#D0F100] tabular-nums">{step}</span>
               </div>
-              <h3 className="font-semibold text-white text-[18px] mb-2 tracking-[-0.01em]">{title}</h3>
+              <h3 className="font-semibold text-[#fbfbfb] text-[18px] mb-2 tracking-[-0.01em]">{title}</h3>
               <p className="text-[14px] text-[#9aa3bd] leading-[1.6]">{desc}</p>
             </article>
           ))}
@@ -304,20 +304,14 @@ function Roles() {
           title="Dibuat untuk setiap peran."
           subtitle="Tiap pengguna melihat persis yang mereka butuhkan — tidak lebih, tidak kurang."
         />
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {roles.map(({ role, initial, color, points }) => (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {roles.map(({ role, points }) => (
             <article
               key={role}
-              className="p-7 rounded-[20px] bg-[#0c2438] border border-white/[0.08] hover:border-white/[0.16] transition-colors duration-200"
+              className="p-7 rounded-[8px] bg-[#0c2438] border border-white/[0.08] hover:border-white/[0.16] transition-colors duration-200"
             >
               <div className="flex items-center gap-3 mb-6">
-                <div
-                  className="w-10 h-10 rounded-[12px] flex items-center justify-center text-white text-[14px] font-bold"
-                  style={{ backgroundColor: color }}
-                >
-                  {initial}
-                </div>
-                <h3 className="font-semibold text-white text-[16px] tracking-[-0.01em]">{role}</h3>
+                <h3 className="font-semibold text-[#fbfbfb] text-[20px] tracking-[-0.01em]">{role}</h3>
               </div>
               <ul className="space-y-2.5">
                 {points.map(p => (

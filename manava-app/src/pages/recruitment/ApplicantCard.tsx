@@ -84,12 +84,12 @@ const StyledWrapper = styled.div`
     width: 100%;
     display: flex;
     flex-direction: column;
-    background: #e9e9e7;
-    border: 1px solid rgba(2, 21, 38, 0.04);
-    border-radius: 10px;
+    background: #fbfbfb;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
     overflow: hidden;
     position: relative;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
     box-shadow: 0 1px 2px rgba(2, 21, 38, 0.04);
   }
 
@@ -251,10 +251,9 @@ const StyledWrapper = styled.div`
   }
 
   .card:hover {
-    background: #fff;
-    border-color: rgba(2, 21, 38, 0.09);
+    border-color: rgba(0, 0, 0, 0.1);
     box-shadow: 0 14px 44px -16px rgba(2, 21, 38, 0.18);
-    transform: translateY(-4px);
+    transform: translateY(-2px);
   }
 
   @media (prefers-reduced-motion: reduce) {

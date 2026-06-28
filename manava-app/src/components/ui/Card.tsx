@@ -30,13 +30,13 @@ interface CardProps {
 const tones: Record<CardTone, { surface: string; title: string; desc: string }> = {
   light: {
     surface:
-      'bg-[#E9E9E7] border border-black/[0.04] hover:border-black/[0.09] hover:shadow-[0_14px_44px_-16px_rgba(2,21,38,0.18)]',
+      'bg-[#fbfbfb] border border-black/[0.05] hover:border-black/[0.1] hover:shadow-[0_14px_44px_-16px_rgba(2,21,38,0.18)] hover:-translate-y-0.5 motion-reduce:hover:translate-y-0',
     title: 'text-[#021526]',
     desc: 'text-[#596074]',
   },
   dark: {
     surface:
-      'bg-[#0c2438] border border-white/[0.08] hover:border-white/[0.16] hover:shadow-[0_14px_44px_-16px_rgba(0,0,0,0.55)]',
+      'bg-[#0c2438] border border-white/[0.08] hover:border-white/[0.16] hover:shadow-[0_14px_44px_-16px_rgba(0,0,0,0.55)] hover:-translate-y-0.5 motion-reduce:hover:translate-y-0',
     title: 'text-white',
     desc: 'text-[#9aa3bd]',
   },
@@ -53,7 +53,7 @@ export function Card({
   const t = tones[tone]
   return (
     <article
-      className={`group flex flex-col min-h-[260px] rounded-[22px] p-7 shadow-[0_1px_2px_rgba(2,21,38,0.04)] transition-all duration-200 ${t.surface} ${className}`}
+      className={`group flex flex-col min-h-[260px] rounded-[8px] p-7 shadow-[0_1px_2px_rgba(2,21,38,0.04)] transition-all duration-200 ${t.surface} ${className}`}
     >
       {media !== undefined && <div className={`mb-8 ${mediaClassName}`}>{media}</div>}
       <div className="mt-auto">
