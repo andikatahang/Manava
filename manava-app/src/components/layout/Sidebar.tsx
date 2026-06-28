@@ -5,7 +5,7 @@ import logoLight from '../../assets/logo-light.png'
 import {
   LayoutDashboard, Users, Briefcase, FileText, CreditCard,
   Clock, BarChart2, AlertTriangle, MessageSquare, UserCheck,
-  Settings, ChevronLeft, LogOut, PackageCheck, Shield, X, Search, User,
+  Settings, ChevronLeft, LogOut, PackageCheck, Shield, X, Search, User, Home,
 } from 'lucide-react'
 
 interface NavItem { to: string; icon: typeof LayoutDashboard; label: string }
@@ -34,12 +34,12 @@ const navByRole: Record<UserRole, NavItem[]> = {
     { to: '/offboarding', icon: UserCheck, label: 'Pengakhiran Kerja' },
   ],
   editor: [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/dashboard', icon: Home, label: 'Home' },
     { to: '/projects', icon: Briefcase, label: 'Proyek Saya' },
     { to: '/ess', icon: UserCheck, label: 'Layanan Mandiri' },
   ],
   client: [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/dashboard', icon: Home, label: 'Home' },
     { to: '/browse-editors', icon: Search, label: 'Cari Editor' },
     { to: '/projects', icon: Briefcase, label: 'Proyek Saya' },
   ],

@@ -99,7 +99,9 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
     ? 'Detail Proyek'
     : pathname === '/projects' && (role === 'client' || role === 'editor')
       ? 'Proyek Saya'
-      : pageTitles[pathname] ?? 'Manava'
+      : pathname === '/dashboard' && (role === 'client' || role === 'editor')
+        ? 'Home'
+        : pageTitles[pathname] ?? 'Manava'
   const [open, setOpen] = useState(false)
   const showChat = role === 'editor' || role === 'superadmin'
   const [notifs, setNotifs] = useState<Notification[]>(() => NOTIFS_BY_ROLE[role] ?? [])
