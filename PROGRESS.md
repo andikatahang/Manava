@@ -32,7 +32,7 @@
 5. **Tambah mock user `HR_ADMIN`** di [manava-app/src/data/mockData.ts](manava-app/src/data/mockData.ts) + selector di [manava-app/src/pages/auth/LoginPage.tsx](manava-app/src/pages/auth/LoginPage.tsx).
 6. **Buat halaman shell baru**: HR_ADMIN (ATS pipeline, monthly attendance lock, payroll run), LINE_MANAGER (leave approval queue, attendance clarification, KPI assessment) — semua scoped ke department.
 7. **Halaman fallback queue SUPERADMIN** untuk dispute yang ter-override cron `disputeSlaWatchdog` (Section 6.4 + Appendix E.3 PRD).
-8. **Aturan label**: render "Admin Manager" untuk `LINE_MANAGER` di seluruh UI; literal `LINE_MANAGER` selalu disimpan di state, sessionStorage, dan API payload.
+8. **Aturan label**: render "Admin Manager" untuk `LINE_MANAGER` di semua UI; literal `LINE_MANAGER` selalu disimpan di state, sessionStorage, dan API payload.
 
 ## Catatan
 
