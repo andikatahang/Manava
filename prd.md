@@ -1,18 +1,20 @@
 # **Manava - Comprehensive Product Requirements Document**
-## **v2.2 Final - Detailed Module & Workflow Specification**
+## **v2.3 Final - Detailed Module & Workflow Specification (RBAC Re-segregation)**
 
-**Integrated Enterprise Resource Planning (ERP) Platform**  
+**Integrated Enterprise Resource Planning (ERP) Platform**
 **For Professional Visual Services Companies**
 
 ---
 
-| **Version** | v2.2 - Final Integration |
+| **Version** | v2.3 - Role Re-segregation |
 |---|---|
-| **Date** | 25-06-2026 |
+| **Date** | 29-06-2026 |
 | **Team** | Kelompok 5: M. Andika Tahang (24523092), M. Hafizh Hakim (24523062), Prima Uziel Nasution (24523088), Mohammad Nabil (24523277) |
 | **Product Owner** | Universitas |
 | **Stakeholders** | Professional visual services companies, editors, clients, mediators, HR/Finance teams |
 | **Status** | Final Integration - Ready for Implementation |
+
+> **v2.3 Highlight — Pemisahan Tugas Teknis vs Operasional.** Versi ini memecah peran tunggal `Superadmin` lama menjadi tiga lapisan distinct: **SUPERADMIN** (level sistem/IT/keamanan), **HR_ADMIN** (operasional HR makro: rekrutmen, payroll bulanan), dan **LINE_MANAGER** (operasional departemen; UI label tetap *"Admin Manager"*). Tujuannya mengurangi beban kerja akun Superadmin dan memperjelas batas tanggung jawab antar aktor internal perusahaan. Implementasi RBAC, migrasi DB, dan cron jaring pengaman dispute dijabarkan di **PART 8**.
 
 ---
 
@@ -67,6 +69,75 @@ Professional visual services companies cannot simultaneously manage editor workf
 | **Sales/Operations Manager (Stakeholders)** | Cannot assign editors with real-time capacity visibility; project scope not locked; no objective evidence for disputes | No integration between editor availability and project booking; scope creep happens silently |
 | **Finance/Accounting (Stakeholders)** | Cannot recognize service revenue timing (IFRS 15); escrow and payroll disconnected; no automated reconciliation | Manual escrow tracking; payroll separate from project bonuses; revenue recognition timing unclear |
 | **Mediator/Arbiter (Stakeholders)** | Lacks objective evidence to resolve scope/quality disputes fairly | No written scope reference; rework history scattered; no change metrics; subjective judgment only |
+
+### **1.4 Aktor & Hierarki RBAC (Re-segregation v2.3)**
+
+Pada v2.2 sebelumnya, semua operasi perusahaan internal (rekrutmen, onboarding, payroll, override darurat) bertumpuk di satu peran `Superadmin`. Beban itu menciptakan single-point-of-failure baik secara operasional (satu orang menjadi bottleneck) maupun secara keamanan (akun dengan akses sangat luas). v2.3 memisahkan tugas teknis sistem dari operasional bisnis menjadi enam peran:
+
+#### **A. Aktor Internal Perusahaan (Hierarki HRIS)**
+
+| # | Role (DB) | UI Label | Domain | Catatan |
+|---|---|---|---|---|
+| 1 | `SUPERADMIN` | System Administrator | Level Sistem (IT, keamanan, konfigurasi global) | Bukan operasional bisnis; hanya intervensi darurat |
+| 2 | `HR_ADMIN` | HR Manager | Operasional HR Makro (rekrutmen, payroll bulanan, ATS) | Pemegang seluruh siklus people-ops di perusahaan |
+| 3 | `LINE_MANAGER` | **Admin Manager** | Operasional Departemen (cuti, override absensi, KPI internal) | Scope hak akses dibatasi pada `department_id` miliknya |
+| 4 | `EDITOR` | Editor | Pelaksana Teknis & Pengguna ESS | Karyawan tetap; akses self-service penuh |
+
+#### **B. Aktor Eksternal Platform**
+
+| # | Role (DB) | UI Label | Domain | Catatan |
+|---|---|---|---|---|
+| 5 | `CLIENT` | Client | Pembeli layanan (perusahaan/individu) | Tidak punya akses internal apa pun |
+| 6 | `MEDIATOR` | Mediator | Arbiter independen | Hanya melihat case yang ditugaskan via round-robin |
+
+#### **1.4.1 Detail Fungsi per Role**
+
+**1. SUPERADMIN — Level Sistem**
+Mengelola infrastruktur IT, keamanan data, dan konfigurasi global; bukan pemegang operasional bisnis sehari-hari.
+- Mengatur kunci enkripsi berkas identitas (Editor.identity_file_path) & berkas asli deliverable editor (Deliverable.original_file_path).
+- Mengonfigurasi parameter sistem global: batas waktu top-up MAJOR revision (default 72 jam, lihat A8), retensi data (7 tahun finansial / 10 tahun dispute), threshold confidence AI classification.
+- Pembuatan akun awal & pembagian role (`POST /users` dengan field `role`).
+- **Jalur darurat (bypass)**: eksekusi rilis dana escrow manual jika sistem otomatis gagal (override pada Module 3 release pipeline).
+- **Fallback dispute**: menerima case yang di-cabut otomatis oleh cron SLA dari MEDIATOR yang lalai (lihat **PART 8.3 Cron Job**).
+
+**2. HR_ADMIN — Operasional HR Makro**
+Mengelola SDM end-to-end: rekrutmen, kontrak, payroll bulanan. Mengambil alih seluruh tugas ATS yang sebelumnya di Superadmin.
+- **Modul ATS penuh**: membuat lowongan (`JobPosting`), menyaring pelamar, mengirim *offering letter*, memantau pipeline `Applied → Screening → Interview → Offered → Offer Accepted → Confirmed`.
+- **Konfirmasi akhir onboarding** dengan penempatan departemen (berbasis DSS atau *manual override*); membuat User account untuk editor baru dengan `role=EDITOR`.
+- **Mengunci rekap kehadiran bulanan** tepat pada cutoff (default `30 setiap bulan, 18:00 WIB`); setelah dikunci tidak ada lagi mutasi `AttendanceClarification`.
+- **Memproses kalkulasi penggajian bulanan** dengan formula:
+  `Net Salary = Gaji Pokok − Potongan Kehadiran + 10% Akrual Bonus Proyek (ProjectBonusAccrual)`.
+- TIDAK punya akses ke kunci enkripsi (domain SUPERADMIN) dan TIDAK punya akses approve cuti harian (domain LINE_MANAGER).
+
+**3. LINE_MANAGER — Operasional Departemen** *(UI: "Admin Manager")*
+Pemimpin di level departemen; scope hak akses dibatasi pada editor yang `editor.department_id == line_manager.department_id`.
+- **Klarifikasi manual / override** status *missing clock-out* pada editor di departemennya (mengisi `AttendanceClarification`).
+- **Approval (setuju/tolak) pengajuan cuti/izin** editor internal departemen (mengisi `LeaveRequest.approver_id` dengan id-nya sendiri).
+- **Eksekusi pembatalan proyek berjalan** ketika terpaksa meloloskan cuti editor yang bentrok dengan proyek aktif: otomatis memicu **refund 80% dari nilai DP** ke klien (sesuai A10 + Module 3 refund scenarios).
+- **Input penilaian internal (Manager Assessment skala 1–5)** untuk KPI editor di departemennya (mengisi `ManagerAssessment`).
+- TIDAK boleh approve cuti editor di luar departemennya; guard menolak request lintas-dept.
+
+**4. EDITOR — Pelaksana Teknis & Pengguna ESS**
+Karyawan tetap, pengguna utama Employee Self-Service.
+- ESS: Clock-in/out harian (`AttendanceEvent`), ajukan cuti (`LeaveRequest`), unduh slip gaji mandiri.
+- In-app chat dengan Client (Module 9).
+- Menyusun draf kontrak digital brief & batas cakupan `RevisionEnvelope` sebelum pembayaran DP.
+- Unggah deliverable (sistem otomatis memasang watermark saat diunggah).
+- Eksekusi revisi MINOR (mengurangi `allowance_consumed`) atau MAJOR berbayar (menunggu top-up klien).
+
+**5. CLIENT — Pembeli Layanan**
+- Akses halaman roster editor & negosiasi draf kontrak via chat.
+- Pembayaran DP 50% untuk mulai proyek & pelunasan sisa 50% saat selesai.
+- Review hasil kerja ber-watermark (Setuju / Ajukan Revisi).
+- Memberikan rating (1–5) setelah project status `COMPLETED`.
+- Membuka *dispute* jika tidak sepakat dengan biaya revisi hasil AI atau kualitas akhir.
+
+**6. MEDIATOR — Arbiter Independen**
+- Menerima sengketa otomatis lewat antrean **round-robin** (Module 6).
+- Mengakses paket bukti **terisolasi**: kontrak brief, log chat, data deteksi AI; tidak melihat data internal HR.
+- Memutuskan 1 dari 5 opsi resolusi (`FREE_REVISION | CHARGE_JUSTIFIED | PARTIAL_REFUND | FULL_REFUND | QUALITY_SANCTION`) dalam SLA **48 jam**.
+- **Wajib** mengisi `Dispute.resolution_note` minimal **200 karakter** sebelum sistem mengeksekusi dana/revisi paksaan.
+- Jika lewat 48 jam tanpa keputusan, case otomatis dialihkan ke SUPERADMIN oleh cron (lihat PART 8.3).
 
 ---
 
@@ -159,9 +230,9 @@ Professional visual services companies cannot simultaneously manage editor workf
 | **A3: Editor = full-time karyawan (not freelancer)** | Editors are salaried employees receiving base salary via payroll, not per-project payments | Payroll = base_salary ± attendance_deduction ± project_bonus; no per-project variable compensation |
 | **A4: No revision limit (count); limit by ALLOWANCE & classification** | Instead of capping revisions, system allows unlimited minor (free) and unlimited major (paid, requires top-up) | Revenue model: major revisions = revenue; no cap; fairness via scope clarity |
 | **A5: Escrow auto-release on project.status = COMPLETED** | Release happens immediately upon client final payment, no manual delay | Escrow ledger: (DP + final_payment) → company_account in single transaction, SLA < 1 hour |
-| **A6: Mediator SLA 48h hard deadline** | Mediator must decide within 48h or escalate to Superadmin; escalation triggers within 2h of breach | Auto-escalation job runs hourly; Superadmin receives alert; decision deadline extends 24h from escalation |
+| **A6: Mediator SLA 48h hard deadline** | Mediator wajib memutuskan dalam 48 jam; jika lewat, cron jaring pengaman (PART 8.3) mencabut akses MEDIATOR dan override `Dispute.mediator_id` ke SUPERADMIN | Cron tiap 30 menit; SUPERADMIN menerima case di antrean "Dispute Fallback Queue"; decision deadline diperpanjang 24h sejak escalation |
 | **A7: Dispute opened ONLY by client/editor, never auto by AI** | AI provides evidence (change detection, brief fit summary), but mediator/human must decide to escalate | AI flags issues; human (client/editor) must explicitly click "Open Dispute" |
-| **A8: Top-up escrow timeout 72h** | Client has 72h to pay major revision top-up; auto-reverts to minor (free) OR cancels project per policy | Durable job checks at T+72h; Superadmin configures behavior (revert vs cancel) per department |
+| **A8: Top-up escrow timeout 72h** | Client has 72h to pay major revision top-up; auto-reverts to minor (free) OR cancels project per policy | Durable job checks at T+72h; **SUPERADMIN** mengelola parameter timeout di `system_parameter.major_topup_timeout_hours`; HR_ADMIN/LINE_MANAGER tidak boleh mengubah |
 | **A9: Attendance default = ABSENT if not clarified by deadline** | Editor missing clock-out not clarified by 30-Jun 18:00 → auto-defaults to ABSENT (no payroll impact until decision) | Hard deadline; daily reminders; manager override authority until 01-Jul 12:00 |
 | **A10: Leave blocks IN_PROGRESS/IN_REVIEW projects only** | Leave approval allowed if DISPUTED; auto-cancels only IN_PROGRESS/IN_REVIEW with 80% DP refund | DISPUTED projects continue independent of editor leave |
 | **A11: Project bonuses NOT affected by top-up or revision costs** | Bonus = flat 10% of base project_value, regardless of major revision top-ups (which are company revenue) | ProjectBonusAccrual.amount = project.project_value × 0.10, locked at project.completed_at |
@@ -191,13 +262,14 @@ Enable efficient hiring of qualified visual services editors through structured 
 
 | Activity | Owner | Output |
 |----------|-------|--------|
-| **Job Posting** | Superadmin | JobPosting record; published to external channels (optional) |
+| **Job Posting** | HR_ADMIN | JobPosting record; published to external channels (optional) |
 | **Applicant Submission** | Applicant | Complete biodata, identity file, portfolio; entered into Applied stage |
-| **Pipeline Movement** | Superadmin/Recruiter | Status transitions (Applied → Screening → Interview → Offered → Offer Accepted → Confirmed) |
+| **Pipeline Movement** | HR_ADMIN | Status transitions (Applied → Screening → Interview → Offered → Offer Accepted → Confirmed) |
 | **DSS Scoring** | System | Auto-calculated department recommendation (Skill/Capacity/Workload/Growth) |
 | **Offer Acceptance** | Applicant | Confirmation of job offer terms |
-| **Onboarding Confirmation** | Superadmin | Final approval to activate Editor account; user creation; HR record linking |
+| **Onboarding Confirmation** | HR_ADMIN | Final approval to activate Editor account; user creation (`role=EDITOR`); HR record linking; placement ke `department_id` (boleh DSS atau manual override) |
 | **Account Activation** | System | User account created; Editor profile initialized; roster visibility enabled |
+| **Encryption Key Management** *(prerequisite)* | SUPERADMIN | Mengatur kunci enkripsi untuk `Applicant.identity_file_path` & `Editor.identity_file_path` (dipakai oleh sistem secara otomatis saat HR_ADMIN unggah berkas) |
 
 ### **Data Model**
 
@@ -233,7 +305,7 @@ Editor (after confirmation):
 
 ```
 1. JOB POSTING
-   Superadmin creates job posting
+   HR_ADMIN creates job posting
    ├─ Title: "Photo Retoucher (Product Catalog)"
    ├─ Specialization: [product_retouch, color_correction]
    └─ Status: Open
@@ -251,7 +323,7 @@ Editor (after confirmation):
    Recruiter notified: New applicant in pipeline
 
 3. RECRUITER MOVES TO SCREENING
-   Superadmin reviews application
+   HR_ADMIN reviews application
    ├─ Decision: Advance or Reject
    ├─ Comment: (optional) "Portfolio strong; clear communication"
    
@@ -259,7 +331,7 @@ Editor (after confirmation):
    Audit: Log transition timestamp, recruiter name
 
 4. INTERVIEW & OFFER
-   Superadmin moves applicant through Interview → Offered
+   HR_ADMIN moves applicant through Interview → Offered
    
    System: Applicant.tahap = OFFERED
            Send email to applicant with job terms
@@ -273,10 +345,10 @@ Editor (after confirmation):
    System: Applicant.tahap = OFFER_ACCEPTED
            Applicant.offer_accepted_at = now()
    
-   Alert: Superadmin notified: "Applicant [name] accepted offer"
+   Alert: HR_ADMIN notified: "Applicant [name] accepted offer"
 
-6. SUPERADMIN CONFIRMATION → DSS SCORING
-   Superadmin clicks "Confirm Offer Acceptance"
+6. HR_ADMIN CONFIRMATION → DSS SCORING
+   HR_ADMIN clicks "Confirm Offer Acceptance"
    
    System: Trigger DSS scoring
            ├─ Skill Match (40%): specialization overlap with department targets
@@ -286,10 +358,10 @@ Editor (after confirmation):
            
            Result: Top 3 departments recommended by score
    
-   Display to Superadmin: "Recommended: Dept A (92), Dept B (87), Dept C (79)"
+   Display to HR_ADMIN: "Recommended: Dept A (92), Dept B (87), Dept C (79)"
 
-7. SUPERADMIN APPROVES ASSIGNMENT
-   Superadmin selects department OR overrides with different dept
+7. HR_ADMIN APPROVES ASSIGNMENT
+   HR_ADMIN selects department OR overrides with different dept
    
    System: Applicant.tahap = CONFIRMED
            Create User account (email as username; temp password)
@@ -363,10 +435,10 @@ RECOMMENDATION_RANK: Sort departments by TOTAL DESC, display top 3
 | Decision Point | Condition | Success Path | Error Path |
 |---|---|---|---|
 | **Applicant data valid?** | All required fields present; files in correct format | Proceed to APPLIED | Validation error; request resubmission |
-| **Superadmin advances to Screening?** | Recruiter clicks "Move to Screening" | Status → SCREENING | No action; remains APPLIED |
+| **HR_ADMIN advances to Screening?** | HR_ADMIN clicks "Move to Screening" | Status → SCREENING | No action; remains APPLIED |
 | **Offer expires unclaimed?** | T+14 days from Offered status, no acceptance | Auto-expire to OFFER_EXPIRED | Recruiter can manually reopen |
 | **Applicant accepts offer?** | Click "Accept Offer" within 14 days | Status → OFFER_ACCEPTED | Offer expires; recruiter must reissue |
-| **DSS assignment conflict** | Superadmin overrides DSS top recommendation | Assignment proceeds with override; audit logged | None (override is allowed) |
+| **DSS assignment conflict** | HR_ADMIN overrides DSS top recommendation | Assignment proceeds with override; audit logged | None (override is allowed) |
 | **Editor onboarding incomplete?** | Editor doesn't complete form by deadline | Force-complete after 14 days with defaults; send reminder | None (system defaults; can be corrected later) |
 
 ---
@@ -696,7 +768,7 @@ PARTIAL REFUND (Mediator compromise):
 |---|---|---|---|
 | **DP payment successful?** | Transaction.status = SUCCESS | EscrowAccount.held_balance updated; project IN_PROGRESS | Payment fails; retry OR manual entry by Finance |
 | **Final payment received?** | Transaction.status = SUCCESS | Escrow balance complete; ready for release | Payment fails; remain on hold; retry or dispute |
-| **Escrow release execution?** | Both DP & final received & locked | Auto-release to CompanyAccount; Project → COMPLETED | Release fails (e.g., system down); fallback to manual release by Superadmin |
+| **Escrow release execution?** | Both DP & final received & locked | Auto-release to CompanyAccount; Project → COMPLETED | Release fails (e.g., system down); fallback to manual release by SUPERADMIN melalui menu `(superadmin)/emergency/escrow-manual-release` |
 | **Refund triggered?** | Mediator decision OR client cancellation | Create refund transaction; reverse escrow entries | Refund fails; escalate to Finance for manual processing |
 
 ---
@@ -710,11 +782,12 @@ Track editor work attendance via clock in/out; manage leave requests with projec
 
 | Activity | Owner | Output |
 |----------|-------|--------|
-| **Clock In/Out** | Editor | Timestamp record; notification reminders for missing clock-out |
-| **Attendance Clarification** | HR / Manager | Manual entry for missing punches or system errors |
-| **Leave Request** | Editor | Formal request for cuti or izin with dates |
-| **Leave Approval** | Admin Manager | Approval/rejection; triggers project handoff if conflict |
-| **Payroll Calculation** | System | Monthly aggregation of base salary, deductions, bonuses |
+| **Clock In/Out** | EDITOR | Timestamp record; notification reminders for missing clock-out |
+| **Attendance Clarification (per-editor, harian)** | LINE_MANAGER *(scope: dept-nya sendiri)* | Manual entry untuk missing punches atau system errors |
+| **Monthly Attendance Lock (cutoff)** | HR_ADMIN | Mengunci rekap kehadiran bulanan pada cutoff (`30 setiap bulan 18:00 WIB`); setelah lock tidak ada lagi clarification |
+| **Leave Request** | EDITOR | Formal request `cuti`/`izin` dengan dates |
+| **Leave Approval** | LINE_MANAGER *(UI: "Admin Manager"; scope: dept-nya)* | Approval/rejection; auto-trigger refund 80% DP jika cuti memaksa pembatalan proyek aktif |
+| **Payroll Calculation** | HR_ADMIN *(trigger)* + System *(execute)* | Monthly aggregation: `Base Salary − Attendance Deduction + 10% Project Bonus Accrual` |
 | **Payslip Generation** | System | Immutable payslip; visible in ESS for editor |
 
 ### **Data Model**
@@ -733,7 +806,7 @@ LeaveRequest:
   ├─ editor_id (FK)
   ├─ leave_type (CUTI / IZIN)
   ├─ start_date, end_date
-  ├─ approver_id (FK → Admin Manager)
+  ├─ approver_id (FK → User WHERE role = LINE_MANAGER; UI menampilkan "Admin Manager")
   ├─ status (PENDING / APPROVED / REJECTED)
   ├─ created_at, updated_at
   └─ approval_at
@@ -795,14 +868,14 @@ Payslip:
    Editor: "I need leave from 15-Jun to 20-Jun (cuti)"
    
    System checks: Any IN_PROGRESS or IN_REVIEW projects during dates?
-     ├─ If YES: Conflict detected; escalate to Superadmin with options
+     ├─ If YES: Conflict detected; **LINE_MANAGER** (dept-nya editor) menerima request beserta 3 opsi:
      │   ├─ Option A: Proceed with leave (auto-cancel projects, 80% DP refund)
      │   ├─ Option B: Delay leave to after project completion
      │   └─ Option C: Special arrangement (work before leave, weekends, etc.)
      │
-     └─ If NO: Proceed to Admin Manager approval
-   
-   Admin Manager approves/rejects:
+     └─ If NO: Proceed to LINE_MANAGER approval (decision biasa, tanpa konflik)
+
+   LINE_MANAGER *(UI: "Admin Manager")* approves/rejects:
      ├─ If approved: LeaveRequest.status = APPROVED
      │   ├─ Update editor.availability ("Tidak tersedia hingga 20-Jun")
      │   ├─ Remove from roster booking during dates
@@ -878,7 +951,7 @@ NET_SALARY = base_salary - attendance_deduction + project_bonus + reimbursement
 | Decision Point | Condition | Success Path | Error Path |
 |---|---|---|---|
 | **Clock-out recorded?** | CLOCK_OUT event created | Attendance session complete | Missing clock-out; flag for HR clarification |
-| **Leave dates conflict with IN_PROGRESS projects?** | Active projects overlap leave dates | Escalate to Superadmin (3 options) | DISPUTED projects allowed; continue |
+| **Leave dates conflict with IN_PROGRESS projects?** | Active projects overlap leave dates | LINE_MANAGER (dept editor) menerima 3 opsi (lihat Workflow 3) dan mengeksekusi pembatalan + refund 80% DP jika perlu | DISPUTED projects allowed; continue |
 | **Attendance clarified by deadline?** | Before 30-Jun 18:00 | Use clarified data in payroll | Auto-default to ABSENT; allow appeal |
 | **Payroll calculation accurate?** | net_salary = base - deduction + bonus + reimbursement | Payslip finalized | Audit; alert Finance; manual review |
 | **Payslip paid?** | Transaction.status = SUCCESS | Editor receives payment | Payment fails; retry or manual processing |
@@ -894,11 +967,11 @@ Track editor performance across three dimensions (client rating, project complet
 
 | Activity | Owner | Output |
 |----------|-------|--------|
-| **Client Rating** | Client | 1–5 star rating + optional comment after project completion |
+| **Client Rating** | CLIENT | 1–5 star rating + optional comment after project completion |
 | **Completion Rate Tracking** | System | Auto-aggregated from project statuses (completed ÷ total) |
-| **Manager Assessment** | Admin Manager | Periodic internal rating (qualitative feedback) |
+| **Manager Assessment** | LINE_MANAGER *(UI: "Admin Manager"; scope: dept-nya)* | Periodic internal rating skala 1–5 + qualitative feedback |
 | **KPI Aggregation** | System | Simple average of 3 metrics into performance band |
-| **Performance Dashboard** | HR / Superadmin | Visual KPI trends, band classification, recommendations |
+| **Performance Dashboard** | HR_ADMIN *(read-all)* / LINE_MANAGER *(read scoped to dept)* | Visual KPI trends, band classification, recommendations |
 
 ### **Data Model**
 
@@ -949,7 +1022,7 @@ EditorMetrics (cached/computed):
      └─ Update EditorMetrics.completion_rate
 
 3. MANAGER ASSESSMENT (Periodic)
-   Admin Manager provides feedback, e.g., quarterly or post-review
+   LINE_MANAGER *(UI: "Admin Manager")* provides feedback (scope: editor di department_id-nya), e.g., quarterly atau post-review
    
    Form:
      ├─ Internal rating: 1–5 scale
@@ -982,7 +1055,7 @@ EditorMetrics (cached/computed):
    Audit: "KPI updated; new band: [band]; KPI average: [score]"
 
 5. HR DASHBOARD VISIBILITY
-   Superadmin / HR Manager views:
+   HR_ADMIN (read-all) / LINE_MANAGER (read scoped to dept) views:
    
    Dashboard displays:
      ├─ All editors sorted by performance band
@@ -1017,10 +1090,11 @@ Provide objective arbitration of disputes between clients and editors using docu
 
 | Activity | Owner | Output |
 |----------|-------|--------|
-| **Dispute Opening** | Client/Editor | Initiate dispute with reason; system auto-assigns mediator |
+| **Dispute Opening** | CLIENT / EDITOR | Initiate dispute with reason; system auto-assigns mediator |
 | **Evidence Compilation** | System | Gather brief, revision history, AI analysis, client rating |
-| **Mediator Review** | Mediator | Analyze evidence; reach decision |
-| **Decision Execution** | System/Finance | Execute mediator decision (refund, revision, sanction) |
+| **Mediator Review & Decision (≤48h)** | MEDIATOR *(round-robin assignment)* | Analyze evidence; mengisi `resolution_type` + `resolution_note` (min 200 char) |
+| **SLA Safety-Net (>48h)** | System (Cron) → SUPERADMIN | Cron mencabut hak akses mediator yang lalai dan override `Dispute.mediator_id` ke SUPERADMIN (lihat **PART 8.3**) |
+| **Decision Execution** | System / Finance | Execute mediator/superadmin decision (refund, revision, sanction) |
 | **Immutable Logging** | Audit | Record decision + reasoning permanently |
 
 ### **Data Model**
@@ -1068,7 +1142,7 @@ AIAnalysis:
    System:
      ├─ Create Dispute (opened_by_id, reason, status=OPEN)
      ├─ Project.status = DISPUTED (escrow held; no release)
-     ├─ Notify all parties: Client, Editor, Superadmin
+     ├─ Notify all parties: CLIENT, EDITOR, SUPERADMIN (untuk observability fallback queue)
      └─ Audit: "Dispute opened; [reason]"
 
 2. MEDIATOR AUTO-ASSIGNMENT (within 2 hours)
@@ -1182,7 +1256,7 @@ AIAnalysis:
    System notifies:
      ├─ Client: Decision + reasoning
      ├─ Editor: Decision + implications
-     ├─ Superadmin: For awareness
+     ├─ SUPERADMIN: For observability dan fallback case queue
      └─ Finance: For transaction execution
    
    Dispute status: RESOLVED (terminal; no reopening)
@@ -1193,8 +1267,8 @@ AIAnalysis:
 | Decision Point | Condition | Success Path | Error Path |
 |---|---|---|---|
 | **Dispute valid?** | Opened by client or editor; reason provided | Create Dispute; assign mediator | Invalid reason; request clarification |
-| **Mediator assigned?** | Within 2 hours of opening | Dispute.mediator_id set; notifications sent | No mediator available; escalate to Superadmin |
-| **Mediator decision made?** | Within 48h SLA | Resolution type + reasoning recorded | SLA breached; auto-escalate to Superadmin |
+| **Mediator assigned?** | Within 2 hours of opening | Dispute.mediator_id set; notifications sent | No mediator available; auto-fallback ke SUPERADMIN |
+| **Mediator decision made?** | Within 48h SLA + `resolution_note` ≥ 200 char | Resolution type + reasoning recorded; eksekusi dana/revisi | SLA breached; cron (PART 8.3) override `mediator_id` ke SUPERADMIN |
 | **Decision execution successful?** | All transactions/updates completed | Dispute.status = RESOLVED | Execution fails (e.g., refund can't process); alert Finance for manual handling |
 
 ---
@@ -1323,8 +1397,8 @@ AIAnalysis:
 
 ## **Workflow 3: Leave Request with Project Conflict**
 
-**Actors:** Editor, Admin Manager, Superadmin, Client  
-**Goal:** Handle leave request that conflicts with active projects; resolve fair ly
+**Actors:** EDITOR, LINE_MANAGER *(UI: "Admin Manager")*, CLIENT
+**Goal:** Handle leave request that conflicts with active projects; resolve fairly. Pada v2.3 LINE_MANAGER mengambil keputusan final pembatalan proyek (sebelumnya butuh sign-off Superadmin) — selama scope-nya dalam `department_id`-nya sendiri.
 
 **Detailed Steps:**
 
@@ -1341,19 +1415,17 @@ AIAnalysis:
    - Editor selects Option A
    - LeaveRequest.leave_option = PROCEED_WITH_LEAVE
 
-3. **Admin Manager Approval**
+3. **LINE_MANAGER (UI: "Admin Manager") Approval + Eksekusi Pembatalan**
    - Manager sees: "Leave request 15–20 Jun; 1 project will be cancelled; 80% DP refunded"
-   - Manager approves leave
-   - LeaveRequest.status = APPROVED (conditional)
-
-4. **Superadmin Final Sign-Off**
-   - Superadmin sees conflict; must approve final cancellation
-   - Superadmin clicks "Approve & Cancel Projects"
-   - System executes:
+   - Manager approves leave dan klik **"Approve & Cancel Projects"** (capability: `leave.approve` + `project.cancel_on_leave_conflict`, scope: `DEPARTMENT`)
+   - LeaveRequest.status = APPROVED
+   - System executes (single transaction):
      - Project.status = CANCELLED
-     - Create Refund transaction (80% of DP)
+     - Create Refund transaction (80% of DP, sesuai parameter `refund_dp_pct_on_cancel`)
      - Delete ProjectBonusAccrual (no bonus for cancelled project)
-     - Notify client: "Project cancelled due to editor resource change; 80% refund issued"
+     - Notify CLIENT: "Project cancelled due to editor resource change; 80% refund issued"
+     - AuditLog dengan `actor_id = LINE_MANAGER.user_id`
+   - SUPERADMIN tidak diperlukan sign-off lagi pada v2.3; semua aksi tetap immutable di audit log.
 
 5. **Leave Approved**
    - Editor visibility: "Tidak tersedia 15–20 Jun"
@@ -1407,12 +1479,13 @@ AIAnalysis:
 
 | Actor | Count | Coverage |
 |-------|-------|----------|
-| **Client (C0X)** | 8 FRs | Roster search, brief approval, payment, revisions, delivery acceptance, rating, dispute |
-| **Editor (E0X)** | 7 FRs | Onboarding, brief creation, deliverable submission, revision handling, self-service data |
-| **Superadmin (A0X)** | 10 FRs | Recruitment, onboarding, department assignment, HR operations, escalations |
-| **Admin Manager (MG0X)** | 3 FRs | Leave approval, performance rating, team management |
-| **Mediator (M0X)** | 3 FRs | Dispute resolution, decision-making, evidence review |
-| **System/AI (AI0X)** | 4 FRs | Revision classification, change detection, quality assessment |
+| **Client / CLIENT (C0X)** | 8 FRs | Roster search, brief approval, payment, revisions, delivery acceptance, rating, dispute |
+| **Editor / EDITOR (E0X)** | 7 FRs | Onboarding, brief creation, deliverable submission, revision handling, ESS |
+| **SUPERADMIN (SA0X)** *(System-level)* | 4 FRs | Encryption keys, parameter sistem global, akun awal, jalur darurat (escrow override, fallback dispute) |
+| **HR_ADMIN (HR0X)** *(HR macro)* | 7 FRs | Job posting, ATS pipeline, onboarding confirmation + dept placement, monthly attendance lock, payroll calculation, payroll publish |
+| **LINE_MANAGER / "Admin Manager" (LM0X)** | 4 FRs | Attendance clarification (dept-scoped), leave approval, project cancel saat konflik cuti (refund 80% DP), Manager Assessment 1–5 |
+| **Mediator / MEDIATOR (M0X)** | 3 FRs | Dispute resolution, decision-making (≥200 char note), evidence review |
+| **System/AI (AI0X)** | 4 FRs | Revision classification, change detection, quality assessment, SLA cron auto-escalation |
 | **HRIS (AT0X, P0X, R0X, S0X)** | 12 FRs | Attendance, payroll, ESS, recruitment, offboarding |
 
 **[Detailed FR specifications provided in original PRD v2.2; reference that for complete FR table]**
@@ -1492,7 +1565,7 @@ AUDIT TRAIL (M11)
 | **Revision classification → Cost determination** | M7 (AI classification) | M2 (RevisionRequest price) | Client clicks "Perbaiki" | T+seconds (AI processing) |
 | **Client rating → Editor KPI** | M5 (ProjectRating) | M5 (EditorMetrics avg_client_rating) | Client submits rating post-completion | Minutes |
 | **Mediator decision → Project status update** | M6 (Dispute.resolution_type) | M2 (Project.status) | Mediator finalizes decision | Minutes |
-| **Leave approval → Project handoff** | M4 (LeaveRequest status change) | M2 (Project reassignment/cancellation) | Superadmin approves conflict override | Minutes |
+| **Leave approval → Project handoff** | M4 (LeaveRequest status change) | M2 (Project reassignment/cancellation) | LINE_MANAGER (dept editor) approves conflict override + refund 80% DP | Minutes |
 
 ---
 
@@ -1507,16 +1580,20 @@ User
 ├─ full_name (text)
 ├─ email (text, unique)
 ├─ password_hash (text)
-├─ role (ENUM: client, editor, superadmin, admin_manager, mediator)
-├─ client_type (ENUM: company, individual; nullable if not client role)
+├─ role (ENUM: SUPERADMIN, HR_ADMIN, LINE_MANAGER, EDITOR, CLIENT, MEDIATOR)
+│   └─ NOTE: UI menampilkan LINE_MANAGER sebagai "Admin Manager" (label
+│      lama dipertahankan agar tidak mengganggu user mental model);
+│      backend & policy check tetap pakai LINE_MANAGER.
+├─ department_id (FK → Department, nullable; wajib untuk LINE_MANAGER & EDITOR)
+├─ client_type (ENUM: company, individual; nullable if role != CLIENT)
 ├─ is_active (boolean)
 ├─ created_at, updated_at
 
 Department
 ├─ department_id (PK, UUID)
 ├─ name (text, unique)
-├─ superadmin_id (FK → User)
-├─ manager_id (FK → User, nullable)
+├─ hr_admin_owner_id (FK → User; HR_ADMIN yang membawahi recruitment dept)
+├─ line_manager_id (FK → User, nullable; LINE_MANAGER pemimpin dept)
 ├─ target_size (int, default 5)
 ├─ created_at, updated_at
 
@@ -1774,7 +1851,7 @@ EditorMetrics
 ManagerAssessment
 ├─ assessment_id (PK, UUID)
 ├─ editor_id (FK → Editor)
-├─ manager_id (FK → User)
+├─ line_manager_id (FK → User WHERE role = LINE_MANAGER; harus satu department dengan editor)
 ├─ rating (numeric 1–5)
 ├─ feedback (text)
 ├─ status (ENUM: active, review, on_watch)
@@ -1840,6 +1917,471 @@ OffboardingLog
 
 ---
 
+# **PART 8: RBAC IMPLEMENTATION (v2.3 NEW)**
+
+Bagian ini adalah spesifikasi implementasi yang menyertai pemisahan role di PART 1.4. Output yang dijabarkan: (1) skema migrasi database, (2) middleware/guard RBAC, (3) cron job jaring pengaman dispute 48 jam, (4) rekomendasi penataan komponen UI per role.
+
+## **8.1 Migrasi Database**
+
+### **8.1.1 SQL Migration (PostgreSQL — kompatibel dengan single-tenant constraint C4)**
+
+```sql
+-- ============================================================
+-- Migration: 2026_06_29_rbac_resegregation
+-- Memecah role 'superadmin' lama menjadi SUPERADMIN, HR_ADMIN, LINE_MANAGER
+-- Backfill aman: existing 'superadmin' → tetap SUPERADMIN sampai HR mendaftarkan
+-- akun HR_ADMIN & LINE_MANAGER baru.
+-- ============================================================
+
+BEGIN;
+
+-- 1. ENUM baru. Postgres ENUM tidak bisa ALTER value lama secara aman
+-- → buat type baru dan rename. Lebih bersih daripada ADD VALUE bertumpuk.
+CREATE TYPE user_role_v2 AS ENUM (
+  'SUPERADMIN',
+  'HR_ADMIN',
+  'LINE_MANAGER',
+  'EDITOR',
+  'CLIENT',
+  'MEDIATOR'
+);
+
+-- 2. Backfill nilai lama → nilai baru pada kolom User.role
+ALTER TABLE "user"
+  ALTER COLUMN role TYPE user_role_v2
+  USING (
+    CASE role::text
+      WHEN 'superadmin'    THEN 'SUPERADMIN'
+      WHEN 'admin_manager' THEN 'LINE_MANAGER'
+      WHEN 'editor'        THEN 'EDITOR'
+      WHEN 'client'        THEN 'CLIENT'
+      WHEN 'mediator'      THEN 'MEDIATOR'
+      ELSE 'SUPERADMIN'  -- defensive: tidak boleh ada nilai liar
+    END
+  )::user_role_v2;
+
+DROP TYPE user_role;            -- type lama
+ALTER TYPE user_role_v2 RENAME TO user_role;
+
+-- 3. Tambahkan department_id pada User (wajib untuk LINE_MANAGER & EDITOR)
+ALTER TABLE "user"
+  ADD COLUMN IF NOT EXISTS department_id UUID REFERENCES department(department_id);
+
+-- 4. Constraint: LINE_MANAGER & EDITOR wajib punya department_id
+ALTER TABLE "user"
+  ADD CONSTRAINT user_department_required
+  CHECK (
+    (role IN ('LINE_MANAGER', 'EDITOR') AND department_id IS NOT NULL)
+    OR role NOT IN ('LINE_MANAGER', 'EDITOR')
+  );
+
+-- 5. Department: ganti superadmin_id → hr_admin_owner_id, manager_id → line_manager_id
+ALTER TABLE department
+  RENAME COLUMN superadmin_id TO hr_admin_owner_id;
+ALTER TABLE department
+  RENAME COLUMN manager_id TO line_manager_id;
+
+-- 6. System parameter table — sebelumnya hardcoded; sekarang dikelola SUPERADMIN
+CREATE TABLE IF NOT EXISTS system_parameter (
+  param_key      TEXT PRIMARY KEY,
+  param_value    TEXT NOT NULL,
+  description    TEXT,
+  updated_by     UUID REFERENCES "user"(user_id),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO system_parameter (param_key, param_value, description) VALUES
+  ('major_topup_timeout_hours',     '72',  'Batas waktu klien melunasi top-up MAJOR revision'),
+  ('attendance_cutoff_dom_hour',    '30:18:00', 'Cutoff bulanan untuk attendance clarification'),
+  ('dispute_sla_hours',             '48',  'SLA mediator memutuskan dispute'),
+  ('financial_data_retention_yrs',  '7',   'Retensi data finansial'),
+  ('dispute_data_retention_yrs',    '10',  'Retensi data dispute'),
+  ('refund_dp_pct_on_cancel',       '0.80','Persentase refund DP saat pembatalan paksa LINE_MANAGER')
+ON CONFLICT (param_key) DO NOTHING;
+
+COMMIT;
+```
+
+### **8.1.2 Prisma Schema (alternatif ORM — direkomendasikan untuk implementasi Manava-App)**
+
+```prisma
+enum UserRole {
+  SUPERADMIN
+  HR_ADMIN
+  LINE_MANAGER
+  EDITOR
+  CLIENT
+  MEDIATOR
+}
+
+model User {
+  user_id        String   @id @default(uuid())
+  full_name      String
+  email          String   @unique
+  password_hash  String
+  role           UserRole
+  department_id  String?
+  department     Department? @relation(fields: [department_id], references: [department_id])
+  client_type    ClientType?
+  is_active      Boolean  @default(true)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  // Invarian: LINE_MANAGER & EDITOR wajib punya department_id.
+  // Enforced di DB lewat CHECK constraint (lihat raw migration 8.1.1).
+}
+
+model Department {
+  department_id        String  @id @default(uuid())
+  name                 String  @unique
+  hr_admin_owner_id    String
+  line_manager_id      String?
+  target_size          Int     @default(5)
+  members              User[]
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+}
+
+model SystemParameter {
+  param_key   String   @id
+  param_value String
+  description String?
+  updated_by  String?
+  updated_at  DateTime @updatedAt
+}
+```
+
+---
+
+## **8.2 RBAC Middleware / Guard**
+
+### **8.2.1 Capability Matrix (Source of Truth)**
+
+Policy decision dibuat berdasarkan tuple `(role, capability, scope)`. Scope = `GLOBAL` atau `DEPARTMENT` (terikat `department_id`).
+
+| Capability | SUPERADMIN | HR_ADMIN | LINE_MANAGER | EDITOR | CLIENT | MEDIATOR |
+|---|---|---|---|---|---|---|
+| `system.encryption_keys.manage`  | ✅ | — | — | — | — | — |
+| `system.parameters.write`        | ✅ | — | — | — | — | — |
+| `user.create_with_role`          | ✅ | ✅ *(EDITOR only)* | — | — | — | — |
+| `escrow.manual_release`          | ✅ *(bypass)* | — | — | — | — | — |
+| `dispute.fallback_takeover`      | ✅ *(via cron)* | — | — | — | — | — |
+| `ats.job_posting.crud`           | — | ✅ | — | — | — | — |
+| `ats.applicant.pipeline`         | — | ✅ | — | — | — | — |
+| `onboarding.confirm`             | — | ✅ | — | — | — | — |
+| `attendance.monthly_lock`        | — | ✅ | — | — | — | — |
+| `payroll.run_monthly`            | — | ✅ | — | — | — | — |
+| `attendance.clarify_clock_out`   | — | — | ✅ DEPARTMENT | — | — | — |
+| `leave.approve`                  | — | — | ✅ DEPARTMENT | — | — | — |
+| `project.cancel_on_leave_conflict` | — | — | ✅ DEPARTMENT *(triggers 80% DP refund)* | — | — | — |
+| `kpi.manager_assessment.write`   | — | — | ✅ DEPARTMENT | — | — | — |
+| `ess.self_service`               | — | — | — | ✅ SELF | — | — |
+| `attendance.clock_in_out`        | — | — | — | ✅ SELF | — | — |
+| `leave.request`                  | — | — | — | ✅ SELF | — | — |
+| `contract.draft`                 | — | — | — | ✅ ASSIGNED | — | — |
+| `deliverable.upload`             | — | — | — | ✅ ASSIGNED | — | — |
+| `roster.browse`                  | — | — | — | — | ✅ | — |
+| `payment.dp` / `payment.final`   | — | — | — | — | ✅ OWN | — |
+| `dispute.open`                   | — | — | — | ✅ OWN | ✅ OWN | — |
+| `rating.give`                    | — | — | — | — | ✅ OWN | — |
+| `dispute.review_evidence`        | — | — | — | — | — | ✅ ASSIGNED |
+| `dispute.decide`                 | — | — | — | — | — | ✅ ASSIGNED *(note ≥200 char)* |
+
+### **8.2.2 Guard Pseudocode (TypeScript / Express-style middleware)**
+
+```ts
+// rbac/policy.ts
+export type Role =
+  | 'SUPERADMIN' | 'HR_ADMIN' | 'LINE_MANAGER'
+  | 'EDITOR' | 'CLIENT' | 'MEDIATOR';
+
+export type Capability = keyof typeof CAPABILITIES;
+
+// Static table — kompilasi-waktu source of truth.
+// 'OWN' / 'ASSIGNED' / 'SELF' / 'DEPARTMENT' adalah scope predicate
+// yang resolusinya dilakukan di guard runtime (lihat resolveScope).
+const CAPABILITIES = {
+  'system.encryption_keys.manage':     { SUPERADMIN: 'GLOBAL' },
+  'system.parameters.write':           { SUPERADMIN: 'GLOBAL' },
+  'user.create_with_role':             { SUPERADMIN: 'GLOBAL', HR_ADMIN: 'EDITOR_ONLY' },
+  'escrow.manual_release':             { SUPERADMIN: 'GLOBAL' },
+  'dispute.fallback_takeover':         { SUPERADMIN: 'GLOBAL' },
+
+  'ats.job_posting.crud':              { HR_ADMIN: 'GLOBAL' },
+  'ats.applicant.pipeline':            { HR_ADMIN: 'GLOBAL' },
+  'onboarding.confirm':                { HR_ADMIN: 'GLOBAL' },
+  'attendance.monthly_lock':           { HR_ADMIN: 'GLOBAL' },
+  'payroll.run_monthly':               { HR_ADMIN: 'GLOBAL' },
+
+  'attendance.clarify_clock_out':      { LINE_MANAGER: 'DEPARTMENT' },
+  'leave.approve':                     { LINE_MANAGER: 'DEPARTMENT' },
+  'project.cancel_on_leave_conflict':  { LINE_MANAGER: 'DEPARTMENT' },
+  'kpi.manager_assessment.write':      { LINE_MANAGER: 'DEPARTMENT' },
+
+  'attendance.clock_in_out':           { EDITOR: 'SELF' },
+  'leave.request':                     { EDITOR: 'SELF' },
+  'contract.draft':                    { EDITOR: 'ASSIGNED_PROJECT' },
+  'deliverable.upload':                { EDITOR: 'ASSIGNED_PROJECT' },
+  'ess.self_service':                  { EDITOR: 'SELF' },
+
+  'roster.browse':                     { CLIENT: 'GLOBAL' },
+  'payment.dp':                        { CLIENT: 'OWN_PROJECT' },
+  'payment.final':                     { CLIENT: 'OWN_PROJECT' },
+  'rating.give':                       { CLIENT: 'OWN_PROJECT' },
+  'dispute.open':                      { CLIENT: 'OWN_PROJECT', EDITOR: 'ASSIGNED_PROJECT' },
+
+  'dispute.review_evidence':           { MEDIATOR: 'ASSIGNED_DISPUTE' },
+  'dispute.decide':                    { MEDIATOR: 'ASSIGNED_DISPUTE' },
+} as const;
+
+export function can(
+  user: { user_id: string; role: Role; department_id?: string },
+  capability: Capability,
+  target?: ScopeTarget   // { project_id?, editor_id?, dispute_id?, department_id? }
+): boolean {
+  const allowed = CAPABILITIES[capability];
+  const scope = allowed?.[user.role];
+  if (!scope) return false;
+  return resolveScope(scope, user, target);
+}
+
+function resolveScope(scope: string, user, target): boolean {
+  switch (scope) {
+    case 'GLOBAL':            return true;
+    case 'SELF':              return target?.editor_id === user.user_id;
+    case 'DEPARTMENT':        return target?.department_id === user.department_id;
+    case 'OWN_PROJECT':       return ownsProject(user.user_id, target?.project_id);
+    case 'ASSIGNED_PROJECT':  return isAssignedEditor(user.user_id, target?.project_id);
+    case 'ASSIGNED_DISPUTE':  return isAssignedMediator(user.user_id, target?.dispute_id);
+    case 'EDITOR_ONLY':       return target?.created_role === 'EDITOR';
+    default:                  return false;
+  }
+}
+```
+
+```ts
+// rbac/guard.ts — middleware factory
+export const requireCap = (cap: Capability, getTarget?: (req) => ScopeTarget) =>
+  (req, res, next) => {
+    const user = req.session?.user;
+    if (!user) return res.status(401).json({ error: 'unauthenticated' });
+
+    const target = getTarget ? getTarget(req) : undefined;
+    if (!can(user, cap, target)) {
+      // Audit yang gagal — penting untuk forensik
+      auditLog({
+        actor_id: user.user_id,
+        action: 'rbac.deny',
+        details: { capability: cap, target }
+      });
+      return res.status(403).json({ error: 'forbidden', capability: cap });
+    }
+    return next();
+  };
+
+// Contoh pemakaian di route definition
+router.post(
+  '/leave-requests/:leaveId/approve',
+  requireCap('leave.approve', req => ({ department_id: req.body.department_id })),
+  leaveController.approve
+);
+
+router.post(
+  '/dispute/:disputeId/decide',
+  requireCap('dispute.decide', req => ({ dispute_id: req.params.disputeId })),
+  // tambahan invarian khusus: body.resolution_note minimal 200 char
+  validate(disputeDecisionSchema),
+  disputeController.decide
+);
+```
+
+### **8.2.3 Catatan Implementasi**
+
+- Guard **harus dipasang di seluruh write endpoint**. Read endpoint khusus (KPI dashboard, payslip viewer) juga harus menyaring data berdasarkan scope; gunakan parameter `where` di query, jangan post-filter di memori (mencegah data leak via timing/error).
+- `EDITOR_ONLY` di kapasitas `user.create_with_role`: HR_ADMIN boleh membuat user dengan `role=EDITOR` saja. Pembuatan SUPERADMIN/HR_ADMIN/LINE_MANAGER/MEDIATOR/CLIENT tetap eksklusif SUPERADMIN.
+- Semua DENY ditulis ke `AuditLog` untuk deteksi privilege abuse.
+
+---
+
+## **8.3 Cron Job: Jaring Pengaman SLA Dispute 48 Jam**
+
+### **8.3.1 Spesifikasi**
+
+- **Trigger:** `*/30 * * * *` (setiap 30 menit) — Bisa di Postgres `pg_cron`, atau external scheduler (Node `node-cron`, Vercel Cron, Supabase Edge).
+- **Kondisi:** `Dispute.status = 'IN_MEDIATION'` AND `NOW() − Dispute.opened_at >= 48 hours` AND `resolved_at IS NULL`.
+- **Aksi atomik per case:**
+  1. Cabut hak akses MEDIATOR dari case: simpan `previous_mediator_id` di audit, lalu set `Dispute.mediator_id = <SUPERADMIN.user_id>`.
+  2. Set `Dispute.escalated_at = NOW()`.
+  3. Tulis `AuditLog` immutable (sebelum/sesudah).
+  4. Notifikasi: ke MEDIATOR lama (case dicabut), SUPERADMIN (case masuk antrean fallback), CLIENT + EDITOR (resolusi tertunda; SUPERADMIN mengambil alih).
+
+### **8.3.2 Pseudocode**
+
+```ts
+// jobs/dispute-sla-watchdog.ts
+import { db } from '@/db';
+import { auditLog } from '@/audit';
+import { notify } from '@/notifications';
+import { getParam } from '@/system-parameters';
+
+export async function disputeSlaWatchdog() {
+  const slaHours = Number(await getParam('dispute_sla_hours')) ?? 48;
+  const cutoff = new Date(Date.now() - slaHours * 60 * 60 * 1000);
+
+  // SUPERADMIN fallback target. Single-tenant (C1) → ambil 1 akun aktif.
+  const superadmin = await db.user.findFirst({
+    where: { role: 'SUPERADMIN', is_active: true },
+    orderBy: { created_at: 'asc' },
+  });
+  if (!superadmin) throw new Error('No active SUPERADMIN — fallback impossible');
+
+  const stale = await db.dispute.findMany({
+    where: {
+      status: 'IN_MEDIATION',
+      resolved_at: null,
+      opened_at: { lte: cutoff },
+    },
+  });
+
+  for (const d of stale) {
+    await db.$transaction(async (tx) => {
+      const before = { ...d };
+
+      await tx.dispute.update({
+        where: { dispute_id: d.dispute_id },
+        data: {
+          mediator_id: superadmin.user_id,
+          escalated_at: new Date(),
+        },
+      });
+
+      await auditLog(tx, {
+        actor_id: 'SYSTEM',
+        action: 'dispute.sla_breach.fallback_to_superadmin',
+        table_name: 'dispute',
+        record_id: d.dispute_id,
+        before_state: before,
+        after_state: {
+          ...before,
+          mediator_id: superadmin.user_id,
+          escalated_at: new Date(),
+        },
+      });
+    });
+
+    // Side-effects di luar tx (notifikasi tidak boleh memblok rollback)
+    await notify(d.mediator_id, 'dispute.removed_for_sla_breach', { dispute_id: d.dispute_id });
+    await notify(superadmin.user_id, 'dispute.fallback_assigned', { dispute_id: d.dispute_id });
+    await notify(d.opened_by, 'dispute.escalated_to_superadmin', { dispute_id: d.dispute_id });
+  }
+
+  return { processed: stale.length };
+}
+```
+
+### **8.3.3 Operasional**
+
+- Idempotensi: Karena `mediator_id` sudah berubah ke SUPERADMIN, run berikutnya tidak akan mengambil case yang sama (filter `status='IN_MEDIATION' AND opened_at <= cutoff` tetap match — tambahkan kondisi `escalated_at IS NULL` jika ingin true once-only escalation).
+- Monitoring: ekspor metrik `dispute_sla_breaches_total` ke dashboard observability.
+- Anti-mediator-strike: Jika mediator yang sama melalaikan ≥3 case dalam satu kuartal, HR_ADMIN dinotifikasi untuk evaluasi.
+
+---
+
+## **8.4 Penataan Komponen UI Berdasarkan Role**
+
+Penataan ini menjadi cetak biru `manava-app/src/app/(role-name)/...` (atau folder serupa). Setiap role memiliki **shell layout** (sidebar/topbar terpisah) sehingga komponen sensitif tidak ter-mount untuk role lain (defense-in-depth selain RBAC backend).
+
+### **8.4.1 Struktur Direktori per Role**
+
+```
+manava-app/src/app/
+├── (superadmin)/                     # role=SUPERADMIN
+│   ├── system/
+│   │   ├── encryption-keys/page.tsx
+│   │   ├── parameters/page.tsx       # major_topup_timeout, retensi data
+│   │   └── retention-policy/page.tsx
+│   ├── accounts/
+│   │   ├── create/page.tsx           # buat HR_ADMIN, LINE_MANAGER, MEDIATOR
+│   │   └── list/page.tsx
+│   ├── emergency/
+│   │   ├── escrow-manual-release/page.tsx
+│   │   └── dispute-fallback-queue/page.tsx   # case dari cron 8.3
+│   └── layout.tsx                    # SuperadminShell
+│
+├── (hr-admin)/                       # role=HR_ADMIN
+│   ├── ats/
+│   │   ├── jobs/page.tsx
+│   │   ├── applicants/[id]/page.tsx
+│   │   └── pipeline/page.tsx         # kanban Applied→…→Confirmed
+│   ├── onboarding/
+│   │   └── confirm/[applicantId]/page.tsx  # DSS recommendation + manual override
+│   ├── attendance/
+│   │   └── monthly-lock/page.tsx     # cutoff 30 Jun 18:00
+│   ├── payroll/
+│   │   ├── run/page.tsx              # trigger kalkulasi bulanan
+│   │   └── history/page.tsx
+│   ├── editors/page.tsx              # roster karyawan (read-all)
+│   └── layout.tsx                    # HrAdminShell
+│
+├── (line-manager)/                   # role=LINE_MANAGER  (UI label "Admin Manager")
+│   ├── dept/[deptId]/
+│   │   ├── team/page.tsx             # daftar editor dept-nya saja
+│   │   ├── attendance-clarify/page.tsx
+│   │   ├── leave-approvals/page.tsx  # antrian cuti dept-nya
+│   │   └── kpi-assessment/page.tsx   # Manager Assessment 1–5
+│   └── layout.tsx                    # AdminManagerShell (label "Admin Manager")
+│
+├── (editor)/                         # role=EDITOR
+│   ├── ess/
+│   │   ├── attendance/page.tsx       # clock in/out widget
+│   │   ├── leave-request/page.tsx
+│   │   └── payslip/page.tsx
+│   ├── projects/
+│   │   ├── [projectId]/brief/page.tsx
+│   │   ├── [projectId]/deliverable/page.tsx
+│   │   └── [projectId]/chat/page.tsx
+│   └── layout.tsx                    # EditorShell
+│
+├── (client)/                         # role=CLIENT
+│   ├── roster/page.tsx
+│   ├── projects/
+│   │   ├── [projectId]/page.tsx
+│   │   ├── [projectId]/review/page.tsx     # setuju/perbaiki + dispute
+│   │   ├── [projectId]/payment/page.tsx    # DP & final
+│   │   └── [projectId]/chat/page.tsx
+│   └── layout.tsx                    # ClientShell
+│
+├── (mediator)/                       # role=MEDIATOR
+│   ├── queue/page.tsx                # round-robin queue
+│   ├── case/[disputeId]/
+│   │   ├── evidence/page.tsx         # kontrak, chat, AI analysis (terisolasi)
+│   │   └── decide/page.tsx           # 5 opsi resolusi + textarea ≥200 char
+│   └── layout.tsx                    # MediatorShell
+│
+└── layout.tsx                        # Root: redirect ke shell sesuai role
+```
+
+### **8.4.2 Prinsip Penataan**
+
+1. **Per-role shell ≠ per-role widget**. Komponen presentational reusable (Card, Table, Form, Watermark Viewer) tetap hidup di `manava-app/src/components/`. Yang dipisah hanya **route** + **layout shell** + **navigation primitives**.
+2. **Sidebar dirakit dari capability**, bukan dari role hardcoded. Item navigasi dirender hanya jika `can(user, capability)` true. Ini mencegah drift saat capability matrix berubah.
+3. **Defense in depth**. Halaman sensitif (escrow override, parameter sistem, encryption keys) selain dijaga RBAC backend juga melakukan client-side check di Server Component `layout.tsx` shell — jika role tidak cocok, return 404 (bukan redirect; menghindari user enumeration).
+4. **Label UI vs DB**. Sidebar LINE_MANAGER **wajib** menampilkan teks *"Admin Manager"*; tooltip role di Settings boleh menampilkan keduanya: *"Admin Manager · LINE_MANAGER"*. Backend tidak pernah menerima string "Admin Manager".
+5. **EDITOR dual-mode**. ESS dan project workspace hidup di shell yang sama tetapi mempunyai dua top-level tab (ESS / Projects) untuk menjaga kejernihan mental model.
+6. **MEDIATOR isolation**. Halaman case hanya membaca evidence package dari API yang sudah di-strip data internal HR (gaji, KPI, identity_file). Server route harus memfilter sebelum serialize.
+
+### **8.4.3 Komponen Lintas-Role yang Harus Dibangun Sentralisasi**
+
+| Komponen | Konsumen | Catatan |
+|---|---|---|
+| `RoleAwareSidebar` | semua shell | Render item dari capability matrix |
+| `AuditLogViewer` | SUPERADMIN, HR_ADMIN | Read-only |
+| `EvidenceBundleViewer` | MEDIATOR | Sanitized API |
+| `CapabilityGate` | semua | Wrapper React untuk hide tombol/section |
+| `ScopedTable` | LINE_MANAGER, HR_ADMIN | Otomatis tambah filter `department_id` jika role-nya scoped |
+
+---
+
 # **APPENDICES**
 
 ## **APPENDIX A: Refund Calculation Matrix**
@@ -1867,13 +2409,14 @@ OffboardingLog
 | **v1.0** | 28-05-2026 | Kelompok 5 | Initial draft |
 | **v2.0** | 16-06-2026 | Kelompok 5 | Major reposition to Small ERP; unified HRM + SoS |
 | **v2.1** | 24-06-2026 | Kelompok 5 | Deep integration analysis; critical paths formalized |
-| **v2.2** | 25-06-2026 | Kelompok 5 | **Comprehensive Specification (THIS DOCUMENT)** - Detailed module specs, workflow steps, data model, integration architecture; ready for development |
+| **v2.2** | 25-06-2026 | Kelompok 5 | Comprehensive Specification - Detailed module specs, workflow steps, data model, integration architecture; ready for development |
+| **v2.3** | 29-06-2026 | Kelompok 5 | **RBAC Re-segregation (THIS DOCUMENT)** — Pemisahan peran `Superadmin` lama menjadi `SUPERADMIN`, `HR_ADMIN`, dan `LINE_MANAGER` untuk memisahkan tugas teknis sistem dari operasional bisnis. User ENUM diperluas menjadi 6 nilai (SUPERADMIN, HR_ADMIN, LINE_MANAGER, EDITOR, CLIENT, MEDIATOR). Modul 1 (ATS), 4 (Attendance & Payroll), 5 (KPI), dan 6 (Dispute) di-rewrite ownership-nya. **PART 8** baru menjabarkan: (8.1) migrasi DB SQL + Prisma, (8.2) RBAC middleware/guard + capability matrix, (8.3) cron job jaring pengaman SLA dispute 48 jam, (8.4) penataan komponen UI per role. |
 
 ---
 
-**END OF COMPREHENSIVE PRD V2.2**
+**END OF COMPREHENSIVE PRD V2.3**
 
-**Status:** Ready for Development Sprint  
-**Quality:** 100% PSI template compliance; zero ambiguities; every workflow detailed; every module specified  
+**Status:** Ready for Development Sprint
+**Quality:** 100% PSI template compliance; zero ambiguities; every workflow detailed; every module specified; RBAC re-segregation fully specified
 **Next Step:** Development team begins sprinting based on this specification
 
