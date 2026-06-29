@@ -17,6 +17,10 @@ import ProjectDetailPage from './pages/projects/ProjectDetailPage'
 import ESSPage from './pages/ess/ESSPage'
 import ProfilePage from './pages/profile/ProfilePage'
 import RoleHomePage from './pages/home/RoleHomePage'
+import UsersPage from './pages/users/UsersPage'
+import SystemPage from './pages/system/SystemPage'
+import WarningPage from './pages/warning/WarningPage'
+import EscalationPage from './pages/escalation/EscalationPage'
 import ChatPage from './pages/chat/ChatPage'
 import OffboardingPage from './pages/offboarding/OffboardingPage'
 import SettingsPage from './pages/settings/SettingsPage'
@@ -26,17 +30,15 @@ import BrowseEditorsPage from './pages/browse-editors/BrowseEditorsPage'
 
 const ALLOWED_PATHS: Record<UserRole, string[]> = {
   superadmin: [
-    '/dashboard', '/recruitment', '/projects', '/contracts', '/payments',
-    '/attendance', '/performance', '/disputes', '/deliverables', '/chat',
-    '/offboarding', '/audit', '/settings', '/ess', '/profile',
+    '/dashboard', '/users', '/system', '/audit', '/settings', '/profile',
   ],
   hr_admin: [
-    '/dashboard', '/recruitment', '/attendance', '/payments',
-    '/performance', '/offboarding', '/settings', '/profile',
+    '/dashboard', '/recruitment', '/attendance', '/payments', '/performance',
+    '/warning', '/escalation', '/offboarding', '/settings', '/profile',
   ],
   admin_manager: [
-    '/dashboard', '/recruitment', '/attendance', '/performance', '/projects',
-    '/settings', '/offboarding', '/profile',
+    '/dashboard', '/attendance', '/performance', '/escalation', '/projects',
+    '/warning', '/offboarding', '/settings', '/profile',
   ],
   editor: [
     '/dashboard', '/projects', '/chat', '/ess', '/attendance', '/settings', '/profile',
@@ -101,6 +103,10 @@ function AppRoutes() {
         <Route path="/profile" element={<RoleGuard role={role}><ProfilePage /></RoleGuard>} />
         <Route path="/offboarding" element={<RoleGuard role={role}><OffboardingPage /></RoleGuard>} />
         <Route path="/browse-editors" element={<RoleGuard role={role}><BrowseEditorsPage /></RoleGuard>} />
+        <Route path="/users" element={<RoleGuard role={role}><UsersPage /></RoleGuard>} />
+        <Route path="/system" element={<RoleGuard role={role}><SystemPage /></RoleGuard>} />
+        <Route path="/warning" element={<RoleGuard role={role}><WarningPage role={role} /></RoleGuard>} />
+        <Route path="/escalation" element={<RoleGuard role={role}><EscalationPage role={role} /></RoleGuard>} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

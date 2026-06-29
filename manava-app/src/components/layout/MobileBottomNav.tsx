@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import {
   Home, Briefcase, UserCheck, User, Users, Clock, CreditCard, BarChart2,
   AlertTriangle, Shield, Search, FileText, PackageCheck, MessageSquare, BadgeDollarSign,
+  Cog, AlertOctagon, ArrowUpRightFromSquare,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { UserRole } from '../../types'
@@ -11,23 +12,23 @@ interface BottomNavItem { to: string; icon: typeof Home; label: string }
 const itemsByRole: Record<UserRole, BottomNavItem[]> = {
   superadmin: [
     { to: '/dashboard', icon: Home, label: 'Home' },
-    { to: '/projects', icon: Briefcase, label: 'Proyek' },
-    { to: '/disputes', icon: AlertTriangle, label: 'Sengketa' },
+    { to: '/users', icon: Users, label: 'Akun' },
+    { to: '/system', icon: Cog, label: 'Sistem' },
     { to: '/audit', icon: Shield, label: 'Audit' },
     { to: '/profile', icon: User, label: 'Profil' },
   ],
   hr_admin: [
     { to: '/dashboard', icon: Home, label: 'Home' },
     { to: '/recruitment', icon: Users, label: 'ATS' },
-    { to: '/attendance', icon: Clock, label: 'Absensi' },
-    { to: '/payments', icon: CreditCard, label: 'Payroll' },
+    { to: '/warning', icon: AlertOctagon, label: 'Peringatan' },
+    { to: '/escalation', icon: ArrowUpRightFromSquare, label: 'Eskalasi' },
     { to: '/profile', icon: User, label: 'Profil' },
   ],
   admin_manager: [
     { to: '/dashboard', icon: Home, label: 'Home' },
     { to: '/attendance', icon: Clock, label: 'Cuti' },
     { to: '/performance', icon: BarChart2, label: 'KPI' },
-    { to: '/projects', icon: Briefcase, label: 'Proyek' },
+    { to: '/escalation', icon: ArrowUpRightFromSquare, label: 'Eskalasi' },
     { to: '/profile', icon: User, label: 'Profil' },
   ],
   editor: [

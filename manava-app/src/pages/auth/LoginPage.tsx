@@ -7,9 +7,9 @@ import logoDark from '../../assets/logo-dark.png'
 import type { UserRole } from '../../types'
 
 const roles: { value: UserRole; label: string; desc: string }[] = [
-  { value: 'superadmin',    label: 'Superadmin',     desc: 'Sistem, IT, jalur darurat' },
-  { value: 'hr_admin',      label: 'HR Admin',       desc: 'ATS, payroll, onboarding' },
-  { value: 'admin_manager', label: 'Admin Manager',  desc: 'Persetujuan tim & cuti' },
+  { value: 'superadmin',    label: 'Superadmin',     desc: 'Akun, role, parameter sistem' },
+  { value: 'hr_admin',      label: 'HR Admin',       desc: 'ATS, payroll, peringatan, eskalasi tinggi' },
+  { value: 'admin_manager', label: 'Admin Manager',  desc: 'Tim, KPI, eskalasi menengah' },
   { value: 'editor',        label: 'Editor',         desc: 'Kerjakan proyek & ESS' },
   { value: 'client',        label: 'Klien',          desc: 'Pesan & lacak layanan' },
   { value: 'mediator',      label: 'Mediator',       desc: 'Selesaikan sengketa' },

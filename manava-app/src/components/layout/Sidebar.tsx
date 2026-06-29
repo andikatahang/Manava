@@ -3,27 +3,19 @@ import { cn } from '../../lib/utils'
 import type { UserRole } from '../../types'
 import logoDark from '../../assets/logo-dark.png'
 import {
-  LayoutDashboard, Users, Briefcase, FileText, CreditCard,
-  Clock, BarChart2, AlertTriangle, MessageSquare, UserCheck,
-  Settings, ChevronLeft, LogOut, PackageCheck, Shield, X, Search, User, Home,
-  BadgeDollarSign,
+  LayoutDashboard, Users, Briefcase, CreditCard,
+  Clock, BarChart2, AlertTriangle, UserCheck,
+  Settings, ChevronLeft, LogOut, Shield, X, Search, User, Home,
+  BadgeDollarSign, AlertOctagon, ArrowUpRightFromSquare, Cog,
 } from 'lucide-react'
 
 interface NavItem { to: string; icon: typeof LayoutDashboard; label: string }
 
 const navByRole: Record<UserRole, NavItem[]> = {
   superadmin: [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/recruitment', icon: Users, label: 'Rekrutmen' },
-    { to: '/projects', icon: Briefcase, label: 'Proyek' },
-    { to: '/contracts', icon: FileText, label: 'Kontrak' },
-    { to: '/payments', icon: CreditCard, label: 'Escrow & Pembayaran' },
-    { to: '/attendance', icon: Clock, label: 'Absensi & Penggajian' },
-    { to: '/performance', icon: BarChart2, label: 'KPI Kinerja' },
-    { to: '/disputes', icon: AlertTriangle, label: 'Sengketa' },
-    { to: '/deliverables', icon: PackageCheck, label: 'Hasil Kerja' },
-    { to: '/chat', icon: MessageSquare, label: 'Chat' },
-    { to: '/offboarding', icon: UserCheck, label: 'Pengakhiran Kerja' },
+    { to: '/dashboard', icon: Home, label: 'Home' },
+    { to: '/users', icon: Users, label: 'Pengguna & Role' },
+    { to: '/system', icon: Cog, label: 'Sistem & Enkripsi' },
     { to: '/audit', icon: Shield, label: 'Jejak Audit' },
   ],
   hr_admin: [
@@ -32,14 +24,16 @@ const navByRole: Record<UserRole, NavItem[]> = {
     { to: '/attendance', icon: Clock, label: 'Absensi & Cutoff' },
     { to: '/payments', icon: CreditCard, label: 'Payroll Run' },
     { to: '/performance', icon: BarChart2, label: 'KPI Editor' },
+    { to: '/warning', icon: AlertOctagon, label: 'Peringatan Kerja' },
+    { to: '/escalation', icon: ArrowUpRightFromSquare, label: 'Eskalasi Tinggi' },
     { to: '/offboarding', icon: UserCheck, label: 'Offboarding' },
   ],
   admin_manager: [
     { to: '/dashboard', icon: Home, label: 'Home' },
-    { to: '/recruitment', icon: Users, label: 'Rekrutmen Dept' },
-    { to: '/attendance', icon: Clock, label: 'Absensi & Cuti' },
+    { to: '/attendance', icon: Clock, label: 'Absensi & Cuti Tim' },
     { to: '/performance', icon: BarChart2, label: 'KPI Tim' },
-    { to: '/projects', icon: Briefcase, label: 'Proyek Dept' },
+    { to: '/escalation', icon: ArrowUpRightFromSquare, label: 'Eskalasi Menengah' },
+    { to: '/projects', icon: Briefcase, label: 'Proyek Tim' },
     { to: '/offboarding', icon: UserCheck, label: 'Pengakhiran' },
   ],
   editor: [
