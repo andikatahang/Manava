@@ -107,7 +107,7 @@ UI menampilkan Line Manager sebagai "Admin Manager"; backend dan policy check se
 | **M9 In-App Chat:** Real-time messaging channel antara client dan editor dengan attachment support; message history adalah audit trail. | Video conferencing atau screen share. |
 | **M10 Offboarding:** 4-phase workflow (trigger, handoff, final payroll proration, data anonymization 90 hari post-offboarding). | Automated pension/benefits transfer. |
 | **M11 System Audit Trail:** All status changes, financial transactions, disputes, mediator decisions logged immutably dengan timestamp, actor, before/after state. Semua keputusan RBAC DENY juga dicatat. | Real-time compliance reporting dashboard. |
-| **M12 Role-Based Access Control:** Six-role hierarchy (SUPERADMIN, HR_ADMIN, LINE_MANAGER, EDITOR, CLIENT, MEDIATOR) dengan capability matrix dan scope predicates (GLOBAL, DEPARTMENT, SELF, OWN_PROJECT, ASSIGNED_PROJECT, ASSIGNED_DISPUTE). | Self-serve role provisioning, OAuth federation, multi-tenant role mapping. |
+| **M12 Role-Based Access Control:** Seven-role hierarchy (SUPERADMIN, HR_ADMIN, LINE_MANAGER, EDITOR, CLIENT, MEDIATOR, FINANCE) dengan capability matrix dan scope predicates (GLOBAL, DEPARTMENT, SELF, OWN_PROJECT, ASSIGNED_PROJECT, ASSIGNED_DISPUTE). | Self-serve role provisioning, OAuth federation, multi-tenant role mapping. |
 
 ### **4.2 Assumptions & Constraints**
 
@@ -208,7 +208,19 @@ UI menampilkan LINE_MANAGER sebagai "Admin Manager"; backend selalu memakai lite
 | **FR-M02** | MEDIATOR | Issue binding decision: free revision / charge justified / partial refund / full refund / quality sanction. Wajib mengisi `Dispute.resolution_note` minimal 200 karakter sebelum sistem mengeksekusi. | MEDIATOR review evidence dan ambil keputusan. | High | **M** |
 | **FR-M03** | MEDIATOR | Confirm decision execution: system update project status, eksekusi escrow release/refund, record ke Audit Logs immutably. | Decision di-submit. | High | **M** |
 
-## **5.7 FR Table: Sistem AI & Automation**
+## **5.7 FR Table: FINANCE**
+
+| FR ID | Actor | Description | Trigger | Priority | MoSCoW |
+| :---: | ----- | ----- | ----- | :---: | :---: |
+| **FR-FN01** | FINANCE | Reconcile escrow ledger harian: cocokkan `EscrowAccount.held_balance` dengan agregat transaksi DP/Final yang masih dalam status HELD; flag selisih ke audit log. | Cron harian 23:00 WIB atau manual trigger di `(finance)/escrow/reconciliation`. | High | **M** |
+| **FR-FN02** | FINANCE | Generate monthly revenue report sesuai IFRS 15: pisahkan DP received vs revenue recognized (pada `Project.status=COMPLETED`); export CSV/PDF. | Akhir periode bulanan atau permintaan ad-hoc. | High | **M** |
+| **FR-FN03** | FINANCE | Read-only akses `EscrowLedger`, `CompanyAccount`, `Transaction` lintas semua proyek untuk audit dan rekonsiliasi; tidak boleh mengubah state proyek atau dispute. | Investigasi finansial. | High | **M** |
+| **FR-FN04** | FINANCE | Eksekusi disbursement batch payslip yang sudah di-publish HR_ADMIN ke akun bank editor; idempoten via `Payslip.paid_transaction_id`. | Setelah HR_ADMIN publish batch payslip. | High | **M** |
+| **FR-FN05** | FINANCE | Review bulanan rekonsiliasi payroll vs escrow inflow/outflow; submit laporan P&L ke SUPERADMIN. | Closing bulanan. | Medium | **S** |
+
+> FINANCE tidak memiliki capability untuk membuat akun, mengubah RBAC, override dispute, atau mengubah scope proyek. Manual escrow release tetap eksklusif SUPERADMIN (FR-SA04) sebagai jalur darurat; FINANCE hanya membaca dan merekonsiliasi.
+
+## **5.8 FR Table: Sistem AI & Automation**
 
 | FR ID | Actor | The system shall… | Condition / Trigger | Priority | MoSCoW |
 | :---: | :---: | ----- | ----- | :---: | :---: |
@@ -469,7 +481,7 @@ Sepuluh skenario kunci validasi cross-module (lihat Appendix D):
 
 | Entity | Key Fields | Governance |
 | ----- | ----- | ----- |
-| **User** | `user_id` (PK), `full_name`, `email` (unique), `password_hash`, `role` (SUPERADMIN/HR_ADMIN/LINE_MANAGER/EDITOR/CLIENT/MEDIATOR), `department_id` (FK, wajib untuk LINE_MANAGER & EDITOR), `client_type` (COMPANY/INDIVIDUAL, nullable), `is_active`, `created_at` | RBAC enforced via capability matrix. Hierarchy internal: SUPERADMIN → HR_ADMIN → LINE_MANAGER → EDITOR. UI menampilkan LINE_MANAGER sebagai "Admin Manager". |
+| **User** | `user_id` (PK), `full_name`, `email` (unique), `password_hash`, `role` (SUPERADMIN/HR_ADMIN/LINE_MANAGER/EDITOR/CLIENT/MEDIATOR/FINANCE), `department_id` (FK, wajib untuk LINE_MANAGER & EDITOR), `client_type` (COMPANY/INDIVIDUAL, nullable), `is_active`, `created_at` | RBAC enforced via capability matrix. Hierarchy internal: SUPERADMIN → HR_ADMIN → LINE_MANAGER → EDITOR. FINANCE adalah role cross-cutting finansial (escrow reconciliation, revenue reporting, payroll execution), tidak berada di rantai HR. UI menampilkan LINE_MANAGER sebagai "Admin Manager"; FINANCE tampil sebagai "Keuangan". |
 | **Department** | `department_id` (PK), `name` (unique), `hr_admin_owner_id` (FK), `line_manager_id` (FK, nullable), `target_size` | HR_ADMIN memiliki recruitment di department. LINE_MANAGER memimpin operasional harian. DSS factors per department. |
 | **SystemParameter** | `param_key` (PK), `param_value`, `description`, `updated_by` (FK → User), `updated_at` | Hanya SUPERADMIN boleh write. Menyimpan `major_topup_timeout_hours`, `dispute_sla_hours`, `attendance_cutoff_dom_hour`, `refund_dp_pct_on_cancel`, retensi data. |
 | **Editor** | `editor_id` (PK), `user_id` (FK, unique), `department_id` (FK), `specialization` (array), `identity_file_path` (encrypted), `portfolio_url`, `base_salary`, `rating` (0.0–5.0), `completion_rate` (%), `status` (ACTIVE/SUSPENDED/INACTIVE), `onboarded_at`, `max_concurrent_projects=2` | Identity encrypted at-rest dengan kunci dari SUPERADMIN. Availability computed real-time dari `active_projects`. |
@@ -512,34 +524,38 @@ Sepuluh skenario kunci validasi cross-module (lihat Appendix D):
 
 Capability matrix menjadi single source of truth untuk semua write endpoint. Scope predicate dievaluasi runtime: `GLOBAL` (semua), `DEPARTMENT` (terikat `department_id` actor), `SELF` (actor adalah subject), `OWN_PROJECT` / `ASSIGNED_PROJECT` / `ASSIGNED_DISPUTE` (relasi resource).
 
-| Capability | SUPERADMIN | HR_ADMIN | LINE_MANAGER | EDITOR | CLIENT | MEDIATOR |
-| ----- | :---: | :---: | :---: | :---: | :---: | :---: |
-| `system.encryption_keys.manage`     | GLOBAL | — | — | — | — | — |
-| `system.parameters.write`           | GLOBAL | — | — | — | — | — |
-| `user.create_with_role`             | GLOBAL | EDITOR_ONLY | — | — | — | — |
-| `escrow.manual_release`             | GLOBAL | — | — | — | — | — |
-| `dispute.fallback_takeover`         | GLOBAL | — | — | — | — | — |
-| `ats.job_posting.crud`              | — | GLOBAL | — | — | — | — |
-| `ats.applicant.pipeline`            | — | GLOBAL | — | — | — | — |
-| `onboarding.confirm`                | — | GLOBAL | — | — | — | — |
-| `attendance.monthly_lock`           | — | GLOBAL | — | — | — | — |
-| `payroll.run_monthly`               | — | GLOBAL | — | — | — | — |
-| `payslip.publish`                   | — | GLOBAL | — | — | — | — |
-| `attendance.clarify_clock_out`      | — | — | DEPARTMENT | — | — | — |
-| `leave.approve`                     | — | — | DEPARTMENT | — | — | — |
-| `project.cancel_on_leave_conflict`  | — | — | DEPARTMENT | — | — | — |
-| `kpi.manager_assessment.write`      | — | — | DEPARTMENT | — | — | — |
-| `attendance.clock_in_out`           | — | — | — | SELF | — | — |
-| `leave.request`                     | — | — | — | SELF | — | — |
-| `ess.self_service`                  | — | — | — | SELF | — | — |
-| `contract.draft`                    | — | — | — | ASSIGNED_PROJECT | — | — |
-| `deliverable.upload`                | — | — | — | ASSIGNED_PROJECT | — | — |
-| `roster.browse`                     | — | — | — | — | GLOBAL | — |
-| `payment.dp` / `payment.final`      | — | — | — | — | OWN_PROJECT | — |
-| `rating.give`                       | — | — | — | — | OWN_PROJECT | — |
-| `dispute.open`                      | — | — | — | ASSIGNED_PROJECT | OWN_PROJECT | — |
-| `dispute.review_evidence`           | — | — | — | — | — | ASSIGNED_DISPUTE |
-| `dispute.decide`                    | — | — | — | — | — | ASSIGNED_DISPUTE |
+| Capability | SUPERADMIN | HR_ADMIN | LINE_MANAGER | EDITOR | CLIENT | MEDIATOR | FINANCE |
+| ----- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| `system.encryption_keys.manage`     | GLOBAL | — | — | — | — | — | — |
+| `system.parameters.write`           | GLOBAL | — | — | — | — | — | — |
+| `user.create_with_role`             | GLOBAL | EDITOR_ONLY | — | — | — | — | — |
+| `escrow.manual_release`             | GLOBAL | — | — | — | — | — | — |
+| `dispute.fallback_takeover`         | GLOBAL | — | — | — | — | — | — |
+| `ats.job_posting.crud`              | — | GLOBAL | — | — | — | — | — |
+| `ats.applicant.pipeline`            | — | GLOBAL | — | — | — | — | — |
+| `onboarding.confirm`                | — | GLOBAL | — | — | — | — | — |
+| `attendance.monthly_lock`           | — | GLOBAL | — | — | — | — | — |
+| `payroll.run_monthly`               | — | GLOBAL | — | — | — | — | GLOBAL |
+| `payslip.publish`                   | — | GLOBAL | — | — | — | — | — |
+| `attendance.clarify_clock_out`      | — | — | DEPARTMENT | — | — | — | — |
+| `leave.approve`                     | — | — | DEPARTMENT | — | — | — | — |
+| `project.cancel_on_leave_conflict`  | — | — | DEPARTMENT | — | — | — | — |
+| `kpi.manager_assessment.write`      | — | — | DEPARTMENT | — | — | — | — |
+| `attendance.clock_in_out`           | — | — | — | SELF | — | — | — |
+| `leave.request`                     | — | — | — | SELF | — | — | — |
+| `ess.self_service`                  | — | — | — | SELF | — | — | — |
+| `contract.draft`                    | — | — | — | ASSIGNED_PROJECT | — | — | — |
+| `deliverable.upload`                | — | — | — | ASSIGNED_PROJECT | — | — | — |
+| `roster.browse`                     | — | — | — | — | GLOBAL | — | — |
+| `payment.dp` / `payment.final`      | — | — | — | — | OWN_PROJECT | — | — |
+| `rating.give`                       | — | — | — | — | OWN_PROJECT | — | — |
+| `dispute.open`                      | — | — | — | ASSIGNED_PROJECT | OWN_PROJECT | — | — |
+| `dispute.review_evidence`           | — | — | — | — | — | ASSIGNED_DISPUTE | — |
+| `dispute.decide`                    | — | — | — | — | — | ASSIGNED_DISPUTE | — |
+| `finance.escrow.reconcile`          | — | — | — | — | — | — | GLOBAL |
+| `finance.revenue.report`            | — | — | — | — | — | — | GLOBAL |
+| `finance.ledger.read`               | GLOBAL | — | — | — | — | — | GLOBAL |
+| `finance.payslip.disburse`          | — | — | — | — | — | — | GLOBAL |
 
 Semua endpoint write dilindungi middleware `requireCap(capability, getTarget)`. Read endpoint sensitif (KPI dashboard, payslip viewer, dispute evidence) menyaring data via parameter `where` di query, bukan post-filter di memori. Setiap DENY dicatat ke AuditLog.
 
@@ -547,7 +563,7 @@ Semua endpoint write dilindungi middleware `requireCap(capability, getTarget)`. 
 
 Perubahan struktural utama:
 
-1. **User.role ENUM** dipecah menjadi 6 nilai: `SUPERADMIN, HR_ADMIN, LINE_MANAGER, EDITOR, CLIENT, MEDIATOR`. Backfill: role lama `superadmin` → `SUPERADMIN`, `admin_manager` → `LINE_MANAGER`.
+1. **User.role ENUM** dipecah menjadi 7 nilai: `SUPERADMIN, HR_ADMIN, LINE_MANAGER, EDITOR, CLIENT, MEDIATOR, FINANCE`. Backfill: role lama `superadmin` → `SUPERADMIN`, `admin_manager` → `LINE_MANAGER`, `finance` → `FINANCE`.
 2. **User.department_id** ditambahkan (FK → Department); CHECK constraint mewajibkan non-null untuk LINE_MANAGER dan EDITOR.
 3. **Department**: `superadmin_id` → `hr_admin_owner_id`; `manager_id` → `line_manager_id`.
 4. **SystemParameter** tabel baru dengan seed: `major_topup_timeout_hours=72`, `dispute_sla_hours=48`, `attendance_cutoff_dom_hour=30:18:00`, `financial_data_retention_yrs=7`, `dispute_data_retention_yrs=10`, `refund_dp_pct_on_cancel=0.80`.
@@ -584,7 +600,7 @@ Skrip SQL lengkap dan padanan Prisma berada di **Appendix E**.
 
 | Milestone | Owner | Timeline | Definition of Done |
 | ----- | ----- | ----- | ----- |
-| **M1: Setup, Data Model & RBAC** | Architect + Dev | Week 1 | Repo configured; ERD approved; six-role registration berjalan; SystemParameter seed terisi; capability matrix dipasang di middleware; UI shell per role terbentuk; AuditLog mencatat DENY. |
+| **M1: Setup, Data Model & RBAC** | Architect + Dev | Week 1 | Repo configured; ERD approved; seven-role registration berjalan; SystemParameter seed terisi; capability matrix dipasang di middleware; UI shell per role terbentuk; AuditLog mencatat DENY. |
 | **M2: ATS, DSS & Onboarding** | Dev | Week 1–end | Job posting (HR_ADMIN), applicant pipeline, DSS scoring, HR_ADMIN confirm + department assignment, Editor onboarding form (ESS). |
 | **M3: Roster, Chat & Revision Envelope** | Dev | Week 2–start | Editor roster visible to clients; chat in-app; Revision Envelope co-authoring & approval; brief locking pre-DP. |
 | **M4: Escrow & Payments** | Dev | Week 2–mid | DP 50% trigger; escrow ledger; final 50%; auto-release dengan manual fallback SUPERADMIN; transaction log immutable. |
@@ -606,6 +622,7 @@ Skrip SQL lengkap dan padanan Prisma berada di **Appendix E**.
 | v2.1 | 24-06-2026 | Kelompok 5 | Deep integration analysis: 12 critical bottlenecks, 5 critical paths, 10 integration test scenarios. Cross-module data flows. IFRS 15 revenue recognition. |
 | v2.2 | 25-06-2026 | Kelompok 5 | Enterprise Integration Framework. Architecture section dengan module interdependencies, critical path analysis, integration test scenarios. 6 critical assumptions formalized. FR tables diperluas. |
 | **v2.3** | **29-06-2026** | **Kelompok 5** | **Role Re-segregation.** Pemisahan peran administrator internal menjadi tiga lapisan: SUPERADMIN (sistem, IT, keamanan, parameter global, jalur darurat), HR_ADMIN (ATS, onboarding, monthly attendance lock, payroll), LINE_MANAGER (operasional departemen — klarifikasi absensi, persetujuan cuti dengan eksekusi pembatalan + refund 80% DP, Manager Assessment KPI). User.role ENUM diperluas menjadi 6 nilai; UI menampilkan LINE_MANAGER sebagai "Admin Manager". Workflow rekrutmen, payroll, leave-with-conflict, dan dispute resolution direvisi. Capability matrix RBAC formal ditambahkan ke Section 8.3. Database migration di Appendix E. Cron jaring pengaman SLA dispute 48 jam memindahkan case ke SUPERADMIN bila MEDIATOR lalai. UI dipecah per shell role di Appendix F. |
+| **v2.3.1** | **29-06-2026** | **Kelompok 5** | **FINANCE role formalization.** Menambahkan FINANCE sebagai role ke-7 untuk memformalkan kapasitas yang sudah ada di kode (escrow reconciliation, revenue reporting IFRS 15, payslip disbursement). Cross-cutting di luar rantai HR; tidak memegang capability sistem, RBAC, maupun scope proyek. Update: Section 8.1 entity inventory User row, Section 8.3 capability matrix (kolom FINANCE + 4 capability finance), Section 8.4 + Appendix E.1/E.2 migration (ENUM 7 nilai + backfill `finance` → `FINANCE`), Appendix F shell `(finance)/`, Section 5.7 FR Table FINANCE (FR-FN01..FR-FN05), Section 4.1 M12 "seven-role", Milestone M1 "seven-role". |
 
 ---
 
@@ -691,7 +708,8 @@ CREATE TYPE user_role_v2 AS ENUM (
   'LINE_MANAGER',
   'EDITOR',
   'CLIENT',
-  'MEDIATOR'
+  'MEDIATOR',
+  'FINANCE'
 );
 
 ALTER TABLE "user"
@@ -703,6 +721,7 @@ ALTER TABLE "user"
       WHEN 'editor'        THEN 'EDITOR'
       WHEN 'client'        THEN 'CLIENT'
       WHEN 'mediator'      THEN 'MEDIATOR'
+      WHEN 'finance'       THEN 'FINANCE'
       ELSE 'SUPERADMIN'
     END
   )::user_role_v2;
@@ -755,6 +774,7 @@ enum UserRole {
   EDITOR
   CLIENT
   MEDIATOR
+  FINANCE
 }
 
 model User {
@@ -901,6 +921,15 @@ manava-app/src/app/
 │   ├── case/[disputeId]/
 │   │   ├── evidence/page.tsx
 │   │   └── decide/page.tsx
+│   └── layout.tsx
+├── (finance)/
+│   ├── escrow/
+│   │   ├── ledger/page.tsx
+│   │   └── reconciliation/page.tsx
+│   ├── revenue/
+│   │   ├── recognition/page.tsx
+│   │   └── reports/page.tsx
+│   ├── payroll/disbursement/page.tsx
 │   └── layout.tsx
 └── layout.tsx
 ```
