@@ -2,9 +2,11 @@ import { useState } from 'react'
 import {
   Mail, Phone, GraduationCap, CalendarClock, FileText, Sparkles,
   CheckCircle2, XCircle, CalendarPlus, Video, MapPin, User,
+  Users, Clock, UserCheck,
 } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
+import { Drawer } from '../../components/ui/Drawer'
 import { formatDate, formatDateTime } from '../../lib/utils'
 import {
   getApplications, updateApplication,
@@ -42,7 +44,9 @@ function primaryFor(status: ApplicationStatus): string | null {
 export default function RecruitmentPage({ role }: { role: UserRole }) {
   const canManage = CAN_MANAGE.includes(role)
   const [apps, setApps] = useState<JobApplication[]>(() => getApplications())
-  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>('all')
+  // Managers/HR land on the actionable queue ("pending") instead of seeing
+  // every status mixed together — viewers still default to "all".
+  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>(canManage ? 'pending' : 'all')
   const [detail, setDetail] = useState<JobApplication | null>(null)
   const [interviewTarget, setInterviewTarget] = useState<JobApplication | null>(null)
 
@@ -72,25 +76,38 @@ export default function RecruitmentPage({ role }: { role: UserRole }) {
 
   const h = HEADER_BY_ROLE[role] ?? HEADER_BY_ROLE.hr_admin
 
+  const countByStatus: Record<ApplicationStatus, number> = {
+    pending:   apps.filter(a => a.status === 'pending').length,
+    interview: apps.filter(a => a.status === 'interview').length,
+    accepted:  apps.filter(a => a.status === 'accepted').length,
+    rejected:  apps.filter(a => a.status === 'rejected').length,
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader eyebrow={h.eyebrow} title={h.title} description={h.description} role={role} />
 
-      {/* Vacancy header */}
-      <div className="card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 text-navy">
-            <Sparkles className="w-4 h-4 text-[#0050F8]" />
-            <h2 className="text-base font-semibold">Lowongan Editor — Lamaran Masuk</h2>
+      {/* Signal: managers see how many decisions are queued */}
+      {canManage && (countByStatus.pending + countByStatus.interview) > 0 && (
+        <div className="rounded-2xl bg-navy text-white px-5 py-4 flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+            <UserCheck className="w-5 h-5" />
           </div>
-          <p className="text-sm text-navy/50 mt-1">
-            Tinjau pelamar yang mendaftar lewat formulir publik, lalu kirim undangan interview atau putuskan hasil seleksi.
-          </p>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold">
+              {countByStatus.pending} pelamar baru · {countByStatus.interview} dalam tahap wawancara
+            </p>
+            <p className="text-xs text-white/70 mt-0.5">Tinjau, jadwalkan wawancara, lalu putuskan.</p>
+          </div>
         </div>
-        <div className="text-right shrink-0">
-          <p className="text-2xl font-bold text-navy leading-none">{apps.length}</p>
-          <p className="text-xs text-navy/50 mt-1">Total Pelamar</p>
-        </div>
+      )}
+
+      {/* Stat strip — at-a-glance counts */}
+      <div className="card p-0 divide-y sm:divide-y-0 sm:divide-x divide-border grid sm:grid-cols-4">
+        <StatBox icon={Users}        label="Total"        value={apps.length}             tone="navy" />
+        <StatBox icon={Clock}        label="Menunggu"     value={countByStatus.pending}   tone="amber" />
+        <StatBox icon={CalendarPlus} label="Wawancara"    value={countByStatus.interview} tone="navy" />
+        <StatBox icon={CheckCircle2} label="Diterima"     value={countByStatus.accepted}  tone="emerald" />
       </div>
 
       {/* Status filter chips */}
@@ -134,18 +151,43 @@ export default function RecruitmentPage({ role }: { role: UserRole }) {
         </div>
       )}
 
-      {/* Applicant detail modal */}
-      <Modal open={!!detail} onClose={() => setDetail(null)} title="Detail Pelamar" size="md">
+      {/* Applicant detail drawer */}
+      <Drawer
+        open={!!detail}
+        onClose={() => setDetail(null)}
+        title={detail?.full_name ?? ''}
+        subtitle={detail ? `Melamar ${formatDate(detail.submitted_at)}` : undefined}
+        headerAction={detail ? <StatusBadge status={detail.status} /> : undefined}
+        footer={
+          detail && canManage && detail.status !== 'accepted' && detail.status !== 'rejected' ? (
+            <div className="flex flex-col gap-2">
+              <button
+                className="btn-primary w-full justify-center"
+                onClick={() => { setInterviewTarget(detail); setDetail(null) }}
+              >
+                <CalendarPlus className="w-4 h-4" />
+                {detail.interview ? 'Ubah Jadwal Interview' : 'Kirim Form Interview'}
+              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                  onClick={() => setStatus(detail.id, 'accepted')}
+                >
+                  <CheckCircle2 className="w-4 h-4" /> Terima
+                </button>
+                <button
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors"
+                  onClick={() => setStatus(detail.id, 'rejected')}
+                >
+                  <XCircle className="w-4 h-4" /> Tolak
+                </button>
+              </div>
+            </div>
+          ) : undefined
+        }
+      >
         {detail && (
           <div className="space-y-5">
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <p className="font-semibold text-navy text-lg leading-tight truncate">{detail.full_name}</p>
-                <p className="text-sm text-navy/50">Melamar {formatDate(detail.submitted_at)}</p>
-              </div>
-              <StatusBadge status={detail.status} />
-            </div>
-
             <div className="grid sm:grid-cols-2 gap-x-5 gap-y-3 text-sm">
               <Fact icon={<Mail className="w-4 h-4" />} label="Email" value={detail.email} />
               <Fact icon={<Phone className="w-4 h-4" />} label="No. Handphone" value={detail.phone} />
@@ -172,7 +214,6 @@ export default function RecruitmentPage({ role }: { role: UserRole }) {
               </div>
             </div>
 
-            {/* Interview summary, once scheduled */}
             {detail.interview && (
               <div className="rounded-xl border border-navy/15 bg-navy-50 p-4 space-y-2">
                 <p className="text-[13px] font-semibold text-navy flex items-center gap-1.5">
@@ -189,36 +230,9 @@ export default function RecruitmentPage({ role }: { role: UserRole }) {
                 </div>
               </div>
             )}
-
-            {/* Actions */}
-            {canManage && detail.status !== 'accepted' && detail.status !== 'rejected' && (
-              <div className="flex flex-col gap-2 pt-1">
-                <button
-                  className="btn-primary w-full justify-center"
-                  onClick={() => { setInterviewTarget(detail); setDetail(null) }}
-                >
-                  <CalendarPlus className="w-4 h-4" />
-                  {detail.interview ? 'Ubah Jadwal Interview' : 'Kirim Form Interview'}
-                </button>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
-                    onClick={() => setStatus(detail.id, 'accepted')}
-                  >
-                    <CheckCircle2 className="w-4 h-4" /> Terima
-                  </button>
-                  <button
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors"
-                    onClick={() => setStatus(detail.id, 'rejected')}
-                  >
-                    <XCircle className="w-4 h-4" /> Tolak
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         )}
-      </Modal>
+      </Drawer>
 
       {/* Interview form modal */}
       <Modal open={!!interviewTarget} onClose={() => setInterviewTarget(null)} title="Kirim Form Interview" size="md">
@@ -230,6 +244,29 @@ export default function RecruitmentPage({ role }: { role: UserRole }) {
           />
         )}
       </Modal>
+    </div>
+  )
+}
+
+function StatBox({
+  icon: Icon, label, value, tone,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  value: number
+  tone: 'navy' | 'amber' | 'emerald'
+}) {
+  const toneText: Record<typeof tone, string> = { navy: 'text-navy', amber: 'text-amber-600', emerald: 'text-emerald-600' }
+  const toneBg:   Record<typeof tone, string> = { navy: 'bg-navy/5', amber: 'bg-amber-50',     emerald: 'bg-emerald-50' }
+  return (
+    <div className="px-5 py-4 flex items-center gap-3">
+      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${toneBg[tone]}`}>
+        <Icon className={`w-4 h-4 ${toneText[tone]}`} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold text-navy/45 uppercase tracking-wider">{label}</p>
+        <p className={`text-lg font-bold ${toneText[tone]}`}>{value}</p>
+      </div>
     </div>
   )
 }
