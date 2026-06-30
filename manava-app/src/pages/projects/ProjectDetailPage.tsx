@@ -7,16 +7,18 @@ import {
 import { StatusBadge } from '../../components/ui/Badge'
 import { cn } from '../../lib/utils'
 import { formatCurrency } from '../../lib/utils'
-import { mockProjects } from '../../data/mockData'
+import { mockProjects, mockRevisionEnvelopes, mockDisputes, mockReviews } from '../../data/mockData'
 import { StageRail } from './StageRail'
 import { attentionFor, projectCategory } from './lifecycle'
 import {
   OverviewPanel, ContractPanel, DeliverablesPanel, ChatPanel,
-  PaymentPanel, DisputePanel, tabCounts,
+  PaymentPanel, DisputePanel, tabCounts, DELIVERABLES,
 } from './detailPanels'
-import type { UserRole } from '../../types'
+import type { DeliverableVersion } from './detailPanels'
+import { RatingPanel } from './RatingPanel'
+import type { UserRole, RevisionEnvelope, Dispute, Review } from '../../types'
 
-type Tab = 'ringkasan' | 'kontrak' | 'hasil' | 'chat' | 'pembayaran' | 'sengketa'
+type Tab = 'ringkasan' | 'kontrak' | 'hasil' | 'chat' | 'pembayaran' | 'sengketa' | 'penilaian'
 
 const CLIENT_TABS: { key: Tab; label: string }[] = [
   { key: 'ringkasan', label: 'Ringkasan' },
@@ -33,6 +35,7 @@ const EDITOR_TABS: { key: Tab; label: string }[] = [
   { key: 'kontrak', label: 'Kontrak' },
   { key: 'hasil', label: 'Hasil Kerja' },
   { key: 'chat', label: 'Chat' },
+  { key: 'sengketa', label: 'Sengketa' },
 ]
 
 const TONE_PILL: Record<string, string> = {
@@ -47,9 +50,27 @@ export default function ProjectDetailPage({ role }: { role: UserRole }) {
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('ringkasan')
   const isEditor = role === 'editor'
-  const TABS = isEditor ? EDITOR_TABS : CLIENT_TABS
 
   const project = mockProjects.find(p => p.project_id === id)
+
+  // Revision Envelope state lives at the page so it survives tab switches and
+  // stays in sync between the Ringkasan and Kontrak tabs.
+  const [envelope, setEnvelope] = useState<RevisionEnvelope | undefined>(
+    () => mockRevisionEnvelopes.find(e => e.project_id === id),
+  )
+  const [envelopeAgreedAt, setEnvelopeAgreedAt] = useState<string | null>(null)
+
+  // Deliverable versions live at the page so uploads survive tab switches and
+  // keep the "Hasil Kerja" tab badge accurate.
+  const [deliverables, setDeliverables] = useState<DeliverableVersion[]>(
+    () => (id ? DELIVERABLES[id] ?? [] : []),
+  )
+  const [disputes, setDisputes] = useState<Dispute[]>(
+    () => mockDisputes.filter(d => d.project_id === id),
+  )
+  const [review, setReview] = useState<Review | undefined>(
+    () => mockReviews.find(r => r.project_id === id),
+  )
 
   if (!project) {
     return (
@@ -64,6 +85,12 @@ export default function ProjectDetailPage({ role }: { role: UserRole }) {
     )
   }
 
+  const baseTabs = isEditor ? EDITOR_TABS : CLIENT_TABS
+  // The rating tab only appears once the project is completed.
+  const TABS = project.status === 'completed'
+    ? [...baseTabs, { key: 'penilaian' as Tab, label: 'Penilaian' }]
+    : baseTabs
+
   const counts = tabCounts(project)
   const attention = attentionFor(project.status)
   const { Icon, label: category } = projectCategory(project.title)
@@ -72,7 +99,7 @@ export default function ProjectDetailPage({ role }: { role: UserRole }) {
   const showSubmit = isEditor && (project.status === 'in_progress' || project.status === 'revision')
 
   const badge = (key: Tab) => {
-    const n = key === 'hasil' ? counts.hasil : key === 'chat' ? counts.chat : key === 'sengketa' ? counts.sengketa : 0
+    const n = key === 'hasil' ? deliverables.length : key === 'chat' ? counts.chat : key === 'sengketa' ? disputes.length : 0
     return n > 0 ? n : null
   }
 
@@ -169,12 +196,50 @@ export default function ProjectDetailPage({ role }: { role: UserRole }) {
 
       {/* Panel */}
       <div className="card">
-        {tab === 'ringkasan' && <OverviewPanel project={project} />}
-        {tab === 'kontrak' && <ContractPanel project={project} />}
-        {tab === 'hasil' && <DeliverablesPanel project={project} role={role} />}
+        {tab === 'ringkasan' && <OverviewPanel project={project} envelope={envelope} />}
+        {tab === 'kontrak' && (
+          <ContractPanel
+            project={project}
+            role={role}
+            envelope={envelope}
+            agreedAt={envelopeAgreedAt}
+            onEnvelopeChange={setEnvelope}
+            onAgree={() => setEnvelopeAgreedAt(new Date().toISOString())}
+          />
+        )}
+        {tab === 'hasil' && (
+          <DeliverablesPanel
+            project={project}
+            role={role}
+            versions={deliverables}
+            onUpload={v => setDeliverables(prev => [v, ...prev])}
+          />
+        )}
         {tab === 'chat' && <ChatPanel project={project} />}
         {tab === 'pembayaran' && <PaymentPanel project={project} />}
-        {tab === 'sengketa' && <DisputePanel project={project} />}
+        {tab === 'sengketa' && (
+          <DisputePanel
+            project={project}
+            role={role}
+            disputes={disputes}
+            onCreate={d => setDisputes(prev => [d, ...prev])}
+          />
+        )}
+        {tab === 'penilaian' && project.status === 'completed' && (
+          <RatingPanel
+            project={project}
+            role={role}
+            review={review}
+            onSubmit={(rating, comment) => setReview({
+              review_id: `rev-${Date.now()}`,
+              project_id: project.project_id,
+              rating,
+              comment,
+              reviewer_name: project.client_name,
+              created_at: new Date().toISOString(),
+            })}
+          />
+        )}
       </div>
     </div>
   )
