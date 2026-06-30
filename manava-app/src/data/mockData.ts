@@ -1,4 +1,4 @@
-import type { User, Editor, Applicant, JobPosting, Project, Dispute, EditorMetrics, Payslip, AttendanceRecord, LeaveRequest, EscrowAccount, Transaction, Message, RevisionRequest, RevisionEnvelope } from '../types'
+import type { User, Editor, Applicant, JobPosting, Project, Dispute, EditorMetrics, Payslip, AttendanceRecord, LeaveRequest, EscrowAccount, Transaction, Message, RevisionRequest, RevisionEnvelope, Review } from '../types'
 
 export const currentUser: User = {
   user_id: 'u1',
@@ -67,6 +67,10 @@ export const mockDisputes: Dispute[] = [
   { dispute_id: 'd2', project_id: 'p4', project_title: 'Portrait Session Retouch', client_name: 'Citra Client', editor_name: 'Andi Kurniawan', opened_by: 'Andi Kurniawan', opened_by_role: 'editor', reason: 'Klien tidak merespons selama 9 hari. Perlu penyelesaian untuk melanjutkan.', status: 'open', opened_at: '2026-06-23T14:00:00', sla_deadline: '2026-06-25T14:00:00' },
   { dispute_id: 'd3', project_id: 'p6', project_title: 'Product Video - Furniture Line', client_name: 'HomeDecor ID', editor_name: 'Sari Dewi', opened_by: 'HomeDecor ID', opened_by_role: 'client', reason: 'Kualitas hasil kerja tidak sesuai brief. Warnanya meleset.', status: 'resolved', resolution_type: 'free_revision', resolution_note: 'Setelah meninjau brief dan hasil kerja, deviasi warna menjadi tanggung jawab editor. Revisi gratis diberikan.', opened_at: '2026-06-15T10:00:00', resolved_at: '2026-06-17T09:00:00', sla_deadline: '2026-06-17T10:00:00' },
 ]
+
+// Client reviews of completed projects. Seeded empty so the rating form is the
+// entry point on a completed project; submitting adds a review at runtime.
+export const mockReviews: Review[] = []
 
 export const mockEditorMetrics: EditorMetrics[] = [
   { editor_id: 'e1', editor_name: 'Budi Santoso', avg_client_rating: 4.8, completion_rate: 94, manager_rating: 4.5, kpi_average: 4.7, performance_band: 'excellent' },

@@ -7,7 +7,7 @@ import {
 import { StatusBadge } from '../../components/ui/Badge'
 import { cn } from '../../lib/utils'
 import { formatCurrency } from '../../lib/utils'
-import { mockProjects, mockRevisionEnvelopes, mockDisputes } from '../../data/mockData'
+import { mockProjects, mockRevisionEnvelopes, mockDisputes, mockReviews } from '../../data/mockData'
 import { StageRail } from './StageRail'
 import { attentionFor, projectCategory } from './lifecycle'
 import {
@@ -15,9 +15,10 @@ import {
   PaymentPanel, DisputePanel, tabCounts, DELIVERABLES,
 } from './detailPanels'
 import type { DeliverableVersion } from './detailPanels'
-import type { UserRole, RevisionEnvelope, Dispute } from '../../types'
+import { RatingPanel } from './RatingPanel'
+import type { UserRole, RevisionEnvelope, Dispute, Review } from '../../types'
 
-type Tab = 'ringkasan' | 'kontrak' | 'hasil' | 'chat' | 'pembayaran' | 'sengketa'
+type Tab = 'ringkasan' | 'kontrak' | 'hasil' | 'chat' | 'pembayaran' | 'sengketa' | 'penilaian'
 
 const CLIENT_TABS: { key: Tab; label: string }[] = [
   { key: 'ringkasan', label: 'Ringkasan' },
@@ -49,7 +50,6 @@ export default function ProjectDetailPage({ role }: { role: UserRole }) {
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('ringkasan')
   const isEditor = role === 'editor'
-  const TABS = isEditor ? EDITOR_TABS : CLIENT_TABS
 
   const project = mockProjects.find(p => p.project_id === id)
 
@@ -68,6 +68,9 @@ export default function ProjectDetailPage({ role }: { role: UserRole }) {
   const [disputes, setDisputes] = useState<Dispute[]>(
     () => mockDisputes.filter(d => d.project_id === id),
   )
+  const [review, setReview] = useState<Review | undefined>(
+    () => mockReviews.find(r => r.project_id === id),
+  )
 
   if (!project) {
     return (
@@ -81,6 +84,12 @@ export default function ProjectDetailPage({ role }: { role: UserRole }) {
       </div>
     )
   }
+
+  const baseTabs = isEditor ? EDITOR_TABS : CLIENT_TABS
+  // The rating tab only appears once the project is completed.
+  const TABS = project.status === 'completed'
+    ? [...baseTabs, { key: 'penilaian' as Tab, label: 'Penilaian' }]
+    : baseTabs
 
   const counts = tabCounts(project)
   const attention = attentionFor(project.status)
@@ -214,6 +223,21 @@ export default function ProjectDetailPage({ role }: { role: UserRole }) {
             role={role}
             disputes={disputes}
             onCreate={d => setDisputes(prev => [d, ...prev])}
+          />
+        )}
+        {tab === 'penilaian' && project.status === 'completed' && (
+          <RatingPanel
+            project={project}
+            role={role}
+            review={review}
+            onSubmit={(rating, comment) => setReview({
+              review_id: `rev-${Date.now()}`,
+              project_id: project.project_id,
+              rating,
+              comment,
+              reviewer_name: project.client_name,
+              created_at: new Date().toISOString(),
+            })}
           />
         )}
       </div>

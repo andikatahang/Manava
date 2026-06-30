@@ -152,6 +152,15 @@ export interface Dispute {
   sla_deadline: string
 }
 
+export interface Review {
+  review_id: string
+  project_id: string
+  rating: number
+  comment: string
+  reviewer_name: string
+  created_at: string
+}
+
 export interface EditorMetrics {
   editor_id: string
   editor_name: string
