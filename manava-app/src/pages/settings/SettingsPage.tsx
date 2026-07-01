@@ -7,7 +7,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   return (
     <button
       onClick={() => onChange(!checked)}
-      className={`relative w-10 h-5 rounded-full transition-colors ${checked ? 'bg-navy' : 'bg-gray-200'}`}
+      className={`relative w-10 h-5 rounded-full transition-colors ${checked ? 'bg-navy hover:bg-navy/90' : 'bg-gray-200 hover:bg-gray-300'}`}
     >
       <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : ''}`} />
     </button>
@@ -82,7 +82,7 @@ export default function SettingsPage() {
       <div className="flex gap-1 bg-white border border-border rounded-xl p-1 w-fit flex-wrap">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setTab(id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === id ? 'bg-navy text-white' : 'text-navy/60 hover:text-navy'}`}>
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === id ? 'bg-navy text-white hover:bg-navy/90' : 'text-navy/60 hover:text-navy hover:bg-navy-50/40'}`}>
             <Icon className="w-3.5 h-3.5" />{label}
           </button>
         ))}

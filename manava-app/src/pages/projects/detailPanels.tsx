@@ -1,15 +1,18 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import {
   CheckCircle2, AlertCircle, Layers, FileText, ShieldCheck, Bot,
   FileImage, Film, Send, ArrowRight, ShieldAlert, Clock, Inbox, Upload,
+  Plus, Pencil, Eye, Download, Lock,
 } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
+import { Modal } from '../../components/ui/Modal'
 import { formatCurrency, formatDate, formatDateTime, getInitials } from '../../lib/utils'
 import {
-  mockMessages, mockEscrowAccounts, mockTransactions,
-  mockRevisionEnvelopes, mockDisputes,
+  mockMessages, mockEscrowAccounts, mockTransactions, mockDisputes,
 } from '../../data/mockData'
-import type { Project, Message, UserRole } from '../../types'
+import { EnvelopeBuilder } from './EnvelopeBuilder'
+import { DisputeForm } from './DisputeForm'
+import type { Project, Message, UserRole, RevisionEnvelope, Dispute } from '../../types'
 
 // ─── Shared bits ──────────────────────────────────────────────────────────────
 
@@ -44,9 +47,7 @@ function EmptyState({ icon: Icon, text }: { icon: typeof Inbox; text: string }) 
 
 // ─── Ringkasan ──────────────────────────────────────────────────────────────
 
-export function OverviewPanel({ project }: { project: Project }) {
-  const envelope = mockRevisionEnvelopes.find(e => e.project_id === project.project_id)
-
+export function OverviewPanel({ project, envelope }: { project: Project; envelope?: RevisionEnvelope }) {
   return (
     <div className="space-y-6">
       <div>
@@ -109,8 +110,25 @@ function ScopeRow({ tone, title, body }: { tone: 'ok' | 'no'; title: string; bod
 
 // ─── Kontrak ──────────────────────────────────────────────────────────────────
 
-export function ContractPanel({ project }: { project: Project }) {
-  const envelope = mockRevisionEnvelopes.find(e => e.project_id === project.project_id)
+export function ContractPanel({
+  project,
+  role = 'client',
+  envelope,
+  agreedAt,
+  onEnvelopeChange,
+  onAgree,
+}: {
+  project: Project
+  role?: UserRole
+  envelope?: RevisionEnvelope
+  agreedAt: string | null
+  onEnvelopeChange: (envelope: RevisionEnvelope) => void
+  onAgree: () => void
+}) {
+  const isEditor = role === 'editor'
+  const [builderOpen, setBuilderOpen] = useState(false)
+  const [confirmChecked, setConfirmChecked] = useState(false)
+
   const contractStatus = project.status === 'completed' ? 'closed'
     : project.status === 'cancelled' ? 'rejected' : 'active'
 
@@ -119,7 +137,7 @@ export function ContractPanel({ project }: { project: Project }) {
       <div className="flex items-center justify-between rounded-xl border border-border bg-white p-4">
         <div className="flex items-center gap-3">
           <span className="grid place-items-center w-9 h-9 rounded-lg bg-navy/5 text-navy">
-            <FileText className="w-4.5 h-4.5" />
+            <FileText className="w-5 h-5" />
           </span>
           <div>
             <p className="text-sm font-semibold text-navy">Brief & Kontrak Layanan</p>
@@ -134,12 +152,85 @@ export function ContractPanel({ project }: { project: Project }) {
         <p className="text-sm text-navy/75 leading-relaxed">{project.description}</p>
       </div>
 
-      {envelope && (
-        <div className="grid sm:grid-cols-2 gap-3">
-          <ScopeRow tone="ok" title="Termasuk" body={envelope.included_scope} />
-          <ScopeRow tone="no" title="Tidak termasuk" body={envelope.excluded_scope} />
+      {/* Revision Envelope — the digital work agreement */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-semibold text-navy/45 uppercase tracking-wider">Revision Envelope</p>
+          {envelope && !agreedAt && isEditor && (
+            <button onClick={() => setBuilderOpen(true)} className="btn-ghost text-xs py-1.5 px-3">
+              <Pencil className="w-3.5 h-3.5" /> Edit
+            </button>
+          )}
         </div>
-      )}
+
+        {!envelope ? (
+          isEditor ? (
+            <div className="rounded-xl border border-dashed border-navy/20 bg-navy-50/30 p-6 text-center">
+              <FileText className="w-8 h-8 mx-auto text-navy/30 mb-2" />
+              <p className="text-sm text-navy/60 mb-4">
+                Belum ada Revision Envelope. Susun kesepakatan kerja digital sebelum proyek mulai.
+              </p>
+              <button onClick={() => setBuilderOpen(true)} className="btn-primary text-sm mx-auto">
+                <Plus className="w-4 h-4" /> Susun Revision Envelope
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-border bg-navy-50/30 p-4 text-sm text-navy/55">
+              Editor belum menyusun Revision Envelope untuk proyek ini.
+            </div>
+          )
+        ) : (
+          <div className="space-y-3">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <ScopeRow tone="ok" title="Termasuk" body={envelope.included_scope} />
+              <ScopeRow tone="no" title="Tidak termasuk" body={envelope.excluded_scope} />
+            </div>
+            <div className="rounded-xl border border-border bg-white p-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Layers className="w-3.5 h-3.5 text-navy/50" />
+                <span className="text-xs font-semibold text-navy/70">
+                  Jatah revisi gratis — {envelope.allowance_consumed}/{envelope.allowance_count} terpakai
+                </span>
+              </div>
+              <AllowanceBar consumed={envelope.allowance_consumed} total={envelope.allowance_count} />
+            </div>
+
+            {/* Agreement confirmation */}
+            {agreedAt ? (
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 flex items-start gap-2.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-emerald-800">Kesepakatan dikonfirmasi</p>
+                  <p className="text-xs text-navy/60 mt-0.5">
+                    Disepakati pada {formatDateTime(agreedAt)}. Lingkup terkunci untuk kedua pihak.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={confirmChecked}
+                    onChange={e => setConfirmChecked(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 accent-navy shrink-0"
+                  />
+                  <span className="text-sm text-navy/75">
+                    Saya menyetujui lingkup dan jatah revisi di atas sebagai kesepakatan kerja digital yang mengikat.
+                  </span>
+                </label>
+                <button
+                  onClick={onAgree}
+                  disabled={!confirmChecked}
+                  className="btn-primary text-sm mt-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ShieldCheck className="w-4 h-4" /> Konfirmasi Kesepakatan
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <Fact label="Nilai kontrak" value={formatCurrency(project.project_value)} />
@@ -153,13 +244,21 @@ export function ContractPanel({ project }: { project: Project }) {
           Pembayaran Anda ditahan aman di escrow dan baru dicairkan ke editor setelah Anda menyetujui hasil akhir.
         </p>
       </div>
+
+      <EnvelopeBuilder
+        open={builderOpen}
+        onClose={() => setBuilderOpen(false)}
+        projectId={project.project_id}
+        initial={envelope}
+        onSave={env => { onEnvelopeChange(env); setConfirmChecked(false) }}
+      />
     </div>
   )
 }
 
 // ─── Hasil Kerja ──────────────────────────────────────────────────────────────
 
-interface DeliverableVersion {
+export interface DeliverableVersion {
   version: number
   uploaded_at: string
   uploaded_by: string
@@ -188,8 +287,8 @@ export const DELIVERABLES: Record<string, DeliverableVersion[]> = {
 }
 
 function fileIcon(name: string) {
-  if (/\.(mp4|mov|avi)$/i.test(name)) return <Film className="w-4.5 h-4.5 text-purple-500" />
-  return <FileImage className="w-4.5 h-4.5 text-blue-500" />
+  if (/\.(mp4|mov|avi)$/i.test(name)) return <Film className="w-5 h-5 text-purple-500" />
+  return <FileImage className="w-5 h-5 text-blue-500" />
 }
 
 function diffColor(score: number) {
@@ -198,70 +297,178 @@ function diffColor(score: number) {
   return 'text-red-700 bg-red-50'
 }
 
-export function DeliverablesPanel({ project, role = 'client' }: { project: Project; role?: UserRole }) {
-  const isEditor = role === 'editor'
-  const versions = DELIVERABLES[project.project_id] ?? []
+function formatFileSize(bytes: number): string {
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`
+  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(0)} MB`
+  if (bytes >= 1e3) return `${(bytes / 1e3).toFixed(0)} KB`
+  return `${bytes} B`
+}
 
-  if (versions.length === 0) {
-    return (
-      <div className="text-center py-12 text-navy/35">
-        <Inbox className="w-9 h-9 mx-auto mb-2 opacity-40" />
-        <p className="text-sm">Belum ada hasil kerja yang dikirim</p>
-        {isEditor && (
-          <button className="btn-primary text-xs py-2 px-3 mt-4 mx-auto">
-            <Upload className="w-3.5 h-3.5" /> Unggah versi pertama
-          </button>
-        )}
-      </div>
-    )
+export function DeliverablesPanel({
+  project,
+  role = 'client',
+  versions,
+  onUpload,
+}: {
+  project: Project
+  role?: UserRole
+  versions: DeliverableVersion[]
+  onUpload: (version: DeliverableVersion) => void
+}) {
+  const isEditor = role === 'editor'
+  const canDownload = project.status === 'completed'
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [preview, setPreview] = useState<DeliverableVersion | null>(null)
+
+  // Upload simulation: read the picked file's name/size and run a stub of the
+  // AI change-detection that classifies new versions.
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const isFirst = versions.length === 0
+    onUpload({
+      version: isFirst ? 1 : Math.max(...versions.map(v => v.version)) + 1,
+      uploaded_at: new Date().toISOString(),
+      uploaded_by: project.editor_name,
+      file_name: file.name,
+      file_size: formatFileSize(file.size),
+      status: 'pending_review',
+      ai_diff_score: isFirst ? 0 : 10,
+      ai_change_type: isFirst ? 'new' : 'minor',
+      ai_confidence: isFirst ? 100 : 92,
+      change_summary: isFirst
+        ? 'Pengiriman awal'
+        : 'Versi baru diunggah — deteksi perubahan AI otomatis: perubahan minor.',
+    })
+    e.target.value = '' // allow re-selecting the same file
   }
 
   return (
     <div className="space-y-3">
-      {isEditor && (
+      <input ref={fileRef} type="file" className="hidden" onChange={handleFile} />
+
+      {isEditor && versions.length > 0 && (
         <div className="flex justify-end">
-          <button className="btn-primary text-xs py-2 px-3">
+          <button onClick={() => fileRef.current?.click()} className="btn-primary text-xs py-2 px-3">
             <Upload className="w-3.5 h-3.5" /> Unggah versi baru
           </button>
         </div>
       )}
-      {versions.map(v => (
-        <div key={v.version} className="rounded-xl border border-border bg-white p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3 min-w-0">
-              <span className="grid place-items-center w-9 h-9 rounded-lg bg-navy-50/60 shrink-0">{fileIcon(v.file_name)}</span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-navy flex items-center gap-2">
-                  Versi {v.version}
-                  <span className="text-xs font-normal text-navy/45 truncate">{v.file_name}</span>
-                </p>
-                <p className="text-xs text-navy/45 mt-0.5">{v.file_size} · {formatDateTime(v.uploaded_at)}</p>
-              </div>
-            </div>
-            <StatusBadge status={v.status} />
-          </div>
 
-          <div className="mt-3 flex items-start gap-2 rounded-lg bg-navy-50/40 p-2.5">
-            <Bot className="w-3.5 h-3.5 text-navy/50 mt-0.5 shrink-0" />
-            <div className="flex-1">
-              <div className="flex items-center gap-2 flex-wrap mb-1">
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${diffColor(v.ai_diff_score)}`}>
-                  Beda {v.ai_diff_score}%
-                </span>
-                <span className="text-xs text-navy/50">Keyakinan AI {v.ai_confidence}%</span>
-              </div>
-              <p className="text-xs text-navy/70 leading-snug">{v.change_summary}</p>
-            </div>
-          </div>
-
-          {!isEditor && v.status === 'pending_review' && (
-            <div className="mt-3 flex gap-2">
-              <button className="btn-primary text-xs py-2 px-3"><CheckCircle2 className="w-3.5 h-3.5" /> Setujui versi</button>
-              <button className="btn-secondary text-xs py-2 px-3">Minta revisi</button>
-            </div>
+      {versions.length === 0 ? (
+        <div className="text-center py-12 text-navy/35">
+          <Inbox className="w-9 h-9 mx-auto mb-2 opacity-40" />
+          <p className="text-sm">Belum ada hasil kerja yang dikirim</p>
+          {isEditor && (
+            <button onClick={() => fileRef.current?.click()} className="btn-primary text-xs py-2 px-3 mt-4 mx-auto">
+              <Upload className="w-3.5 h-3.5" /> Unggah versi pertama
+            </button>
           )}
         </div>
-      ))}
+      ) : (
+        versions.map(v => (
+          <div
+            key={v.version}
+            className="rounded-xl border border-border bg-white p-4 transition-all duration-200 hover:border-navy/15 hover:shadow-[0_14px_44px_-16px_rgba(2,21,38,0.18)] hover:-translate-y-0.5 motion-reduce:hover:translate-y-0"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 min-w-0">
+                <span className="grid place-items-center w-9 h-9 rounded-lg bg-navy-50/60 shrink-0">{fileIcon(v.file_name)}</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-navy flex items-center gap-2">
+                    Versi {v.version}
+                    <span className="text-xs font-normal text-navy/45 truncate">{v.file_name}</span>
+                  </p>
+                  <p className="text-xs text-navy/45 mt-0.5">{v.file_size} · {formatDateTime(v.uploaded_at)}</p>
+                </div>
+              </div>
+              <StatusBadge status={v.status} />
+            </div>
+
+            <div className="mt-3 flex items-start gap-2 rounded-lg bg-navy-50/40 p-2.5">
+              <Bot className="w-3.5 h-3.5 text-navy/50 mt-0.5 shrink-0" />
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap mb-1">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${diffColor(v.ai_diff_score)}`}>
+                    Beda {v.ai_diff_score}%
+                  </span>
+                  <span className="text-xs text-navy/50">Keyakinan AI {v.ai_confidence}%</span>
+                </div>
+                <p className="text-xs text-navy/70 leading-snug">{v.change_summary}</p>
+              </div>
+            </div>
+
+            {/* Preview (watermarked) + download (gated on completion) */}
+            <div className="mt-3 flex items-center gap-2">
+              <button onClick={() => setPreview(v)} className="btn-secondary text-xs py-2 px-3">
+                <Eye className="w-3.5 h-3.5" /> Pratinjau
+              </button>
+              <button
+                disabled={!canDownload}
+                title={canDownload ? 'Unduh file asli' : 'Tersedia setelah proyek selesai'}
+                className="btn-secondary text-xs py-2 px-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {canDownload ? <Download className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                {canDownload ? 'Unduh' : 'Terkunci'}
+              </button>
+            </div>
+
+            {!isEditor && v.status === 'pending_review' && (
+              <div className="mt-3 flex gap-2 border-t border-border pt-3">
+                <button className="btn-primary text-xs py-2 px-3"><CheckCircle2 className="w-3.5 h-3.5" /> Setujui versi</button>
+                <button className="btn-secondary text-xs py-2 px-3">Minta revisi</button>
+              </div>
+            )}
+          </div>
+        ))
+      )}
+
+      {preview && (
+        <Modal open onClose={() => setPreview(null)} title={`Pratinjau — ${preview.file_name}`} size="lg">
+          <div className="space-y-3">
+            <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-[#021526] to-[#0c2438] grid place-items-center">
+              <div className="relative z-10 text-center text-white/80 px-4">
+                <span className="grid place-items-center w-14 h-14 rounded-2xl bg-white/10 mx-auto mb-3">
+                  {/\.(mp4|mov|avi)$/i.test(preview.file_name)
+                    ? <Film className="w-7 h-7 text-white" />
+                    : <FileImage className="w-7 h-7 text-white" />}
+                </span>
+                <p className="text-sm font-medium">{preview.file_name}</p>
+                <p className="text-xs text-white/50 mt-1">{preview.file_size}</p>
+              </div>
+              {/* Auto watermark overlay */}
+              <div aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none select-none">
+                <div className="absolute inset-[-25%] flex flex-wrap gap-x-10 gap-y-7 rotate-[-30deg] opacity-20">
+                  {Array.from({ length: 80 }).map((_, i) => (
+                    <span key={i} className="text-white text-[12px] font-bold tracking-[0.25em] whitespace-nowrap">
+                      MANAVA · PRATINJAU
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+              <ShieldCheck className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+              <p className="text-xs text-navy/70 leading-relaxed">
+                Pratinjau diberi watermark otomatis. File asli tanpa watermark tersedia untuk diunduh
+                setelah proyek selesai.
+              </p>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                disabled={!canDownload}
+                title={canDownload ? 'Unduh file asli' : 'Tersedia setelah proyek selesai'}
+                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {canDownload ? <Download className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                {canDownload ? 'Unduh file asli' : 'Unduhan terkunci'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
@@ -425,49 +632,106 @@ const RESOLUTION_LABELS: Record<string, string> = {
   partial_refund: 'Pengembalian sebagian', full_refund: 'Pengembalian penuh', quality_sanction: 'Sanksi kualitas',
 }
 
-export function DisputePanel({ project }: { project: Project }) {
-  const disputes = mockDisputes.filter(d => d.project_id === project.project_id)
+export function DisputePanel({
+  project,
+  role = 'client',
+  disputes,
+  onCreate,
+}: {
+  project: Project
+  role?: UserRole
+  disputes: Dispute[]
+  onCreate: (dispute: Dispute) => void
+}) {
+  const [formOpen, setFormOpen] = useState(false)
 
-  if (disputes.length === 0) {
-    return (
-      <div className="text-center py-10">
-        <ShieldCheck className="w-9 h-9 mx-auto mb-2 text-emerald-500/70" />
-        <p className="text-sm text-navy/60">Tidak ada sengketa pada proyek ini.</p>
-        <button className="btn-secondary text-xs py-2 px-3 mt-4">
-          <ShieldAlert className="w-3.5 h-3.5" /> Ajukan sengketa
-        </button>
-      </div>
-    )
+  // Only a project party may open a dispute, and only one can be active at a time.
+  const canCreate = role === 'client' || role === 'editor'
+  const hasActive = disputes.some(d => d.status === 'open' || d.status === 'in_mediation')
+  const showCreate = canCreate && !hasActive
+
+  function handleSubmit(reason: string, evidence: string[]) {
+    onCreate({
+      dispute_id: `dsp-${Date.now()}`,
+      project_id: project.project_id,
+      project_title: project.title,
+      client_name: project.client_name,
+      editor_name: project.editor_name,
+      opened_by: role === 'editor' ? project.editor_name : project.client_name,
+      opened_by_role: role === 'editor' ? 'editor' : 'client',
+      reason,
+      evidence: evidence.length ? evidence : undefined,
+      status: 'open',
+      opened_at: new Date().toISOString(),
+      sla_deadline: new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
+    })
   }
 
   return (
     <div className="space-y-3">
-      {disputes.map(d => (
-        <div key={d.dispute_id} className="rounded-xl border border-border bg-white p-4 space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-red-500" />
-              <span className="text-sm font-semibold text-navy">Diajukan oleh {d.opened_by}</span>
-            </div>
-            <StatusBadge status={d.status} />
-          </div>
-          <p className="text-sm text-navy/75 leading-relaxed">{d.reason}</p>
-          <div className="flex items-center gap-3 text-xs text-navy/45">
-            <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {formatDateTime(d.opened_at)}</span>
-          </div>
-          {d.resolution_type && (
-            <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="text-xs font-semibold text-emerald-700">
-                  Hasil: {RESOLUTION_LABELS[d.resolution_type] ?? d.resolution_type}
-                </span>
-              </div>
-              {d.resolution_note && <p className="text-xs text-navy/70 leading-relaxed">{d.resolution_note}</p>}
-            </div>
+      {disputes.length === 0 ? (
+        <div className="text-center py-10">
+          <ShieldCheck className="w-9 h-9 mx-auto mb-2 text-emerald-500/70" />
+          <p className="text-sm text-navy/60">Tidak ada sengketa pada proyek ini.</p>
+          {showCreate && (
+            <button onClick={() => setFormOpen(true)} className="btn-secondary text-xs py-2 px-3 mt-4 mx-auto">
+              <ShieldAlert className="w-3.5 h-3.5" /> Ajukan sengketa
+            </button>
           )}
         </div>
-      ))}
+      ) : (
+        <>
+          {showCreate && (
+            <div className="flex justify-end">
+              <button onClick={() => setFormOpen(true)} className="btn-secondary text-xs py-2 px-3">
+                <ShieldAlert className="w-3.5 h-3.5" /> Ajukan sengketa
+              </button>
+            </div>
+          )}
+          {disputes.map(d => (
+            <div key={d.dispute_id} className="rounded-xl border border-border bg-white p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-red-500" />
+                  <span className="text-sm font-semibold text-navy">Diajukan oleh {d.opened_by}</span>
+                </div>
+                <StatusBadge status={d.status} />
+              </div>
+              <p className="text-sm text-navy/75 leading-relaxed">{d.reason}</p>
+
+              {d.evidence && d.evidence.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {d.evidence.map((name, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-navy-50/40 px-2.5 py-1 text-xs text-navy/70"
+                    >
+                      <FileText className="w-3 h-3 shrink-0" /> {name}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 text-xs text-navy/45">
+                <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {formatDateTime(d.opened_at)}</span>
+              </div>
+              {d.resolution_type && (
+                <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 p-3">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-xs font-semibold text-emerald-700">
+                      Hasil: {RESOLUTION_LABELS[d.resolution_type] ?? d.resolution_type}
+                    </span>
+                  </div>
+                  {d.resolution_note && <p className="text-xs text-navy/70 leading-relaxed">{d.resolution_note}</p>}
+                </div>
+              )}
+            </div>
+          ))}
+        </>
+      )}
+
+      <DisputeForm open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleSubmit} />
     </div>
   )
 }

@@ -117,7 +117,7 @@ function ProjectsHubView({
   return (
     <div className="space-y-6 max-w-6xl">
       {/* Portfolio summary */}
-      <div className="card">
+      <div className="card no-hover">
         <div className="grid gap-6 sm:grid-cols-[auto_1fr] sm:items-center">
           <div className="flex gap-7 sm:pr-7 sm:border-r border-border">
             <SummaryStat value={needAction} label="Perlu tindakan" accent="text-amber-600" />
@@ -202,7 +202,7 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
   return (
     <button
       onClick={onClick}
-      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${active ? 'bg-navy text-white shadow-sm' : 'bg-white text-navy/60 border border-border hover:border-navy/30'}`}
+      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${active ? 'bg-navy text-white shadow-sm hover:bg-navy/90' : 'bg-white text-navy/60 border border-border hover:border-navy/30'}`}
     >
       {children}
     </button>

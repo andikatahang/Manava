@@ -1,4 +1,4 @@
-import type { User, Editor, Applicant, JobPosting, Project, Dispute, EditorMetrics, Payslip, AttendanceRecord, LeaveRequest, EscrowAccount, Transaction, Message, RevisionRequest, RevisionEnvelope } from '../types'
+import type { User, Editor, Applicant, JobPosting, Project, Dispute, EditorMetrics, Payslip, AttendanceRecord, LeaveRequest, EscrowAccount, Transaction, Message, RevisionRequest, RevisionEnvelope, Review } from '../types'
 
 export const currentUser: User = {
   user_id: 'u1',
@@ -17,6 +17,14 @@ export const mockUsers: Record<string, User> = {
   admin_manager: { user_id: 'u5', full_name: 'Eko Manager', email: 'eko@manava.id', role: 'admin_manager', is_active: true },
   finance: { user_id: 'u6', full_name: 'Fani Finance', email: 'fani@manava.id', role: 'finance', is_active: true },
 }
+
+/**
+ * Maximum concurrent active projects per editor. An editor at or above this
+ * count is considered "full" (unavailable for new work). Single source of
+ * truth for both the roster's availability display and the booking capacity
+ * check.
+ */
+export const EDITOR_CAPACITY = 2
 
 export const mockEditors: Editor[] = [
   { editor_id: 'e1', user_id: 'u2', full_name: 'Budi Santoso', email: 'budi@manava.id', department: 'Photo Retouching', specialization: ['product_retouch', 'color_correction'], base_salary: 8000000, status: 'active', onboarded_at: '2026-01-15', rating: 4.8, completion_rate: 94, active_projects: 2, performance_band: 'excellent', avatar: 'https://i.pravatar.cc/480?img=12' },
@@ -59,6 +67,10 @@ export const mockDisputes: Dispute[] = [
   { dispute_id: 'd2', project_id: 'p4', project_title: 'Portrait Session Retouch', client_name: 'Citra Client', editor_name: 'Andi Kurniawan', opened_by: 'Andi Kurniawan', opened_by_role: 'editor', reason: 'Klien tidak merespons selama 9 hari. Perlu penyelesaian untuk melanjutkan.', status: 'open', opened_at: '2026-06-23T14:00:00', sla_deadline: '2026-06-25T14:00:00' },
   { dispute_id: 'd3', project_id: 'p6', project_title: 'Product Video - Furniture Line', client_name: 'HomeDecor ID', editor_name: 'Sari Dewi', opened_by: 'HomeDecor ID', opened_by_role: 'client', reason: 'Kualitas hasil kerja tidak sesuai brief. Warnanya meleset.', status: 'resolved', resolution_type: 'free_revision', resolution_note: 'Setelah meninjau brief dan hasil kerja, deviasi warna menjadi tanggung jawab editor. Revisi gratis diberikan.', opened_at: '2026-06-15T10:00:00', resolved_at: '2026-06-17T09:00:00', sla_deadline: '2026-06-17T10:00:00' },
 ]
+
+// Client reviews of completed projects. Seeded empty so the rating form is the
+// entry point on a completed project; submitting adds a review at runtime.
+export const mockReviews: Review[] = []
 
 export const mockEditorMetrics: EditorMetrics[] = [
   { editor_id: 'e1', editor_name: 'Budi Santoso', avg_client_rating: 4.8, completion_rate: 94, manager_rating: 4.5, kpi_average: 4.7, performance_band: 'excellent' },

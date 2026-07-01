@@ -65,6 +65,12 @@
   @media (prefers-reduced-motion: reduce) {
     .card:hover, .card-svc:hover, .card-sm:hover { transform: none; }
   }
+  /* Opt-out of the card lift — for static/read-only card surfaces. */
+  .card.no-hover:hover, .card-svc.no-hover:hover, .card-sm.no-hover:hover {
+    border-color: rgba(0, 0, 0, 0.05);
+    box-shadow: 0 1px 2px rgba(2, 21, 38, 0.04);
+    transform: none;
+  }
   .input {
     @apply w-full px-4 py-2.5 rounded-xl border border-border bg-white text-sm
            focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy/40
