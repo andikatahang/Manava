@@ -6,7 +6,6 @@ import {
   Wallet,
   PiggyBank,
   RefreshCw,
-  AlertTriangle,
   UserX,
   XCircle,
   FileText,

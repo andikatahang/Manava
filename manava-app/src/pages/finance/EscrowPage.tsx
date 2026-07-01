@@ -409,7 +409,7 @@ interface PaymentPhaseIndicatorProps {
   label: string
 }
 
-function PaymentPhaseIndicator({ amount, status, label }: PaymentPhaseIndicatorProps) {
+function PaymentPhaseIndicator({ amount, status }: PaymentPhaseIndicatorProps) {
   if (status === 'n/a') {
     return (
       <div className="flex flex-col items-center gap-1">

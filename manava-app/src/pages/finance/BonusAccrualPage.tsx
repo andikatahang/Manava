@@ -3,7 +3,6 @@ import {
   Award,
   CheckCircle2,
   Clock,
-  TrendingUp,
   Users,
   Wallet,
   Calculator,
