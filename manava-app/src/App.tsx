@@ -111,7 +111,7 @@ function AppRoutes() {
         <Route path="/system" element={<RoleGuard role={role}><SystemPage /></RoleGuard>} />
         <Route path="/warning" element={<RoleGuard role={role}><WarningPage role={role} /></RoleGuard>} />
         <Route path="/escalation" element={<RoleGuard role={role}><EscalationPage role={role} /></RoleGuard>} />
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/settings" element={<SettingsPage role={role} />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </AppLayout>
