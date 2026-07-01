@@ -13,6 +13,7 @@ export function InterviewForm({ application, onSubmit, onCancel }: InterviewForm
   const [datetime, setDatetime] = useState(application.interview?.datetime ?? '')
   const [mode, setMode] = useState<'online' | 'offline'>(application.interview?.mode ?? 'online')
   const [location, setLocation] = useState(application.interview?.location ?? '')
+  const [notes, setNotes] = useState(application.interview?.notes ?? '')
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   function handleSubmit(ev: React.FormEvent) {
@@ -29,6 +30,7 @@ export function InterviewForm({ application, onSubmit, onCancel }: InterviewForm
       datetime,
       mode,
       ...(mode === 'offline' ? { location: location.trim() } : {}),
+      ...(notes.trim() ? { notes: notes.trim() } : {}),
       sent_at: new Date().toISOString(),
     })
   }
@@ -92,6 +94,16 @@ export function InterviewForm({ application, onSubmit, onCancel }: InterviewForm
           />
         </Field>
       )}
+
+      <Field label="Catatan (opsional)">
+        <textarea
+          className="iv-input"
+          rows={3}
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          placeholder="mis. Bawa portofolio cetak, fokus wawancara pada studi kasus retouch"
+        />
+      </Field>
 
       <div className="flex gap-3 pt-2">
         <button type="submit" className="btn-primary flex-1 justify-center">Kirim Undangan Interview</button>

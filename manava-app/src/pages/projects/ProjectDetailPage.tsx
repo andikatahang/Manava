@@ -110,7 +110,7 @@ export default function ProjectDetailPage({ role }: { role: UserRole }) {
         onClick={() => navigate('/projects')}
         className="inline-flex items-center gap-1.5 text-sm text-navy/55 hover:text-navy transition-colors"
       >
-        <ArrowLeft className="w-4 h-4" /> Proyek Saya
+        <ArrowLeft className="w-4 h-4" /> {isEditor ? 'Proyek Saya' : 'Kembali ke Proyek'}
       </button>
 
       {/* Hero */}

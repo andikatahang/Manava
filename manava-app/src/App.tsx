@@ -14,13 +14,14 @@ import PerformancePage from './pages/performance/PerformancePage'
 import DisputesPage from './pages/disputes/DisputesPage'
 import ProjectsPage from './pages/projects/ProjectsPage'
 import ProjectDetailPage from './pages/projects/ProjectDetailPage'
+import DepartmentsPage from './pages/departments/DepartmentsPage'
+import TeamDashboardPage from './pages/team-dashboard/TeamDashboardPage'
 import ESSPage from './pages/ess/ESSPage'
 import ProfilePage from './pages/profile/ProfilePage'
 import RoleHomePage from './pages/home/RoleHomePage'
 import UsersPage from './pages/users/UsersPage'
 import SystemPage from './pages/system/SystemPage'
 import WarningPage from './pages/warning/WarningPage'
-import EscalationPage from './pages/escalation/EscalationPage'
 import ChatPage from './pages/chat/ChatPage'
 import OffboardingPage from './pages/offboarding/OffboardingPage'
 import SettingsPage from './pages/settings/SettingsPage'
@@ -44,8 +45,8 @@ const ALLOWED_PATHS: Record<UserRole, string[]> = {
     '/warning', '/escalation', '/offboarding', '/settings', '/profile',
   ],
   admin_manager: [
-    '/dashboard', '/attendance', '/performance', '/escalation', '/projects',
-    '/warning', '/offboarding', '/settings', '/profile',
+    '/dashboard', '/team-dashboard', '/attendance', '/departments', '/performance', '/projects',
+    '/ess', '/warning', '/settings', '/profile',
   ],
   editor: [
     '/dashboard', '/projects', '/chat', '/ess', '/attendance', '/settings', '/profile',
@@ -108,20 +109,21 @@ function AppRoutes() {
         <Route path="/revenue-report" element={<RoleGuard role={role}><RevenueReportPage role={role} /></RoleGuard>} />
         <Route path="/payroll-disbursement" element={<RoleGuard role={role}><PayrollDisbursementPage role={role} /></RoleGuard>} />
         <Route path="/attendance" element={<RoleGuard role={role}><AttendancePage role={role} /></RoleGuard>} />
+        <Route path="/departments" element={<RoleGuard role={role}><DepartmentsPage role={role} /></RoleGuard>} />
+        <Route path="/team-dashboard" element={<RoleGuard role={role}><TeamDashboardPage role={role} /></RoleGuard>} />
         <Route path="/performance" element={<RoleGuard role={role}><PerformancePage role={role} /></RoleGuard>} />
         <Route path="/disputes" element={<RoleGuard role={role}><DisputesPage role={role} /></RoleGuard>} />
         <Route path="/deliverables" element={<RoleGuard role={role}><DeliverablesPage /></RoleGuard>} />
         <Route path="/audit" element={<RoleGuard role={role}><AuditTrailPage /></RoleGuard>} />
         <Route path="/chat" element={<RoleGuard role={role}><ChatPage /></RoleGuard>} />
-        <Route path="/ess" element={<RoleGuard role={role}><ESSPage /></RoleGuard>} />
+        <Route path="/ess" element={<RoleGuard role={role}><ESSPage role={role} /></RoleGuard>} />
         <Route path="/profile" element={<RoleGuard role={role}><ProfilePage /></RoleGuard>} />
         <Route path="/offboarding" element={<RoleGuard role={role}><OffboardingPage /></RoleGuard>} />
         <Route path="/browse-editors" element={<RoleGuard role={role}><BrowseEditorsPage /></RoleGuard>} />
         <Route path="/users" element={<RoleGuard role={role}><UsersPage /></RoleGuard>} />
         <Route path="/system" element={<RoleGuard role={role}><SystemPage /></RoleGuard>} />
         <Route path="/warning" element={<RoleGuard role={role}><WarningPage role={role} /></RoleGuard>} />
-        <Route path="/escalation" element={<RoleGuard role={role}><EscalationPage role={role} /></RoleGuard>} />
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/settings" element={<SettingsPage role={role} />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </AppLayout>

@@ -9,7 +9,7 @@ const pageTitles: Record<string, string> = {
   '/projects': 'Proyek',
   '/contracts': 'Kontrak & Brief',
   '/payments': 'Escrow & Pembayaran',
-  '/attendance': 'Absensi, Cuti & Penggajian',
+  '/attendance': 'Presensi, Cuti & Penggajian',
   '/performance': 'KPI Kinerja',
   '/disputes': 'Penyelesaian Sengketa',
   '/chat': 'Chat Aplikasi',

@@ -148,7 +148,7 @@ function EditorDashboardView() {
         {/* Absensi card */}
         <div className="card flex flex-col">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-navy/45 uppercase tracking-wider">Absensi hari ini</p>
+            <p className="text-xs font-semibold text-navy/45 uppercase tracking-wider">Presensi hari ini</p>
             <Clock className="w-4 h-4 text-navy/30" />
           </div>
           <p className="text-sm font-medium text-navy mt-1.5 capitalize">{today}</p>

@@ -1,4 +1,4 @@
-import type { User, Editor, Applicant, JobPosting, Project, Dispute, EditorMetrics, Payslip, AttendanceRecord, LeaveRequest, EscrowAccount, Transaction, Message, RevisionRequest, RevisionEnvelope, Review } from '../types'
+import type { User, Editor, TeamMember, Department, Applicant, JobPosting, Project, Dispute, EditorMetrics, Payslip, AttendanceRecord, LeaveRequest, EscrowAccount, Transaction, Message, RevisionRequest, RevisionEnvelope } from '../types'
 
 export const currentUser: User = {
   user_id: 'u1',
@@ -32,6 +32,21 @@ export const mockEditors: Editor[] = [
   { editor_id: 'e3', user_id: 'u8', full_name: 'Andi Kurniawan', email: 'andi@manava.id', department: 'Photo Retouching', specialization: ['portrait_retouch', 'background_removal'], base_salary: 7500000, status: 'active', onboarded_at: '2026-03-10', rating: 3.9, completion_rate: 75, active_projects: 3, performance_band: 'good', avatar: 'https://i.pravatar.cc/480?img=33' },
   { editor_id: 'e4', user_id: 'u9', full_name: 'Maya Putri', email: 'maya@manava.id', department: 'Color Grading', specialization: ['color_grading', 'vfx'], base_salary: 10000000, status: 'active', onboarded_at: '2026-01-05', rating: 4.9, completion_rate: 97, active_projects: 2, performance_band: 'excellent', avatar: 'https://i.pravatar.cc/480?img=45' },
   { editor_id: 'e5', user_id: 'u10', full_name: 'Rizky Hakim', email: 'rizky@manava.id', department: 'Video Editing', specialization: ['video_edit', 'motion_graphics'], base_salary: 8500000, status: 'suspended', onboarded_at: '2026-02-20', rating: 2.8, completion_rate: 60, active_projects: 0, performance_band: 'needs_improvement', avatar: 'https://i.pravatar.cc/480?img=51' },
+]
+
+// Admin Managers heading each department — this is HR Admin's attendance scope
+// (HR Admin oversees managers, managers oversee editors).
+export const mockAdminManagers: TeamMember[] = [
+  { id: 'u5',  full_name: 'Eko Manager',   department: 'Photo Retouching', avatar: 'https://i.pravatar.cc/480?img=68' },
+  { id: 'am2', full_name: 'Rina Wijaya',   department: 'Video Editing',    avatar: 'https://i.pravatar.cc/480?img=15' },
+  { id: 'am3', full_name: 'Dani Kusuma',   department: 'Color Grading',    avatar: 'https://i.pravatar.cc/480?img=25' },
+]
+
+// Departments = manager + relevant editors. HR Admin manages this structure.
+export const mockDepartments: Department[] = [
+  { id: 'd1', name: 'Photo Retouching', manager_id: 'u5',  member_ids: ['e1', 'e3'] },
+  { id: 'd2', name: 'Video Editing',    manager_id: 'am2', member_ids: ['e2', 'e5'] },
+  { id: 'd3', name: 'Color Grading',    manager_id: 'am3', member_ids: ['e4'] },
 ]
 
 export const mockJobPostings: JobPosting[] = [
@@ -126,9 +141,13 @@ export const mockAttendance: AttendanceRecord[] = [
 ]
 
 export const mockLeaveRequests: LeaveRequest[] = [
-  { leave_id: 'l1', editor_id: 'e1', editor_name: 'Budi Santoso', leave_type: 'cuti', start_date: '2026-06-11', end_date: '2026-06-12', status: 'approved', created_at: '2026-06-09' },
-  { leave_id: 'l2', editor_id: 'e3', editor_name: 'Andi Kurniawan', leave_type: 'izin', start_date: '2026-06-26', end_date: '2026-06-26', status: 'pending', created_at: '2026-06-24' },
-  { leave_id: 'l3', editor_id: 'e2', editor_name: 'Sari Dewi', leave_type: 'cuti', start_date: '2026-07-14', end_date: '2026-07-18', status: 'pending', created_at: '2026-06-23' },
+  // Editor requests → routed to Admin Manager for approval.
+  { leave_id: 'l1', editor_id: 'e1', editor_name: 'Budi Santoso', requester_role: 'editor', leave_type: 'cuti', start_date: '2026-06-11', end_date: '2026-06-12', status: 'approved', created_at: '2026-06-09' },
+  { leave_id: 'l2', editor_id: 'e3', editor_name: 'Andi Kurniawan', requester_role: 'editor', leave_type: 'izin', start_date: '2026-06-26', end_date: '2026-06-26', status: 'pending', created_at: '2026-06-24' },
+  { leave_id: 'l3', editor_id: 'e2', editor_name: 'Sari Dewi', requester_role: 'editor', leave_type: 'cuti', start_date: '2026-07-14', end_date: '2026-07-18', status: 'pending', created_at: '2026-06-23' },
+  // Admin Manager requests → routed one level up to HR Admin (various departments).
+  { leave_id: 'l4', editor_id: 'u5', editor_name: 'Eko Manager', requester_role: 'admin_manager', leave_type: 'cuti', start_date: '2026-07-02', end_date: '2026-07-04', status: 'pending', created_at: '2026-06-27' },
+  { leave_id: 'l5', editor_id: 'am2', editor_name: 'Rina Wijaya', requester_role: 'admin_manager', leave_type: 'izin', start_date: '2026-06-30', end_date: '2026-06-30', status: 'pending', created_at: '2026-06-26' },
 ]
 
 export const mockEscrowAccounts: EscrowAccount[] = [
