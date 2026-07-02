@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import {
   CheckCircle2, AlertCircle, Layers, FileText, ShieldCheck, Bot,
   FileImage, Film, Send, ArrowRight, ShieldAlert, Clock, Inbox, Upload,
-  Plus, Pencil, Eye, Download, Lock,
+  Plus, Pencil, Eye, Download, Lock, FileSignature,
 } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
@@ -12,6 +12,10 @@ import {
 } from '../../data/mockData'
 import { EnvelopeBuilder } from './EnvelopeBuilder'
 import { DisputeForm } from './DisputeForm'
+import {
+  OfferComposer, OfferMessageCard, ClientReviewPanel, MediatorReviewNotice,
+} from './workflow'
+import type { ProjectOffer, RevisionAnalysis } from './workflow'
 import type { Project, Message, UserRole, RevisionEnvelope, Dispute } from '../../types'
 
 // ─── Shared bits ──────────────────────────────────────────────────────────────
@@ -309,14 +313,25 @@ export function DeliverablesPanel({
   role = 'client',
   versions,
   onUpload,
+  onApprove,
+  onRequestRevision,
+  onDiscuss,
+  onDispute,
 }: {
   project: Project
   role?: UserRole
   versions: DeliverableVersion[]
   onUpload: (version: DeliverableVersion) => void
+  onApprove?: (version: DeliverableVersion) => void
+  onRequestRevision?: (version: DeliverableVersion, feedback: string, analysis: RevisionAnalysis) => void
+  onDiscuss?: () => void
+  onDispute?: () => void
 }) {
   const isEditor = role === 'editor'
   const canDownload = project.status === 'completed'
+  // Uploads only make sense while the editor is actively working; once the
+  // work sits in review (or is done/disputed) the ball is in the client's court.
+  const canUpload = isEditor && (project.status === 'in_progress' || project.status === 'revision')
   const fileRef = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<DeliverableVersion | null>(null)
 
@@ -347,7 +362,7 @@ export function DeliverablesPanel({
     <div className="space-y-3">
       <input ref={fileRef} type="file" className="hidden" onChange={handleFile} />
 
-      {isEditor && versions.length > 0 && (
+      {canUpload && versions.length > 0 && (
         <div className="flex justify-end">
           <button onClick={() => fileRef.current?.click()} className="btn-primary text-xs py-2 px-3">
             <Upload className="w-3.5 h-3.5" /> Unggah versi baru
@@ -359,7 +374,7 @@ export function DeliverablesPanel({
         <div className="text-center py-12 text-navy/35">
           <Inbox className="w-9 h-9 mx-auto mb-2 opacity-40" />
           <p className="text-sm">Belum ada hasil kerja yang dikirim</p>
-          {isEditor && (
+          {canUpload && (
             <button onClick={() => fileRef.current?.click()} className="btn-primary text-xs py-2 px-3 mt-4 mx-auto">
               <Upload className="w-3.5 h-3.5" /> Unggah versi pertama
             </button>
@@ -413,10 +428,16 @@ export function DeliverablesPanel({
               </button>
             </div>
 
-            {!isEditor && v.status === 'pending_review' && (
-              <div className="mt-3 flex gap-2 border-t border-border pt-3">
-                <button className="btn-primary text-xs py-2 px-3"><CheckCircle2 className="w-3.5 h-3.5" /> Setujui versi</button>
-                <button className="btn-secondary text-xs py-2 px-3">Minta revisi</button>
+            {/* Review actions live on the newest version while it awaits the client */}
+            {role === 'client' && project.status === 'in_review'
+              && v.version === versions[0]?.version && v.status === 'pending_review' && onApprove && (
+              <div className="mt-3 border-t border-border pt-3">
+                <ClientReviewPanel
+                  onApprove={() => onApprove(v)}
+                  onConfirmRevision={(feedback, analysis) => onRequestRevision?.(v, feedback, analysis)}
+                  onDiscuss={onDiscuss}
+                  onDispute={onDispute}
+                />
               </div>
             )}
           </div>
@@ -479,12 +500,34 @@ const MESSAGE_TYPE_TAG: Record<string, string> = {
   brief: 'Brief', deliverable: 'Hasil kerja', revision_request: 'Permintaan revisi', ai_summary: 'Ringkasan AI',
 }
 
-export function ChatPanel({ project }: { project: Project }) {
+export function ChatPanel({
+  project,
+  role = 'client',
+  offer,
+  onSendOffer,
+  onOfferResponse,
+}: {
+  project: Project
+  role?: UserRole
+  offer?: ProjectOffer | null
+  onSendOffer?: (offer: ProjectOffer) => void
+  onOfferResponse?: (accepted: boolean) => void
+}) {
   const initial = mockMessages
     .filter(m => m.project_id === project.project_id)
     .sort((a, b) => a.created_at.localeCompare(b.created_at))
   const [messages, setMessages] = useState<Message[]>(initial)
   const [draft, setDraft] = useState('')
+  const [composerOpen, setComposerOpen] = useState(false)
+
+  const isEditor = role === 'editor'
+  const me = isEditor
+    ? { id: project.editor_id, name: project.editor_name }
+    : { id: project.client_id, name: project.client_name }
+  // The editor may send (or re-send after rejection) an offer while the
+  // project is still in the discussion phase.
+  const canOffer = isEditor && project.status === 'draft'
+    && (!offer || offer.status === 'rejected') && !!onSendOffer
 
   function send() {
     const text = draft.trim()
@@ -492,9 +535,9 @@ export function ChatPanel({ project }: { project: Project }) {
     setMessages(prev => [...prev, {
       message_id: `local-${prev.length}`,
       project_id: project.project_id,
-      sender_id: 'u3',
-      sender_name: 'Anda',
-      sender_role: 'client',
+      sender_id: me.id,
+      sender_name: me.name,
+      sender_role: role,
       body: text,
       message_type: 'text',
       created_at: new Date().toISOString(),
@@ -502,15 +545,14 @@ export function ChatPanel({ project }: { project: Project }) {
     setDraft('')
   }
 
-  if (initial.length === 0 && messages.length === 0) {
-    return <EmptyState icon={Inbox} text="Belum ada percakapan" />
-  }
-
   return (
     <div className="flex flex-col h-[480px]">
       <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+        {messages.length === 0 && !offer && (
+          <EmptyState icon={Inbox} text="Belum ada percakapan" />
+        )}
         {messages.map(m => {
-          const mine = m.sender_role === 'client'
+          const mine = m.sender_role === role
           const isSystem = m.message_type === 'system' || m.message_type === 'ai_summary'
           if (isSystem) {
             return (
@@ -540,20 +582,46 @@ export function ChatPanel({ project }: { project: Project }) {
             </div>
           )
         })}
+
+        {/* Offer travels through the chat as a rich card */}
+        {offer && (
+          <div className={`flex ${isEditor ? 'justify-end' : 'justify-start'}`}>
+            <OfferMessageCard offer={offer} role={role} onRespond={onOfferResponse} />
+          </div>
+        )}
       </div>
 
       <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
+        {canOffer && (
+          <button
+            onClick={() => setComposerOpen(true)}
+            className="btn-secondary px-3 py-2.5 shrink-0"
+            title="Kirim penawaran proyek"
+            aria-label="Kirim penawaran proyek"
+          >
+            <FileSignature className="w-4 h-4" />
+          </button>
+        )}
         <input
           value={draft}
           onChange={e => setDraft(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') send() }}
           className="input"
-          placeholder="Tulis pesan ke editor…"
+          placeholder={isEditor ? 'Tulis pesan ke klien…' : 'Tulis pesan ke editor…'}
         />
         <button onClick={send} className="btn-primary px-3 py-2.5 shrink-0" aria-label="Kirim pesan">
           <Send className="w-4 h-4" />
         </button>
       </div>
+
+      {onSendOffer && (
+        <OfferComposer
+          open={composerOpen}
+          onClose={() => setComposerOpen(false)}
+          defaultTitle={project.title}
+          onSend={onSendOffer}
+        />
+      )}
     </div>
   )
 }
@@ -688,6 +756,7 @@ export function DisputePanel({
               </button>
             </div>
           )}
+          {hasActive && <MediatorReviewNotice />}
           {disputes.map(d => (
             <div key={d.dispute_id} className="rounded-xl border border-border bg-white p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">

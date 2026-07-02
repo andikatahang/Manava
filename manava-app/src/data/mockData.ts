@@ -75,6 +75,8 @@ export const mockProjects: Project[] = [
   { project_id: 'p6', client_id: 'u14', client_name: 'HomeDecor ID', editor_id: 'e2', editor_name: 'Sari Dewi', title: 'Product Video - Furniture Line', description: '5 video produk, masing-masing 30 detik', status: 'awaiting_dp', dp_amount: 2500000, final_amount: 2500000, project_value: 5000000, created_at: '2026-06-22' },
   { project_id: 'p7', client_id: 'u15', client_name: 'Lazada Official', editor_id: 'e1', editor_name: 'Budi Santoso', title: 'E-commerce Lifestyle Retouch', description: '30 foto lifestyle produk fashion, warna cerah konsisten', status: 'in_progress', dp_amount: 1500000, final_amount: 1500000, project_value: 3000000, started_at: '2026-06-20', created_at: '2026-06-19' },
   { project_id: 'p8', client_id: 'u16', client_name: 'Glow Beauty', editor_id: 'e1', editor_name: 'Budi Santoso', title: 'Skincare Product Set Retouch', description: '12 foto produk skincare, latar gradient lembut', status: 'revision', dp_amount: 900000, final_amount: 900000, project_value: 1800000, started_at: '2026-06-21', created_at: '2026-06-20' },
+  // Discussion phase: no offer sent yet — the full booking workflow starts here.
+  { project_id: 'p9', client_id: 'u3', client_name: 'Citra Client', editor_id: 'e1', editor_name: 'Budi Santoso', title: 'Brand Reel Video Edit - Instagram', description: 'Diskusi awal: edit reel 60 detik untuk peluncuran produk, gaya cepat dan enerjik', status: 'draft', dp_amount: 0, final_amount: 0, project_value: 0, created_at: '2026-06-25' },
 ]
 
 export const mockDisputes: Dispute[] = [
@@ -178,6 +180,9 @@ export const mockMessages: Message[] = [
   { message_id: 'm8', project_id: 'p1', sender_id: 'u2', sender_name: 'Budi Santoso', sender_role: 'editor', body: 'Semua 20 foto sudah diretouch dan siap ditinjau. Pratinjau berwatermark terlampir.', message_type: 'deliverable', created_at: '2026-06-13T15:00:00' },
   { message_id: 'm9', project_id: 'p1', sender_id: 'u3', sender_name: 'Citra Client', sender_role: 'client', body: 'Foto #7 ada sedikit semburat warna. Bisa diperbaiki?', message_type: 'revision_request', created_at: '2026-06-14T09:00:00' },
   { message_id: 'm10', project_id: 'p1', sender_id: 'system', sender_name: 'Sistem AI', sender_role: 'superadmin', body: 'Analisis AI: Revisi diklasifikasi sebagai MINOR (keyakinan: 88%). Dalam lingkup included. ALLOWANCE terpakai: 1/5.', message_type: 'ai_summary', created_at: '2026-06-14T09:01:00' },
+  // p9 — discussion before any offer exists
+  { message_id: 'm11', project_id: 'p9', sender_id: 'u3', sender_name: 'Citra Client', sender_role: 'client', body: 'Halo! Saya butuh edit reel 60 detik untuk peluncuran produk minggu depan. Gaya cepat dan enerjik, referensi menyusul. Bisa bantu?', message_type: 'text', created_at: '2026-06-25T09:00:00' },
+  { message_id: 'm12', project_id: 'p9', sender_id: 'u2', sender_name: 'Budi Santoso', sender_role: 'editor', body: 'Bisa! Footage mentahnya kira-kira berapa menit? Setelah lingkupnya jelas, saya kirim penawaran resminya langsung di chat ini.', message_type: 'text', created_at: '2026-06-25T09:10:00' },
 ]
 
 export const mockRevisions: RevisionRequest[] = [
