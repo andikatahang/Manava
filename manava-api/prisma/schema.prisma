@@ -4,6 +4,9 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Extra targets so the client works inside node:20-alpine (musl) on both
+  // x64 and arm64 hosts.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x"]
 }
 
 datasource db {
@@ -191,6 +194,7 @@ model User {
   user_id       String   @id @default(cuid())
   full_name     String
   email         String   @unique
+  username      String   @unique
   password_hash String
   role          UserRole
   avatar        String?

@@ -3,39 +3,21 @@ import { AlertOctagon, Plus, Filter, Calendar } from 'lucide-react'
 import { PageHeader, StatPillsRow } from '../../components/page/PageHeader'
 import { Modal } from '../../components/ui/Modal'
 import { mockEditors, mockAdminManagers } from '../../data/mockData'
+import {
+  useWarnings, useWarningMutations,
+  type Warning, type WarningSeverity as Severity,
+  type WarningStatus as Status, type WarningTargetRole as TargetRole,
+} from '../../hooks/queries/useWarnings'
 import type { UserRole } from '../../types'
 
-type Severity = 'ringan' | 'sedang' | 'berat'
-type Status = 'aktif' | 'diakui' | 'kedaluwarsa'
-type TargetRole = 'editor' | 'admin_manager'
-
-interface Warning {
-  id: string
-  targetName: string
-  targetRole: TargetRole
-  reason: string
-  severity: Severity
-  status: Status
-  issuedBy: string
-  issuedAt: string
-  expiresAt: string
-}
-
-// Pool of candidate targets: active editors + admin managers. Sourced live from
-// mock data so a newly added editor is automatically eligible for a warning.
+// Pool of candidate targets: active editors + admin managers. Sourced from
+// the fixture tables (seeded into Postgres with identical ids).
 interface Candidate { id: string; name: string; role: TargetRole; subLabel: string }
 
 const ROLE_LABEL: Record<TargetRole, string> = {
   editor: 'Editor',
   admin_manager: 'Admin Manager',
 }
-
-function addMonths(iso: string, months: number): string {
-  const d = new Date(iso)
-  d.setMonth(d.getMonth() + months)
-  return d.toISOString().slice(0, 10)
-}
-const SEVERITY_MONTHS: Record<Severity, number> = { ringan: 2, sedang: 3, berat: 6 }
 
 const SEVERITY_TONE: Record<Severity, string> = {
   ringan: 'bg-[#FEF3C7] text-[#B45309] border-[#FCD34D]',
@@ -48,12 +30,6 @@ const STATUS_TONE: Record<Status, string> = {
   diakui:      'bg-[#DCFCE7] text-[#047857]',
   kedaluwarsa: 'bg-[#E5EBF0] text-[#596074]',
 }
-
-const MOCK_WARNINGS: Warning[] = [
-  { id: 'w1', targetName: 'Rizky Hakim',   targetRole: 'editor',        reason: 'Completion rate < 70% selama 2 bulan berturut-turut',         severity: 'berat',  status: 'aktif',  issuedBy: 'Hasna HR Admin', issuedAt: '2026-06-15', expiresAt: '2026-12-15' },
-  { id: 'w2', targetName: 'Andi Kurniawan', targetRole: 'editor',       reason: 'Tiga kali missing clock-out tanpa klarifikasi bulan Mei',      severity: 'sedang', status: 'diakui', issuedBy: 'Hasna HR Admin', issuedAt: '2026-06-02', expiresAt: '2026-09-02' },
-  { id: 'w3', targetName: 'Eko Manager',    targetRole: 'admin_manager', reason: 'Manager Assessment Q2 telat — KPI editor tidak dapat dihitung', severity: 'ringan', status: 'aktif', issuedBy: 'Hasna HR Admin', issuedAt: '2026-06-20', expiresAt: '2026-08-20' },
-]
 
 interface WarningPageProps { role: UserRole }
 
@@ -70,9 +46,12 @@ const HEADER_BY_ROLE: Record<UserRole, { eyebrow: string; title: string; descrip
 export default function WarningPage({ role }: WarningPageProps) {
   const h = HEADER_BY_ROLE[role] ?? HEADER_BY_ROLE.hr_admin
   const [filter, setFilter] = useState<Status | 'all'>('all')
-  const [warnings, setWarnings] = useState<Warning[]>(MOCK_WARNINGS)
   const [showForm, setShowForm] = useState(false)
   const [selected, setSelected] = useState<Warning | null>(null)
+
+  const warningsQuery = useWarnings()
+  const mutations = useWarningMutations()
+  const warnings = warningsQuery.data ?? []
 
   const candidates = useMemo<Candidate[]>(() => ([
     ...mockEditors
@@ -81,27 +60,20 @@ export default function WarningPage({ role }: WarningPageProps) {
     ...mockAdminManagers.map(m => ({ id: m.id, name: m.full_name, role: 'admin_manager' as TargetRole, subLabel: m.department })),
   ]), [])
 
-  function issueWarning(input: { targetId: string; reason: string; severity: Severity }) {
+  async function issueWarning(input: { targetId: string; reason: string; severity: Severity }) {
     const target = candidates.find(c => c.id === input.targetId)
     if (!target) return
-    const today = new Date().toISOString().slice(0, 10)
-    const next: Warning = {
-      id: `w-${Date.now()}`,
-      targetName: target.name,
-      targetRole: target.role,
+    await mutations.create.mutateAsync({
+      target_name: target.name,
+      target_role: target.role,
       reason: input.reason.trim(),
       severity: input.severity,
-      status: 'aktif',
-      issuedBy: 'Hasna HR Admin',
-      issuedAt: today,
-      expiresAt: addMonths(today, SEVERITY_MONTHS[input.severity]),
-    }
-    setWarnings(prev => [next, ...prev])
+    })
     setShowForm(false)
   }
 
   function updateStatus(id: string, status: Status) {
-    setWarnings(prev => prev.map(w => (w.id === id ? { ...w, status } : w)))
+    mutations.updateStatus.mutate({ id, status })
     setSelected(prev => (prev && prev.id === id ? { ...prev, status } : prev))
   }
 

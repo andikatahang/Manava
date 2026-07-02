@@ -4,6 +4,7 @@ import { useAuth } from './hooks/useAuth'
 import { AppLayout } from './components/layout/AppLayout'
 import LandingPage from './pages/landing/LandingPage'
 import LoginPage from './pages/auth/LoginPage'
+import RegisterPage from './pages/auth/RegisterPage'
 import ApplyPage from './pages/apply/ApplyPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
 import RecruitmentPage from './pages/recruitment/RecruitmentPage'
@@ -74,14 +75,21 @@ function RoleGuard({ role, children }: { role: UserRole; children: React.ReactNo
 }
 
 function AppRoutes() {
-  const { user, login, logout, isAuthenticated } = useAuth()
+  const { user, login, register, logout, isAuthenticated, isHydrating } = useAuth()
+
+  // Wait for the silent refresh before deciding login vs app — avoids a
+  // login-page flash on reload for users with a live session.
+  if (isHydrating) {
+    return <div className="min-h-screen bg-primary" aria-busy="true" />
+  }
 
   if (!isAuthenticated || !user) {
     return (
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/apply" element={<ApplyPage />} />
-        <Route path="/login" element={<LoginPage onLogin={(role: UserRole) => login(role)} />} />
+        <Route path="/login" element={<LoginPage onLogin={login} />} />
+        <Route path="/register" element={<RegisterPage onRegister={register} />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     )
@@ -94,6 +102,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/register" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<RoleHomePage user={user} />} />
         <Route path="/dashboard-legacy" element={<DashboardPage role={role} />} />
         <Route path="/recruitment" element={<RoleGuard role={role}><RecruitmentPage role={role} /></RoleGuard>} />
