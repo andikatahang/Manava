@@ -1,4 +1,4 @@
-import type { User, Editor, TeamMember, Department, Applicant, JobPosting, Project, Dispute, EditorMetrics, Payslip, AttendanceRecord, LeaveRequest, EscrowAccount, Transaction, Message, RevisionRequest, RevisionEnvelope } from '../types'
+import type { User, Editor, TeamMember, Department, Applicant, JobPosting, Project, Dispute, EditorMetrics, Payslip, AttendanceRecord, LeaveRequest, EscrowAccount, Transaction, Message, RevisionRequest, RevisionEnvelope, Review } from '../types'
 
 export const currentUser: User = {
   user_id: 'u1',

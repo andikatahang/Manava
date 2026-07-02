@@ -50,8 +50,8 @@ const BAND_STYLE: Record<string, string> = {
   needs_improvement: 'text-amber-700 bg-amber-50 border-amber-200',
 }
 
-export default function DepartmentsPage({ role }: { role: UserRole }) {
-  if (role === 'admin_manager') return <ManagerDepartmentView role={role} />
+export default function DepartmentsPage({ role, embedded = false }: { role: UserRole; embedded?: boolean }) {
+  if (role === 'admin_manager') return <ManagerDepartmentView role={role} embedded={embedded} />
   return <HrDepartmentDashboard role={role} />
 }
 

@@ -40,7 +40,7 @@ function presenceFor(editor: Editor, idx: number): Presence {
 }
 
 // The Admin Manager's own department hub — editors + their presensi, KPI, projects.
-export function ManagerDepartmentView({ role }: { role: UserRole }) {
+export function ManagerDepartmentView({ role, embedded = false }: { role: UserRole; embedded?: boolean }) {
   const navigate = useNavigate()
   const managerId = mockUsers.admin_manager.user_id
   const mine = mockDepartments.filter(d => d.manager_id === managerId)
@@ -48,12 +48,14 @@ export function ManagerDepartmentView({ role }: { role: UserRole }) {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <PageHeader
-        eyebrow="Departemen Saya"
-        title="Departemen"
-        description="Editor di departemen Anda beserta presensi, KPI, dan proyeknya — dalam satu tempat."
-        role={role}
-      />
+      {!embedded && (
+        <PageHeader
+          eyebrow="Departemen Saya"
+          title="Departemen"
+          description="Editor di departemen Anda beserta presensi, KPI, dan proyeknya — dalam satu tempat."
+          role={role}
+        />
+      )}
       {departments.map(dep => (
         <DepartmentBlock key={dep.id} department={dep} onOpenProject={id => navigate(`/projects/${id}`)} />
       ))}
