@@ -16,13 +16,15 @@ import { departmentsRouter } from './modules/departments/routes.js'
 import { warningsRouter } from './modules/warnings/routes.js'
 import { leaveRequestsRouter } from './modules/leaveRequests/routes.js'
 import { projectsRouter } from './modules/projects/routes.js'
+import { applicationsRouter } from './modules/applications/routes.js'
 
 const app = express()
 
 app.use(helmet())
 app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
 app.use(cookieParser())
-app.use(express.json({ limit: '1mb' }))
+// 8mb: job applications carry the CV inline as a base64 data URL (max 5MB file).
+app.use(express.json({ limit: '8mb' }))
 if (env.NODE_ENV !== 'test') app.use(morgan('dev'))
 
 // Health check — used by Docker healthcheck and monitoring.
@@ -37,6 +39,7 @@ app.use('/api/v1/departments', departmentsRouter)
 app.use('/api/v1/warnings', warningsRouter)
 app.use('/api/v1/leave-requests', leaveRequestsRouter)
 app.use('/api/v1/projects', projectsRouter)
+app.use('/api/v1/applications', applicationsRouter)
 
 // Fallback for unknown routes
 app.use((_req, res) => {

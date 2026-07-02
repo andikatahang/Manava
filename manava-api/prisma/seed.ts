@@ -54,11 +54,64 @@ const editorMetrics = [
   { editor_id: 'e5', editor_name: 'Rizky Hakim',     avg_client_rating: 2.8, completion_rate: 60, manager_rating: 2.5, kpi_average: 2.6, performance_band: PerformanceBand.needs_improvement },
 ]
 
+// Minimal one-page PDF so the HR detail page has a real CV preview in dev.
+const SAMPLE_PDF = [
+  '%PDF-1.4',
+  '1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj',
+  '2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj',
+  '3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj',
+  '4 0 obj<</Length 60>>stream',
+  'BT /F1 18 Tf 72 770 Td (Curriculum Vitae - Manava) Tj ET',
+  'endstream endobj',
+  '5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj',
+  'trailer<</Root 1 0 R>>',
+  '%%EOF',
+].join('\n')
+const SAMPLE_CV_DATA = `data:application/pdf;base64,${Buffer.from(SAMPLE_PDF).toString('base64')}`
+
+const jobApplications = [
+  {
+    application_id: 'app1', full_name: 'Dimas Pratama', email: 'dimas.pratama@mail.com',
+    age: 24, phone: '+62 812-1111-2222', education: 'S1', gpa: 3.62, graduation_year: 2024,
+    skills: ['Product Retouch', 'Color Correction'], status: 'new' as const,
+    ai_summary:
+      'Dimas Pratama (24 tahun) adalah lulusan S1 tahun 2024 dengan IPK di atas rata-rata (3.62). ' +
+      'Kandidat memiliki pengalaman sekitar 2 tahun sejak kelulusan dan menonjol pada keahlian Product Retouch, Color Correction. ' +
+      'Profil keahliannya paling cocok untuk departemen Color Grading. ' +
+      'Rekomendasi: lanjutkan ke tahap interview untuk memvalidasi portofolio dan kecocokan tim.',
+    submitted_at: '2026-06-25T09:12:00.000Z',
+  },
+  {
+    application_id: 'app2', full_name: 'Anindya Rahmawati', email: 'anindya.r@mail.com',
+    age: 27, phone: '+62 813-3333-4444', education: 'S1', gpa: 3.81, graduation_year: 2021,
+    skills: ['Video Edit', 'Motion Graphics'], status: 'interview' as const,
+    ai_summary:
+      'Anindya Rahmawati (27 tahun) adalah lulusan S1 tahun 2021 dengan IPK di atas rata-rata (3.81). ' +
+      'Kandidat memiliki pengalaman sekitar 5 tahun sejak kelulusan dan menonjol pada keahlian Video Edit, Motion Graphics. ' +
+      'Profil keahliannya paling cocok untuk departemen Video Editing. ' +
+      'Rekomendasi: lanjutkan ke tahap interview untuk memvalidasi portofolio dan kecocokan tim.',
+    submitted_at: '2026-06-23T14:40:00.000Z',
+    invited_at: '2026-06-24T08:00:00.000Z',
+  },
+  {
+    application_id: 'app3', full_name: 'Rangga Saputra', email: 'rangga.s@mail.com',
+    age: 22, phone: '+62 815-5555-6666', education: 'D3', gpa: 3.4, graduation_year: 2025,
+    skills: ['BG Removal', 'Portrait Retouch'], status: 'new' as const,
+    ai_summary:
+      'Rangga Saputra (22 tahun) adalah lulusan D3 tahun 2025 dengan IPK cukup baik (3.40). ' +
+      'Kandidat memiliki pengalaman sekitar 1 tahun sejak kelulusan dan menonjol pada keahlian BG Removal, Portrait Retouch. ' +
+      'Profil keahliannya paling cocok untuk departemen Photo Retouching. ' +
+      'Rekomendasi: lanjutkan ke tahap interview untuk memvalidasi portofolio dan kecocokan tim.',
+    submitted_at: '2026-06-26T11:05:00.000Z',
+  },
+]
+
 async function main() {
   const password_hash = await bcrypt.hash(DEFAULT_PASSWORD, 10)
   console.log('🔐 Bcrypt hash for default password ready.')
 
   // ── Wipe in FK-safe order to make the seed idempotent ────────────────────
+  await prisma.jobApplication.deleteMany()
   await prisma.warning.deleteMany()
   await prisma.leaveRequest.deleteMany()
   await prisma.attendanceRecord.deleteMany()
@@ -144,6 +197,31 @@ async function main() {
     await prisma.editorMetrics.create({ data: m })
   }
   console.log(`📈 Seeded ${editorMetrics.length} editor metrics`)
+
+  // ── Job applications (recruitment) ───────────────────────────────────────
+  for (const a of jobApplications) {
+    await prisma.jobApplication.create({
+      data: {
+        application_id: a.application_id,
+        full_name: a.full_name,
+        email: a.email,
+        age: a.age,
+        phone: a.phone,
+        education: a.education,
+        gpa: a.gpa,
+        graduation_year: a.graduation_year,
+        skills: a.skills,
+        cv_name: `CV_${a.full_name.replace(/\s+/g, '_')}.pdf`,
+        cv_mime: 'application/pdf',
+        cv_data: SAMPLE_CV_DATA,
+        ai_summary: a.ai_summary,
+        status: a.status,
+        submitted_at: new Date(a.submitted_at),
+        invited_at: a.invited_at ? new Date(a.invited_at) : null,
+      },
+    })
+  }
+  console.log(`📄 Seeded ${jobApplications.length} job applications`)
 
   console.log('\n✅ Seed complete.')
   console.log('   Try: hasna@manava.id / manava123  (HR Admin)')

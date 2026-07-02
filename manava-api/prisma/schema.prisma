@@ -53,6 +53,14 @@ enum JobStatus {
   closed
 }
 
+// Simplified recruitment flow: New → Interview → Approved / Rejected
+enum ApplicationStatus {
+  new
+  interview
+  approved
+  rejected
+}
+
 enum ProjectStatus {
   draft
   awaiting_dp
@@ -546,6 +554,35 @@ model JobPosting {
   applicant_count Int       @default(0)
 
   applicants Applicant[]
+}
+
+// Candidate application from the public /apply form. CV is stored inline as a
+// data URL (demo-scale) and streamed back via GET /applications/:id/cv.
+// ai_summary is generated once at submission time (mock AI, deterministic).
+model JobApplication {
+  application_id  String            @id @default(cuid())
+  full_name       String
+  email           String
+  age             Int
+  phone           String
+  education       String
+  gpa             Float
+  graduation_year Int
+  skills          String[]
+  cv_name         String
+  cv_mime         String
+  cv_data         String            // data URL: data:<mime>;base64,<...>
+  ai_summary      String
+  status          ApplicationStatus @default(new)
+  invited_at      DateTime?         // interview invitation email sent
+  interview_email String?           // rendered email body, kept for audit/display
+  decided_at      DateTime?         // approved / rejected timestamp
+  created_user_id String?           // User created on approval
+  submitted_at    DateTime          @default(now())
+  updated_at      DateTime          @updatedAt
+
+  @@index([status])
+  @@index([email])
 }
 
 model Applicant {

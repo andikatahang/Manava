@@ -8,6 +8,7 @@ import RegisterPage from './pages/auth/RegisterPage'
 import ApplyPage from './pages/apply/ApplyPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
 import RecruitmentPage from './pages/recruitment/RecruitmentPage'
+import ApplicantDetailPage from './pages/recruitment/ApplicantDetailPage'
 import ContractsPage from './pages/contracts/ContractsPage'
 import PaymentsPage from './pages/payments/PaymentsPage'
 import AttendancePage from './pages/attendance/AttendancePage'
@@ -106,6 +107,7 @@ function AppRoutes() {
         <Route path="/dashboard" element={<RoleHomePage user={user} />} />
         <Route path="/dashboard-legacy" element={<DashboardPage role={role} />} />
         <Route path="/recruitment" element={<RoleGuard role={role}><RecruitmentPage role={role} /></RoleGuard>} />
+        <Route path="/recruitment/:id" element={<RoleGuard role={role}><ApplicantDetailPage /></RoleGuard>} />
         <Route path="/projects" element={<RoleGuard role={role}><ProjectsPage role={role} /></RoleGuard>} />
         <Route path="/projects/:id" element={<RoleGuard role={role}><ProjectDetailPage role={role} /></RoleGuard>} />
         <Route path="/contracts" element={<RoleGuard role={role}><ContractsPage /></RoleGuard>} />

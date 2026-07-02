@@ -62,6 +62,24 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   return envelope.data as T
 }
 
+// Fetch a binary endpoint (e.g. CV preview) with the same auth + refresh
+// behaviour as api(), returning a Blob instead of a parsed envelope.
+export async function apiBlob(path: string): Promise<Blob> {
+  const doFetch = () =>
+    fetch(`${API_BASE}/api/v1${path}`, {
+      credentials: 'include',
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    })
+
+  let res = await doFetch()
+  if (res.status === 401) {
+    const refreshed = await tryRefresh()
+    if (refreshed) res = await doFetch()
+  }
+  if (!res.ok) throw new ApiError(res.status, `Request failed (${res.status})`)
+  return res.blob()
+}
+
 export interface AuthPayload {
   user: User
   accessToken: string

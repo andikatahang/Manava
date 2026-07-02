@@ -1,11 +1,11 @@
-import { ArrowRight, CheckCircle2, XCircle } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import styled from 'styled-components'
 import type { JobApplication } from '../../lib/applications'
 
 const STATUS_TONE: Record<string, string> = {
-  pending: '#d97706',
+  new: '#d97706',
   interview: '#021526',
-  accepted: '#059669',
+  approved: '#059669',
   rejected: '#dc2626',
 }
 
@@ -16,17 +16,10 @@ function getInitials(name: string): string {
 interface ApplicantCardProps {
   application: JobApplication
   statusLabel: string
-  /** Label for the primary action button. `null` when the application is in a terminal state. */
-  primaryLabel: string | null
-  /** Tone for the terminal (done) chip — only used when `primaryLabel` is null. */
-  terminalTone?: 'accepted' | 'rejected'
   onDetail: (application: JobApplication) => void
-  onPrimary: (application: JobApplication) => void
 }
 
-export function ApplicantCard({
-  application, statusLabel, primaryLabel, terminalTone, onDetail, onPrimary,
-}: ApplicantCardProps) {
+export function ApplicantCard({ application, statusLabel, onDetail }: ApplicantCardProps) {
   const initials = getInitials(application.full_name)
   const tone = STATUS_TONE[application.status] ?? '#64748b'
 
@@ -56,22 +49,9 @@ export function ApplicantCard({
           </div>
 
           <div className="actions">
-            <button type="button" className="card-btn detail" onClick={() => onDetail(application)}>
-              Lihat Detail
+            <button type="button" className="card-btn next" onClick={() => onDetail(application)}>
+              Lihat Detail <ArrowRight className="ico" />
             </button>
-            {primaryLabel ? (
-              <button type="button" className="card-btn next" onClick={() => onPrimary(application)}>
-                {primaryLabel} <ArrowRight className="ico" />
-              </button>
-            ) : terminalTone === 'accepted' ? (
-              <span className="card-btn done accepted">
-                <CheckCircle2 className="ico" /> Diterima
-              </span>
-            ) : (
-              <span className="card-btn done rejected">
-                <XCircle className="ico" /> Ditolak
-              </span>
-            )}
           </div>
         </div>
       </div>
@@ -189,8 +169,7 @@ const StyledWrapper = styled.div`
 
   .actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    grid-template-columns: 1fr;
     margin-top: 14px;
   }
   .card-btn {
@@ -210,15 +189,6 @@ const StyledWrapper = styled.div`
     height: 15px;
     transition: transform 0.2s ease;
   }
-  .card-btn.detail {
-    background: transparent;
-    border: 1px solid #e0e0e0;
-    color: #555;
-  }
-  .card-btn.detail:hover {
-    border-color: rgba(2, 21, 38, 0.4);
-    color: #1b1b1b;
-  }
   .card-btn.next {
     background: #021526;
     border: 1px solid #021526;
@@ -230,26 +200,6 @@ const StyledWrapper = styled.div`
   .card-btn.next:hover .ico {
     transform: translateX(2px);
   }
-  .card-btn.done {
-    cursor: default;
-  }
-  .card-btn.done.accepted {
-    background: #ecfdf5;
-    border: 1px solid #a7f3d0;
-    color: #047857;
-  }
-  .card-btn.done.accepted .ico {
-    color: #059669;
-  }
-  .card-btn.done.rejected {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #b91c1c;
-  }
-  .card-btn.done.rejected .ico {
-    color: #dc2626;
-  }
-
   .card:hover {
     border-color: rgba(0, 0, 0, 0.1);
     box-shadow: 0 14px 44px -16px rgba(2, 21, 38, 0.18);

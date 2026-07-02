@@ -1,20 +1,14 @@
-// Public job-application store. No backend in this build, so submissions are
-// persisted in localStorage and surfaced to the HR admin from there. A cookie
-// guards against a candidate submitting the same vacancy twice.
+// Job-application API client. Candidates submit from the public /apply page;
+// HR admin reviews via /recruitment. A cookie still guards against the same
+// browser re-submitting the current vacancy (the server also rejects a second
+// active application for the same email).
 
-export type ApplicationStatus = 'pending' | 'interview' | 'accepted' | 'rejected'
+import { api, apiBlob } from './api'
 
-export interface InterviewInfo {
-  interviewer: string
-  datetime: string
-  mode: 'online' | 'offline'
-  location?: string
-  notes?: string
-  sent_at: string
-}
+export type ApplicationStatus = 'new' | 'interview' | 'approved' | 'rejected'
 
 export interface JobApplication {
-  id: string
+  application_id: string
   full_name: string
   email: string
   age: number
@@ -24,81 +18,81 @@ export interface JobApplication {
   graduation_year: number
   skills: string[]
   cv_name: string
+  cv_mime: string
+  ai_summary: string
   status: ApplicationStatus
+  invited_at: string | null
+  interview_email: string | null
+  decided_at: string | null
+  created_user_id: string | null
   submitted_at: string
-  interview?: InterviewInfo
 }
 
-const STORAGE_KEY = 'manava_applications'
+export interface SubmitApplicationInput {
+  full_name: string
+  email: string
+  age: number
+  phone: string
+  education: string
+  gpa: number
+  graduation_year: number
+  skills: string[]
+  cv_name: string
+  cv_data: string // data URL (PDF/DOC, max 5MB)
+}
 
+// Editor account auto-created when HR approves a candidate.
+export interface CreatedAccount {
+  user_id: string
+  username: string
+  email: string
+  temp_password: string
+}
+
+export interface ApproveResult {
+  application: JobApplication
+  account: CreatedAccount
+}
+
+export function submitApplication(input: SubmitApplicationInput): Promise<JobApplication> {
+  return api<JobApplication>('/applications', { method: 'POST', body: input })
+}
+
+export function fetchApplications(): Promise<JobApplication[]> {
+  return api<JobApplication[]>('/applications')
+}
+
+export function fetchApplication(id: string): Promise<JobApplication> {
+  return api<JobApplication>(`/applications/${id}`)
+}
+
+export function fetchCvBlob(id: string): Promise<Blob> {
+  return apiBlob(`/applications/${id}/cv`)
+}
+
+export interface InterviewDetails {
+  interviewer: string
+  mode: 'online' | 'offline'
+  location?: string
+}
+
+export function shortlistApplication(id: string, details: InterviewDetails): Promise<JobApplication> {
+  return api<JobApplication>(`/applications/${id}/shortlist`, { method: 'PATCH', body: details })
+}
+
+export function approveApplication(id: string): Promise<ApproveResult> {
+  return api<ApproveResult>(`/applications/${id}/approve`, { method: 'PATCH' })
+}
+
+export function rejectApplication(id: string): Promise<JobApplication> {
+  return api<JobApplication>(`/applications/${id}/reject`, { method: 'PATCH' })
+}
+
+// ── Cookie guard ──────────────────────────────────────────────────────────
 // Bump this when a new vacancy opens — candidates may then apply again.
 export const CURRENT_VACANCY_ID = 'vac-2026-06'
 const COOKIE_KEY = `manava_applied_${CURRENT_VACANCY_ID}`
 
-const SEED: JobApplication[] = [
-  {
-    id: 'app-seed-1', full_name: 'Dimas Pratama', email: 'dimas.pratama@mail.com',
-    age: 24, phone: '+62 812-1111-2222', education: 'S1', gpa: 3.62, graduation_year: 2024,
-    skills: ['Product Retouch', 'Color Correction'], cv_name: 'CV_Dimas_Pratama.pdf',
-    status: 'pending', submitted_at: '2026-06-25T09:12:00.000Z',
-  },
-  {
-    id: 'app-seed-2', full_name: 'Anindya Rahmawati', email: 'anindya.r@mail.com',
-    age: 27, phone: '+62 813-3333-4444', education: 'S1', gpa: 3.81, graduation_year: 2021,
-    skills: ['Video Edit', 'Motion Graphics'], cv_name: 'CV_Anindya.pdf',
-    status: 'interview', submitted_at: '2026-06-23T14:40:00.000Z',
-    interview: {
-      interviewer: 'Eko Manager', datetime: '2026-06-30T10:00', mode: 'online',
-      sent_at: '2026-06-24T08:00:00.000Z',
-    },
-  },
-  {
-    id: 'app-seed-3', full_name: 'Rangga Saputra', email: 'rangga.s@mail.com',
-    age: 22, phone: '+62 815-5555-6666', education: 'D3', gpa: 3.40, graduation_year: 2025,
-    skills: ['BG Removal', 'Portrait Retouch'], cv_name: 'CV_Rangga.pdf',
-    status: 'pending', submitted_at: '2026-06-26T11:05:00.000Z',
-  },
-]
-
-function read(): JobApplication[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw) as JobApplication[]
-  } catch {
-    // corrupt storage — fall through to seed
-  }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED))
-  return SEED
-}
-
-function write(apps: JobApplication[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(apps))
-}
-
-export function getApplications(): JobApplication[] {
-  return read().sort((a, b) => b.submitted_at.localeCompare(a.submitted_at))
-}
-
-export function addApplication(
-  data: Omit<JobApplication, 'id' | 'status' | 'submitted_at'>,
-): JobApplication {
-  const app: JobApplication = {
-    ...data,
-    id: `app-${Date.now()}`,
-    status: 'pending',
-    submitted_at: new Date().toISOString(),
-  }
-  write([app, ...read()])
-  return app
-}
-
-export function updateApplication(id: string, patch: Partial<JobApplication>): JobApplication[] {
-  const next = read().map(a => (a.id === id ? { ...a, ...patch } : a))
-  write(next)
-  return next.sort((a, b) => b.submitted_at.localeCompare(a.submitted_at))
-}
-
-// ── Cookie guard ──────────────────────────────────────────────────────────
 export function hasApplied(): boolean {
   return document.cookie.split('; ').some(c => c.startsWith(`${COOKIE_KEY}=`))
 }
@@ -114,3 +108,7 @@ export const SKILL_OPTIONS = [
 ]
 
 export const EDUCATION_OPTIONS = ['SMA/SMK', 'D3', 'D4', 'S1', 'S2', 'S3']
+
+export const STATUS_LABELS: Record<ApplicationStatus, string> = {
+  new: 'Baru', interview: 'Interview', approved: 'Diterima', rejected: 'Ditolak',
+}

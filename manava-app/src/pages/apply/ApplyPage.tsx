@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, Upload, FileText, X } from 'lucide-react'
 import logoDark from '../../assets/logo-dark.png'
 import {
-  addApplication, hasApplied, markApplied,
+  submitApplication, hasApplied, markApplied,
   SKILL_OPTIONS, EDUCATION_OPTIONS,
 } from '../../lib/applications'
+import { ApiError } from '../../lib/api'
 
 interface FormState {
   full_name: string
@@ -16,19 +17,32 @@ interface FormState {
   gpa: string
   graduation_year: string
   skills: string[]
-  cv_name: string
+  cv_file: File | null
 }
 
 const EMPTY: FormState = {
   full_name: '', email: '', age: '', phone: '', education: '',
-  gpa: '', graduation_year: '', skills: [], cv_name: '',
+  gpa: '', graduation_year: '', skills: [], cv_file: null,
+}
+
+const MAX_CV_BYTES = 5 * 1024 * 1024
+
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
 }
 
 export default function ApplyPage() {
   const [form, setForm] = useState<FormState>(EMPTY)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
-  const [alreadyApplied] = useState(() => hasApplied())
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [alreadyApplied, setAlreadyApplied] = useState(() => hasApplied())
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm(f => ({ ...f, [key]: value }))
@@ -54,27 +68,43 @@ export default function ApplyPage() {
     const year = Number(form.graduation_year)
     if (!form.graduation_year || year < 1980 || year > 2026) e.graduation_year = 'Tahun lulus tidak valid'
     if (form.skills.length === 0) e.skills = 'Pilih minimal satu skill'
-    if (!form.cv_name) e.cv_name = 'Lampirkan file CV'
+    if (!form.cv_file) e.cv_name = 'Lampirkan file CV'
+    else if (form.cv_file.size > MAX_CV_BYTES) e.cv_name = 'Ukuran CV maksimal 5MB'
     setErrors(e)
     return Object.keys(e).length === 0
   }
 
-  function handleSubmit(ev: React.FormEvent) {
+  async function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
-    if (!validate()) return
-    addApplication({
-      full_name: form.full_name.trim(),
-      email: form.email.trim(),
-      age: Number(form.age),
-      phone: form.phone.trim(),
-      education: form.education,
-      gpa: Number(form.gpa),
-      graduation_year: Number(form.graduation_year),
-      skills: form.skills,
-      cv_name: form.cv_name,
-    })
-    markApplied()
-    setSubmitted(true)
+    if (!validate() || submitting) return
+    setSubmitting(true)
+    setSubmitError(null)
+    try {
+      const cv_data = await readAsDataUrl(form.cv_file!)
+      await submitApplication({
+        full_name: form.full_name.trim(),
+        email: form.email.trim(),
+        age: Number(form.age),
+        phone: form.phone.trim(),
+        education: form.education,
+        gpa: Number(form.gpa),
+        graduation_year: Number(form.graduation_year),
+        skills: form.skills,
+        cv_name: form.cv_file!.name,
+        cv_data,
+      })
+      markApplied()
+      setSubmitted(true)
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 409) {
+        markApplied()
+        setAlreadyApplied(true)
+      } else {
+        setSubmitError(err instanceof ApiError ? err.message : 'Tidak dapat mengirim lamaran — coba lagi')
+      }
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -155,11 +185,11 @@ export default function ApplyPage() {
               </Field>
 
               <Field label="Lampiran CV" error={errors.cv_name}>
-                {form.cv_name ? (
+                {form.cv_file ? (
                   <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-[#e0e0e0] bg-white">
                     <FileText className="w-4 h-4 text-[#0050F8] shrink-0" />
-                    <span className="text-sm text-[#021526] truncate flex-1">{form.cv_name}</span>
-                    <button type="button" onClick={() => set('cv_name', '')} className="text-[#999] hover:text-[#021526]">
+                    <span className="text-sm text-[#021526] truncate flex-1">{form.cv_file.name}</span>
+                    <button type="button" onClick={() => set('cv_file', null)} className="text-[#999] hover:text-[#021526]">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -168,14 +198,18 @@ export default function ApplyPage() {
                     <Upload className="w-4 h-4 text-[#596074] shrink-0" />
                     <span className="text-sm text-[#596074]">Unggah CV (PDF / DOC, maks. 5MB)</span>
                     <input type="file" accept=".pdf,.doc,.docx" className="hidden"
-                      onChange={e => set('cv_name', e.target.files?.[0]?.name ?? '')} />
+                      onChange={e => set('cv_file', e.target.files?.[0] ?? null)} />
                   </label>
                 )}
               </Field>
 
-              <button type="submit"
-                className="w-full justify-center inline-flex items-center gap-2 bg-[#021526] hover:bg-[#032b4a] text-white font-semibold px-6 py-3.5 rounded-xl text-[15px] transition-colors mt-2">
-                Kirim Lamaran
+              {submitError && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{submitError}</p>
+              )}
+
+              <button type="submit" disabled={submitting}
+                className="w-full justify-center inline-flex items-center gap-2 bg-[#021526] hover:bg-[#032b4a] disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold px-6 py-3.5 rounded-xl text-[15px] transition-colors mt-2">
+                {submitting ? 'Mengirim…' : 'Kirim Lamaran'}
               </button>
             </form>
           </>
