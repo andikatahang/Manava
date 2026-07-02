@@ -77,6 +77,7 @@ async function main() {
         user_id: u.user_id,
         full_name: u.full_name,
         email: u.email,
+        username: u.email.split('@')[0],
         password_hash,
         role: u.role,
         is_active: u.is_active,

@@ -6,14 +6,15 @@ import { authenticate } from '../../middleware/authenticate.js'
 import { asyncHandler } from '../../utils/asyncHandler.js'
 import { ok } from '../../lib/response.js'
 import { HttpError } from '../../middleware/errorHandler.js'
-import { getUserById, login, logout, refresh, type AuthResult } from './service.js'
+import { getUserById, login, logout, refresh, register, type AuthResult } from './service.js'
 
 export const authRouter = Router()
 
 const REFRESH_COOKIE = 'manava_refresh'
 
+// identifier = email or username
 const loginSchema = z.object({
-  email: z.string().email(),
+  identifier: z.string().trim().min(1),
   password: z.string().min(1),
 })
 
@@ -21,10 +22,32 @@ authRouter.post(
   '/login',
   validateBody(loginSchema),
   asyncHandler(async (req, res) => {
-    const { email, password } = req.body as z.infer<typeof loginSchema>
-    const result = await login(email, password)
+    const { identifier, password } = req.body as z.infer<typeof loginSchema>
+    const result = await login(identifier, password)
     setRefreshCookie(res, result)
     res.json(ok({ user: result.user, accessToken: result.accessToken }))
+  }),
+)
+
+// Username is handle-like (no "@", no spaces; only "-" and "_" symbols) so it
+// can never collide with the email namespace when both are login identifiers.
+const registerSchema = z.object({
+  email: z.string().email(),
+  username: z.string().trim().min(3).max(30).regex(/^[a-zA-Z0-9_-]+$/),
+  firstName: z.string().trim().min(1).max(50),
+  lastName: z.string().trim().min(1).max(50),
+  password: z.string().min(8),
+})
+
+// Public signup — client accounts only; role is fixed server-side.
+authRouter.post(
+  '/register',
+  validateBody(registerSchema),
+  asyncHandler(async (req, res) => {
+    const input = req.body as z.infer<typeof registerSchema>
+    const result = await register(input)
+    setRefreshCookie(res, result)
+    res.status(201).json(ok({ user: result.user, accessToken: result.accessToken }))
   }),
 )
 

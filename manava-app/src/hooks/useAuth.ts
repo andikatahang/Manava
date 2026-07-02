@@ -21,10 +21,29 @@ export function useAuth() {
     return () => { cancelled = true }
   }, [])
 
-  const login = async (email: string, password: string): Promise<User> => {
+  // identifier = email or username
+  const login = async (identifier: string, password: string): Promise<User> => {
     const payload = await api<AuthPayload>('/auth/login', {
       method: 'POST',
-      body: { email, password },
+      body: { identifier, password },
+      skipRefresh: true,
+    })
+    setAccessToken(payload.accessToken)
+    setUser(payload.user)
+    return payload.user
+  }
+
+  // Client self-signup; a successful register logs the user straight in.
+  const register = async (input: {
+    email: string
+    username: string
+    firstName: string
+    lastName: string
+    password: string
+  }): Promise<User> => {
+    const payload = await api<AuthPayload>('/auth/register', {
+      method: 'POST',
+      body: input,
       skipRefresh: true,
     })
     setAccessToken(payload.accessToken)
@@ -42,5 +61,5 @@ export function useAuth() {
     setUser(null)
   }
 
-  return { user, login, logout, isAuthenticated: user !== null, isHydrating }
+  return { user, login, register, logout, isAuthenticated: user !== null, isHydrating }
 }

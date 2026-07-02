@@ -19,33 +19,33 @@ const demoAccounts: { role: UserRole; email: string; label: string; desc: string
   { role: 'finance',       email: 'fani@manava.id',  label: 'Keuangan',      desc: 'Escrow & penggajian' },
 ]
 
-interface LoginPageProps { onLogin: (email: string, password: string) => Promise<unknown> }
+interface LoginPageProps { onLogin: (identifier: string, password: string) => Promise<unknown> }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
   const [showPassword, setShowPassword] = useState(false)
-  const [email, setEmail] = useState('hasna@manava.id')
+  const [identifier, setIdentifier] = useState('hasna@manava.id')
   const [password, setPassword] = useState(DEMO_PASSWORD)
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const reduceMotion = useReducedMotion()
 
-  const selectedDemo = demoAccounts.find(a => a.email === email)
+  const selectedDemo = demoAccounts.find(a => a.email === identifier)
 
   function pickDemo(account: (typeof demoAccounts)[number]) {
-    setEmail(account.email)
+    setIdentifier(account.email)
     setPassword(DEMO_PASSWORD)
     setError('')
   }
 
   async function handleSubmit() {
-    if (!email.trim() || !password) {
-      setError('Email dan kata sandi wajib diisi.')
+    if (!identifier.trim() || !password) {
+      setError('Email/username dan kata sandi wajib diisi.')
       return
     }
     setIsSubmitting(true)
     setError('')
     try {
-      await onLogin(email.trim(), password)
+      await onLogin(identifier.trim(), password)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Login gagal'
       setError(
@@ -109,14 +109,14 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             onSubmit={e => { e.preventDefault(); void handleSubmit() }}
           >
             <div>
-              <label className="label">Alamat email</label>
+              <label className="label">Email atau username</label>
               <input
-                type="email"
+                type="text"
                 className="input"
-                value={email}
-                onChange={e => { setEmail(e.target.value); setError('') }}
-                placeholder="anda@manava.id"
-                autoComplete="email"
+                value={identifier}
+                onChange={e => { setIdentifier(e.target.value); setError('') }}
+                placeholder="anda@manava.id atau username"
+                autoComplete="username"
               />
             </div>
             <div>
@@ -168,7 +168,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
           <p className="text-center text-sm text-navy/50 mt-6">
             Belum punya akun?{' '}
-            <Link to="/login" className="text-navy font-medium hover:underline">Daftar sebagai Editor</Link>
+            <Link to="/register" className="text-navy font-medium hover:underline">Daftar Sekarang</Link>
           </p>
         </div>
       </div>

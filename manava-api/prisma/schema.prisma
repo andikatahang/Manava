@@ -194,6 +194,7 @@ model User {
   user_id       String   @id @default(cuid())
   full_name     String
   email         String   @unique
+  username      String   @unique
   password_hash String
   role          UserRole
   avatar        String?

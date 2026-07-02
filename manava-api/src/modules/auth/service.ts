@@ -1,6 +1,6 @@
 import type { UserRole } from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
-import { verifyPassword } from '../../lib/password.js'
+import { hashPassword, verifyPassword } from '../../lib/password.js'
 import { generateRefreshToken, hashRefreshToken, signAccessToken } from '../../lib/jwt.js'
 import { HttpError } from '../../middleware/errorHandler.js'
 
@@ -8,6 +8,7 @@ export interface AuthUser {
   user_id: string
   full_name: string
   email: string
+  username: string
   role: UserRole
   avatar: string | null
 }
@@ -19,22 +20,49 @@ export interface AuthResult {
   user: AuthUser
 }
 
-// Look the user up, verify password, issue access + refresh pair.
-export async function login(email: string, password: string): Promise<AuthResult> {
-  const user = await prisma.user.findUnique({ where: { email } })
+// Look the user up by email or username, verify password, issue token pair.
+export async function login(identifier: string, password: string): Promise<AuthResult> {
+  const user = await prisma.user.findFirst({
+    where: { OR: [{ email: identifier }, { username: identifier }] },
+  })
   if (!user || !user.is_active) {
     throw new HttpError(401, 'Invalid credentials')
   }
   const ok = await verifyPassword(password, user.password_hash)
   if (!ok) throw new HttpError(401, 'Invalid credentials')
 
-  return issueTokens({
-    user_id: user.user_id,
-    full_name: user.full_name,
-    email: user.email,
-    role: user.role,
-    avatar: user.avatar,
+  return issueTokens(toAuthUser(user))
+}
+
+export interface RegisterInput {
+  email: string
+  username: string
+  firstName: string
+  lastName: string
+  password: string
+}
+
+// Self-service signup — always creates a client account and logs it in.
+// Email and username must each be unique across all users.
+export async function register(input: RegisterInput): Promise<AuthResult> {
+  const emailTaken = await prisma.user.findUnique({ where: { email: input.email } })
+  if (emailTaken) throw new HttpError(409, 'Email already registered')
+
+  const usernameTaken = await prisma.user.findUnique({ where: { username: input.username } })
+  if (usernameTaken) throw new HttpError(409, 'Username already taken')
+
+  const password_hash = await hashPassword(input.password)
+  const user = await prisma.user.create({
+    data: {
+      full_name: `${input.firstName} ${input.lastName}`,
+      email: input.email,
+      username: input.username,
+      password_hash,
+      role: 'client',
+    },
   })
+
+  return issueTokens(toAuthUser(user))
 }
 
 // Refresh flow: verify the presented raw token matches a stored hash, then
@@ -55,14 +83,7 @@ export async function refresh(rawToken: string): Promise<AuthResult> {
     data: { revoked_at: new Date() },
   })
 
-  const u = record.user
-  return issueTokens({
-    user_id: u.user_id,
-    full_name: u.full_name,
-    email: u.email,
-    role: u.role,
-    avatar: u.avatar,
-  })
+  return issueTokens(toAuthUser(record.user))
 }
 
 export async function logout(rawToken: string | null): Promise<void> {
@@ -81,16 +102,31 @@ export async function getUserById(userId: string): Promise<AuthUser> {
       user_id: true,
       full_name: true,
       email: true,
+      username: true,
       role: true,
       avatar: true,
       is_active: true,
     },
   })
   if (!user || !user.is_active) throw new HttpError(401, 'User not found')
+  return toAuthUser(user)
+}
+
+interface UserRecord {
+  user_id: string
+  full_name: string
+  email: string
+  username: string
+  role: UserRole
+  avatar: string | null
+}
+
+function toAuthUser(user: UserRecord): AuthUser {
   return {
     user_id: user.user_id,
     full_name: user.full_name,
     email: user.email,
+    username: user.username,
     role: user.role,
     avatar: user.avatar,
   }
