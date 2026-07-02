@@ -4,6 +4,7 @@ import { mockEditors } from '../../data/mockData'
 import { PageHeader } from '../../components/page/PageHeader'
 import { EditorCard } from './EditorCard'
 import { BookingModal } from './BookingModal'
+import { EditorDetailModal } from './EditorDetailModal'
 import { SPEC_LABELS } from './specializations'
 import { isAvailable } from './capacity'
 import type { Editor } from '../../types'
@@ -17,6 +18,7 @@ export default function BrowseEditorsPage() {
   const [specFilter, setSpecFilter] = useState<string>('all')
   const [sort, setSort] = useState<'rating' | 'completion'>('rating')
   const [bookingEditor, setBookingEditor] = useState<Editor | null>(null)
+  const [detailEditor, setDetailEditor] = useState<Editor | null>(null)
 
   const allSpecs = Array.from(new Set(mockEditors.flatMap(e => e.specialization)))
   const availableCount = mockEditors.filter(isAvailable).length
@@ -118,12 +120,19 @@ export default function BrowseEditorsPage() {
               key={editor.editor_id}
               editor={editor}
               reviewCount={REVIEW_COUNTS[editor.editor_id] ?? 40}
+              onDetail={ed => setDetailEditor(ed)}
               onMessage={ed => setBookingEditor(ed)}
             />
           ))}
         </div>
       )}
 
+      <EditorDetailModal
+        editor={detailEditor}
+        reviewCount={detailEditor ? REVIEW_COUNTS[detailEditor.editor_id] ?? 40 : 0}
+        onClose={() => setDetailEditor(null)}
+        onBook={ed => { setDetailEditor(null); setBookingEditor(ed) }}
+      />
       <BookingModal editor={bookingEditor} onClose={() => setBookingEditor(null)} />
 
     </div>

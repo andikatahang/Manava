@@ -9,6 +9,7 @@ export interface InterviewInfo {
   datetime: string
   mode: 'online' | 'offline'
   location?: string
+  notes?: string
   sent_at: string
 }
 

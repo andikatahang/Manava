@@ -155,7 +155,7 @@ export default function EditorHomePage() {
 
         {/* 3 — Attendance with running timer + month summary */}
         <section className="space-y-4">
-          <h2 className="text-base font-semibold text-navy">Absensi Hari Ini</h2>
+          <h2 className="text-base font-semibold text-navy">Presensi Hari Ini</h2>
           <div className="rounded-[8px] border border-white/10 bg-navy text-white p-6">
             <div className="flex items-center gap-2 text-white/60 text-xs font-medium uppercase tracking-wider mb-3">
               <Clock className="w-3.5 h-3.5" />

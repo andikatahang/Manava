@@ -1,0 +1,567 @@
+// Manava ERP database schema
+// PKs use cuid(). All timestamps default to now() with @updatedAt where applicable.
+// Enums mirror the string-literal unions in manava-app/src/types/index.ts.
+
+generator client {
+  provider = "prisma-client-js"
+  // Extra targets so the client works inside node:20-alpine (musl) on both
+  // x64 and arm64 hosts.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  superadmin
+  hr_admin
+  admin_manager
+  editor
+  client
+  mediator
+  finance
+}
+
+enum EditorStatus {
+  active
+  suspended
+}
+
+enum PerformanceBand {
+  excellent
+  good
+  needs_improvement
+}
+
+enum ApplicantStage {
+  applied
+  screening
+  interview
+  offered
+  offer_accepted
+  confirmed
+  rejected
+  offer_expired
+}
+
+enum JobStatus {
+  open
+  closed
+}
+
+enum ProjectStatus {
+  draft
+  awaiting_dp
+  in_progress
+  in_review
+  revision
+  disputed
+  completed
+  cancelled
+}
+
+enum ContractStatus {
+  draft
+  pending_client_approval
+  active
+  superseded
+  closed
+  rejected
+}
+
+enum RevisionAiLabel {
+  minor
+  major
+  uncertain
+}
+
+enum RevisionFinalLabel {
+  minor
+  major
+}
+
+enum RevisionStatus {
+  submitted
+  awaiting_topup
+  accepted
+  in_progress
+  resubmitted
+  disputed
+  resolved
+  cancelled
+}
+
+enum PayslipStatus {
+  draft
+  finalized
+  paid
+  voided
+}
+
+enum AttendanceStatus {
+  present
+  absent
+  partial
+  leave
+}
+
+enum LeaveType {
+  cuti
+  izin
+}
+
+enum LeaveStatus {
+  pending
+  approved
+  rejected
+}
+
+enum RequesterRole {
+  editor
+  admin_manager
+}
+
+enum DisputeStatus {
+  open
+  in_mediation
+  resolved
+  cancelled
+}
+
+enum DisputeOpenerRole {
+  client
+  editor
+}
+
+enum DisputeResolutionType {
+  free_revision
+  charge_justified
+  partial_refund
+  full_refund
+  quality_sanction
+}
+
+enum MessageType {
+  text
+  brief
+  deliverable
+  revision_request
+  ai_summary
+  system
+}
+
+enum TransactionType {
+  dp_payment
+  final_payment
+  major_topup
+  escrow_hold
+  escrow_release
+  refund
+  payroll
+}
+
+enum TransactionStatus {
+  pending
+  success
+  failed
+  voided
+}
+
+enum WarningSeverity {
+  ringan
+  sedang
+  berat
+}
+
+enum WarningStatus {
+  aktif
+  diakui
+  kedaluwarsa
+}
+
+enum WarningTargetRole {
+  editor
+  admin_manager
+}
+
+// ─── Auth / Users ─────────────────────────────────────────────────────────────
+
+model User {
+  user_id       String   @id @default(cuid())
+  full_name     String
+  email         String   @unique
+  username      String   @unique
+  password_hash String
+  role          UserRole
+  avatar        String?
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  editor        Editor?
+  admin_manager AdminManager?
+  refresh_tokens RefreshToken[]
+  messages      Message[]
+  issued_warnings Warning[] @relation("WarningIssuer")
+
+  @@index([role])
+}
+
+model RefreshToken {
+  id         String   @id @default(cuid())
+  user_id    String
+  token_hash String   @unique
+  expires_at DateTime
+  revoked_at DateTime?
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id])
+}
+
+// ─── HR Domain ────────────────────────────────────────────────────────────────
+
+model Editor {
+  editor_id        String          @id @default(cuid())
+  user_id          String          @unique
+  full_name        String
+  email            String
+  department       String
+  specialization   String[]
+  base_salary      Int
+  status           EditorStatus    @default(active)
+  onboarded_at     DateTime
+  rating           Float           @default(0)
+  completion_rate  Int             @default(0)
+  active_projects  Int             @default(0)
+  performance_band PerformanceBand @default(good)
+  avatar           String?
+  created_at       DateTime        @default(now())
+  updated_at       DateTime        @updatedAt
+
+  user            User              @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  department_memberships DepartmentMember[]
+  projects        Project[]
+  attendance      AttendanceRecord[]
+  leave_requests  LeaveRequest[]
+  payslips        Payslip[]
+  metrics         EditorMetrics?
+
+  @@index([status])
+}
+
+model AdminManager {
+  id         String   @id @default(cuid())
+  user_id    String?  @unique
+  full_name  String
+  department String
+  avatar     String?
+  created_at DateTime @default(now())
+
+  user        User?        @relation(fields: [user_id], references: [user_id], onDelete: SetNull)
+  departments Department[]
+}
+
+model Department {
+  id         String   @id @default(cuid())
+  name       String
+  manager_id String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  manager AdminManager       @relation(fields: [manager_id], references: [id], onDelete: Restrict)
+  members DepartmentMember[]
+
+  @@index([manager_id])
+}
+
+model DepartmentMember {
+  department_id String
+  editor_id     String
+  added_at      DateTime @default(now())
+
+  department Department @relation(fields: [department_id], references: [id], onDelete: Cascade)
+  editor     Editor     @relation(fields: [editor_id], references: [editor_id], onDelete: Cascade)
+
+  @@id([department_id, editor_id])
+  @@index([editor_id])
+}
+
+model AttendanceRecord {
+  id         String           @id @default(cuid())
+  editor_id  String
+  date       DateTime         @db.Date
+  clock_in   String?
+  clock_out  String?
+  status     AttendanceStatus
+  created_at DateTime         @default(now())
+
+  editor Editor @relation(fields: [editor_id], references: [editor_id], onDelete: Cascade)
+
+  @@unique([editor_id, date])
+  @@index([date])
+}
+
+model LeaveRequest {
+  leave_id       String        @id @default(cuid())
+  editor_id      String
+  editor_name    String
+  requester_role RequesterRole
+  leave_type     LeaveType
+  start_date     DateTime      @db.Date
+  end_date       DateTime      @db.Date
+  status         LeaveStatus   @default(pending)
+  created_at     DateTime      @default(now())
+  updated_at     DateTime      @updatedAt
+
+  editor Editor @relation(fields: [editor_id], references: [editor_id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([editor_id])
+}
+
+model Warning {
+  id           String           @id @default(cuid())
+  target_name  String
+  target_role  WarningTargetRole
+  reason       String
+  severity     WarningSeverity
+  status       WarningStatus    @default(aktif)
+  issued_by_id String
+  issued_at    DateTime         @default(now())
+  expires_at   DateTime
+  updated_at   DateTime         @updatedAt
+
+  issuer User @relation("WarningIssuer", fields: [issued_by_id], references: [user_id], onDelete: Restrict)
+
+  @@index([status])
+  @@index([severity])
+}
+
+model EditorMetrics {
+  editor_id         String          @id
+  editor_name       String
+  avg_client_rating Float
+  completion_rate   Int
+  manager_rating    Float
+  kpi_average       Float
+  performance_band  PerformanceBand
+  updated_at        DateTime        @updatedAt
+
+  editor Editor @relation(fields: [editor_id], references: [editor_id], onDelete: Cascade)
+}
+
+// ─── Sales / Project Domain ──────────────────────────────────────────────────
+
+model Project {
+  project_id    String        @id @default(cuid())
+  client_id     String
+  client_name   String
+  editor_id     String
+  editor_name   String
+  title         String
+  description   String
+  status        ProjectStatus @default(draft)
+  dp_amount     Int
+  final_amount  Int
+  project_value Int
+  started_at    DateTime?
+  completed_at  DateTime?
+  created_at    DateTime      @default(now())
+  updated_at    DateTime      @updatedAt
+
+  editor            Editor            @relation(fields: [editor_id], references: [editor_id], onDelete: Restrict)
+  envelope          RevisionEnvelope?
+  contracts         Contract[]
+  revisions         RevisionRequest[]
+  messages          Message[]
+  disputes          Dispute[]
+  reviews           Review[]
+  escrow            EscrowAccount?
+  transactions      Transaction[]
+
+  @@index([status])
+  @@index([client_id])
+}
+
+model RevisionEnvelope {
+  envelope_id        String @id @default(cuid())
+  project_id         String @unique
+  included_scope     String
+  excluded_scope     String
+  allowance_count    Int
+  allowance_consumed Int    @default(0)
+
+  project Project @relation(fields: [project_id], references: [project_id], onDelete: Cascade)
+}
+
+model Contract {
+  contract_id            String         @id @default(cuid())
+  project_id             String
+  scope                  String
+  style                  String
+  key_elements           String
+  estimated_duration_days Int
+  project_value          Int
+  status                 ContractStatus @default(draft)
+  issued_at              DateTime       @default(now())
+  approved_at            DateTime?
+
+  project Project @relation(fields: [project_id], references: [project_id], onDelete: Cascade)
+
+  @@index([project_id])
+}
+
+model RevisionRequest {
+  revision_id   String              @id @default(cuid())
+  project_id    String
+  request_text  String
+  ai_label      RevisionAiLabel
+  ai_confidence Float
+  final_label   RevisionFinalLabel?
+  price         Int?
+  status        RevisionStatus
+  created_at    DateTime            @default(now())
+
+  project Project @relation(fields: [project_id], references: [project_id], onDelete: Cascade)
+
+  @@index([project_id])
+}
+
+model Message {
+  message_id   String      @id @default(cuid())
+  project_id   String
+  sender_id    String
+  sender_name  String
+  sender_role  UserRole
+  body         String
+  message_type MessageType
+  attachment   String?
+  created_at   DateTime    @default(now())
+
+  project Project @relation(fields: [project_id], references: [project_id], onDelete: Cascade)
+  sender  User    @relation(fields: [sender_id], references: [user_id], onDelete: Restrict)
+
+  @@index([project_id])
+}
+
+model Dispute {
+  dispute_id      String                 @id @default(cuid())
+  project_id      String
+  project_title   String
+  client_name     String
+  editor_name     String
+  opened_by       String
+  opened_by_role  DisputeOpenerRole
+  reason          String
+  evidence        String[]
+  status          DisputeStatus          @default(open)
+  resolution_type DisputeResolutionType?
+  resolution_note String?
+  opened_at       DateTime               @default(now())
+  resolved_at     DateTime?
+  sla_deadline    DateTime
+
+  project Project @relation(fields: [project_id], references: [project_id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model Review {
+  review_id     String   @id @default(cuid())
+  project_id    String
+  rating        Int
+  comment       String
+  reviewer_name String
+  created_at    DateTime @default(now())
+
+  project Project @relation(fields: [project_id], references: [project_id], onDelete: Cascade)
+
+  @@index([project_id])
+}
+
+// ─── Finance Domain ──────────────────────────────────────────────────────────
+
+model Payslip {
+  payslip_id           String        @id @default(cuid())
+  editor_id            String
+  editor_name          String
+  period_start         DateTime      @db.Date
+  period_end           DateTime      @db.Date
+  base_salary          Int
+  attendance_deduction Int           @default(0)
+  project_bonus        Int           @default(0)
+  reimbursement_total  Int           @default(0)
+  net_salary           Int
+  status               PayslipStatus @default(draft)
+  generated_at         DateTime      @default(now())
+
+  editor Editor @relation(fields: [editor_id], references: [editor_id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([period_start])
+}
+
+model EscrowAccount {
+  escrow_id        String   @id @default(cuid())
+  project_id       String   @unique
+  project_title    String
+  client_name      String
+  held_balance     Int      @default(0)
+  released_balance Int      @default(0)
+  refunded_balance Int      @default(0)
+  updated_at       DateTime @updatedAt
+
+  project Project @relation(fields: [project_id], references: [project_id], onDelete: Cascade)
+}
+
+model Transaction {
+  transaction_id String            @id @default(cuid())
+  project_id     String
+  project_title  String
+  type           TransactionType
+  amount         Int
+  status         TransactionStatus @default(pending)
+  created_at     DateTime          @default(now())
+
+  project Project @relation(fields: [project_id], references: [project_id], onDelete: Cascade)
+
+  @@index([project_id])
+  @@index([status])
+}
+
+// ─── Recruitment ─────────────────────────────────────────────────────────────
+
+model JobPosting {
+  job_id          String    @id @default(cuid())
+  title           String
+  specialization  String[]
+  status          JobStatus @default(open)
+  created_at      DateTime  @default(now())
+  applicant_count Int       @default(0)
+
+  applicants Applicant[]
+}
+
+model Applicant {
+  applicant_id      String         @id @default(cuid())
+  job_id            String
+  name              String
+  email             String
+  tahap             ApplicantStage @default(applied)
+  score             Int?
+  portfolio_url     String
+  created_at        DateTime       @default(now())
+  offer_accepted_at DateTime?
+  avatar            String?
+
+  job JobPosting @relation(fields: [job_id], references: [job_id], onDelete: Cascade)
+
+  @@index([job_id])
+  @@index([tahap])
+}

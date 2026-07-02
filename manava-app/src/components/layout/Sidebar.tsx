@@ -3,10 +3,10 @@ import { cn } from '../../lib/utils'
 import type { UserRole } from '../../types'
 import logoDark from '../../assets/logo-dark.png'
 import {
-  LayoutDashboard, Users, Briefcase, CreditCard,
-  Clock, BarChart2, AlertTriangle, UserCheck,
+  LayoutDashboard, Users, Briefcase, CreditCard, Wallet,
+  AlertTriangle, UserCheck,
   Settings, ChevronLeft, LogOut, Shield, X, Search, User, Home,
-  BadgeDollarSign, AlertOctagon, ArrowUpRightFromSquare, Cog,
+  BadgeDollarSign, Cog, Building2,
 } from 'lucide-react'
 
 interface NavItem { to: string; icon: typeof LayoutDashboard; label: string }
@@ -21,20 +21,13 @@ const navByRole: Record<UserRole, NavItem[]> = {
   hr_admin: [
     { to: '/dashboard', icon: Home, label: 'Home' },
     { to: '/recruitment', icon: Users, label: 'Rekrutmen & ATS' },
-    { to: '/attendance', icon: Clock, label: 'Absensi & Cutoff' },
-    { to: '/payments', icon: CreditCard, label: 'Payroll Run' },
-    { to: '/performance', icon: BarChart2, label: 'KPI Editor' },
-    { to: '/warning', icon: AlertOctagon, label: 'Peringatan Kerja' },
-    { to: '/escalation', icon: ArrowUpRightFromSquare, label: 'Eskalasi Tinggi' },
-    { to: '/offboarding', icon: UserCheck, label: 'Offboarding' },
+    { to: '/departments', icon: Building2, label: 'Dashboard Departemen' },
+    { to: '/ess', icon: UserCheck, label: 'Layanan Mandiri' },
   ],
   admin_manager: [
     { to: '/dashboard', icon: Home, label: 'Home' },
-    { to: '/attendance', icon: Clock, label: 'Absensi & Cuti Tim' },
-    { to: '/performance', icon: BarChart2, label: 'KPI Tim' },
-    { to: '/escalation', icon: ArrowUpRightFromSquare, label: 'Eskalasi Menengah' },
-    { to: '/projects', icon: Briefcase, label: 'Proyek Tim' },
-    { to: '/offboarding', icon: UserCheck, label: 'Pengakhiran' },
+    { to: '/team-dashboard', icon: Building2, label: 'Dashboard Departemen' },
+    { to: '/ess', icon: UserCheck, label: 'Layanan Mandiri' },
   ],
   editor: [
     { to: '/dashboard', icon: Home, label: 'Home' },
@@ -54,6 +47,7 @@ const navByRole: Record<UserRole, NavItem[]> = {
   finance: [
     { to: '/dashboard', icon: Home, label: 'Home' },
     { to: '/payments', icon: CreditCard, label: 'Escrow & Ledger' },
+    { to: '/payroll', icon: Wallet, label: 'Payroll Run' },
     { to: '/attendance', icon: BadgeDollarSign, label: 'Disbursement' },
     { to: '/audit', icon: Shield, label: 'Jejak Audit' },
   ],

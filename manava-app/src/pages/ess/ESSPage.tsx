@@ -6,9 +6,18 @@ import {
 import { StatusBadge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
 import { formatCurrency, formatDate } from '../../lib/utils'
-import { mockPayslips, mockLeaveRequests, mockAttendance } from '../../data/mockData'
+import { mockPayslips, mockLeaveRequests, mockAttendance, mockUsers } from '../../data/mockData'
 import { MY_EDITOR } from '../../data/myEditor'
 import { PageHeader } from '../../components/page/PageHeader'
+import type { UserRole } from '../../types'
+
+// The self-service subject depends on who is logged in — an editor sees their own
+// records; an Admin Manager or HR Admin sees theirs. Keeps the page "based on the user".
+function selfIdFor(role: UserRole): string {
+  if (role === 'admin_manager') return mockUsers.admin_manager.user_id
+  if (role === 'hr_admin') return mockUsers.hr_admin.user_id
+  return MY_EDITOR.editor_id
+}
 
 type Tab = 'absensi' | 'cuti' | 'gaji'
 
@@ -20,7 +29,7 @@ const CURRENT = { year: 2026, month: 5 }
 const LEAVE_BALANCE = { cuti: { total: 12, used: 2 }, izin: { total: 6, used: 1 } }
 
 const TABS: { id: Tab; label: string; icon: typeof Clock }[] = [
-  { id: 'absensi', label: 'Absensi', icon: Clock },
+  { id: 'absensi', label: 'Presensi', icon: Clock },
   { id: 'cuti', label: 'Cuti & Izin', icon: Calendar },
   { id: 'gaji', label: 'Slip Gaji', icon: FileText },
 ]
@@ -43,7 +52,7 @@ function LeaveBar({ used, total, color }: { used: number; total: number; color: 
   )
 }
 
-function AttendanceTab() {
+function AttendanceTab({ role }: { role: UserRole }) {
   const [viewYear, setViewYear] = useState(CURRENT.year)
   const [viewMonth, setViewMonth] = useState(CURRENT.month)
 
@@ -85,10 +94,10 @@ function AttendanceTab() {
   return (
     <div className="space-y-4">
       <PageHeader
-        eyebrow="Layanan mandiri editor"
-        title="ESS — Absensi, Cuti, Slip Gaji"
+        eyebrow="Layanan mandiri"
+        title="ESS — Presensi, Cuti, Slip Gaji"
         description="Lihat ringkasan kehadiran bulanan, ajukan cuti, dan unduh payslip Anda."
-        role="editor"
+        role={role}
       />
 
       <div className="grid grid-cols-3 gap-3">
@@ -162,9 +171,9 @@ function AttendanceTab() {
   )
 }
 
-function GajiTab() {
+function GajiTab({ selfId }: { selfId: string }) {
   const payslips = mockPayslips
-    .filter(p => p.editor_id === MY_EDITOR.editor_id)
+    .filter(p => p.editor_id === selfId)
     .sort((a, b) => b.period_start.localeCompare(a.period_start))
 
   if (payslips.length === 0) {
@@ -223,12 +232,13 @@ function GajiTab() {
   )
 }
 
-export default function ESSPage() {
+export default function ESSPage({ role = 'editor' }: { role?: UserRole }) {
   const [tab, setTab] = useState<Tab>('absensi')
   const [leaveModal, setLeaveModal] = useState(false)
   const [leaveForm, setLeaveForm] = useState({ type: 'cuti', start: '', end: '', reason: '' })
 
-  const myLeave = mockLeaveRequests.filter(l => l.editor_id === MY_EDITOR.editor_id)
+  const selfId = selfIdFor(role)
+  const myLeave = mockLeaveRequests.filter(l => l.editor_id === selfId)
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -247,9 +257,9 @@ export default function ESSPage() {
         ))}
       </div>
 
-      {tab === 'absensi' && <AttendanceTab />}
+      {tab === 'absensi' && <AttendanceTab role={role} />}
 
-      {tab === 'gaji' && <GajiTab />}
+      {tab === 'gaji' && <GajiTab selfId={selfId} />}
 
       {tab === 'cuti' && (
         <div className="space-y-5">

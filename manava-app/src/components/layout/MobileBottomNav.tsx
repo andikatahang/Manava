@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import {
   Home, Briefcase, UserCheck, User, Users, Clock, CreditCard, BarChart2,
   AlertTriangle, Shield, Search, FileText, PackageCheck, MessageSquare, BadgeDollarSign,
-  Cog, AlertOctagon, ArrowUpRightFromSquare,
+  Cog, Building2,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { UserRole } from '../../types'
@@ -20,15 +20,14 @@ const itemsByRole: Record<UserRole, BottomNavItem[]> = {
   hr_admin: [
     { to: '/dashboard', icon: Home, label: 'Home' },
     { to: '/recruitment', icon: Users, label: 'ATS' },
-    { to: '/warning', icon: AlertOctagon, label: 'Peringatan' },
-    { to: '/escalation', icon: ArrowUpRightFromSquare, label: 'Eskalasi' },
+    { to: '/departments', icon: Building2, label: 'Departemen' },
+    { to: '/ess', icon: UserCheck, label: 'Mandiri' },
     { to: '/profile', icon: User, label: 'Profil' },
   ],
   admin_manager: [
     { to: '/dashboard', icon: Home, label: 'Home' },
     { to: '/attendance', icon: Clock, label: 'Cuti' },
     { to: '/performance', icon: BarChart2, label: 'KPI' },
-    { to: '/escalation', icon: ArrowUpRightFromSquare, label: 'Eskalasi' },
     { to: '/profile', icon: User, label: 'Profil' },
   ],
   editor: [
