@@ -5,9 +5,8 @@ import {
 } from 'lucide-react'
 import { Modal } from '../../components/ui/Modal'
 import { PageHeader, StatPillsRow } from '../../components/page/PageHeader'
-import {
-  mockDepartments, mockAdminManagers, mockEditors, mockEditorMetrics,
-} from '../../data/mockData'
+import { mockAdminManagers, mockEditors, mockEditorMetrics } from '../../data/mockData'
+import { useDepartments, useDepartmentMutations } from '../../hooks/queries/useDepartments'
 import type { Department, UserRole } from '../../types'
 import { ManagerDepartmentView } from './ManagerDepartmentView'
 import AttendancePage from '../attendance/AttendancePage'
@@ -57,13 +56,18 @@ export default function DepartmentsPage({ role, embedded = false }: { role: User
 
 function HrDepartmentDashboard({ role }: { role: UserRole }) {
   const [tab, setTab] = useState<HrTab>('departemen')
-  const [departments, setDepartments] = useState<Department[]>(mockDepartments)
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState<Department | null>(null)
   const [managingId, setManagingId] = useState<string | null>(null)
   // A department is a "draft" between creation and its first save — HR must add
   // at least one editor before it can be kept.
   const [draftId, setDraftId] = useState<string | null>(null)
+
+  // Departments come from the API; editor/manager detail lookups still use
+  // the fixture tables (seeded into Postgres with identical ids).
+  const departmentsQuery = useDepartments()
+  const mutations = useDepartmentMutations()
+  const departments = departmentsQuery.data ?? []
 
   const managing = managingId ? departments.find(d => d.id === managingId) ?? null : null
 
@@ -76,33 +80,28 @@ function HrDepartmentDashboard({ role }: { role: UserRole }) {
     setManagingId(null)
   }
   // Create with no members, then drop straight into the new department's page.
-  function createDepartment(name: string, managerId: string) {
-    const dep: Department = { id: `d-${Date.now()}`, name, manager_id: managerId, member_ids: [] }
-    setDepartments(prev => [dep, ...prev])
+  async function createDepartment(name: string, managerId: string) {
+    const created = await mutations.create.mutateAsync({ name, manager_id: managerId })
     setShowAdd(false)
-    setDraftId(dep.id)
-    setManagingId(dep.id)
+    setDraftId(created.id)
+    setManagingId(created.id)
   }
-  function updateBasics(depId: string, name: string, managerId: string) {
-    setDepartments(prev => prev.map(d => (d.id === depId ? { ...d, name, manager_id: managerId } : d)))
+  async function updateBasics(depId: string, name: string, managerId: string) {
+    await mutations.updateBasics.mutateAsync({ id: depId, name, manager_id: managerId })
     setEditing(null)
   }
   function addMembers(depId: string, editorIds: string[]) {
-    setDepartments(prev => prev.map(d =>
-      d.id === depId ? { ...d, member_ids: Array.from(new Set([...d.member_ids, ...editorIds])) } : d,
-    ))
+    mutations.addMembers.mutate({ id: depId, editor_ids: editorIds })
   }
   function removeMember(depId: string, editorId: string) {
-    setDepartments(prev => prev.map(d =>
-      d.id === depId ? { ...d, member_ids: d.member_ids.filter(id => id !== editorId) } : d,
-    ))
+    mutations.removeMember.mutate({ id: depId, editor_id: editorId })
   }
   function finishManage() {
     setManagingId(null)
     setDraftId(null)
   }
   function discardDraft(depId: string) {
-    setDepartments(prev => prev.filter(d => d.id !== depId))
+    mutations.remove.mutate(depId)
     setManagingId(null)
     setDraftId(null)
   }
@@ -139,7 +138,15 @@ function HrDepartmentDashboard({ role }: { role: UserRole }) {
         ))}
       </div>
 
-      {tab === 'departemen' && (
+      {tab === 'departemen' && departmentsQuery.isLoading && (
+        <p className="text-sm text-navy/50">Memuat departemen…</p>
+      )}
+      {tab === 'departemen' && departmentsQuery.isError && (
+        <p className="text-sm text-red-600">
+          Gagal memuat departemen — pastikan backend berjalan. ({(departmentsQuery.error as Error).message})
+        </p>
+      )}
+      {tab === 'departemen' && !departmentsQuery.isLoading && !departmentsQuery.isError && (
         managing ? (
           <DepartmentManageView
             department={managing}

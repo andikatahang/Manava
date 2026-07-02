@@ -1,28 +1,61 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
-import { Eye, EyeOff, ArrowRight } from 'lucide-react'
+import { Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react'
 import logoLight from '../../assets/logo-light.png'
 import logoDark from '../../assets/logo-dark.png'
 import type { UserRole } from '../../types'
 
-const roles: { value: UserRole; label: string; desc: string }[] = [
-  { value: 'superadmin',    label: 'Superadmin',     desc: 'Akun, role, parameter sistem' },
-  { value: 'hr_admin',      label: 'HR Admin',       desc: 'ATS, payroll, peringatan, eskalasi tinggi' },
-  { value: 'admin_manager', label: 'Admin Manager',  desc: 'Tim, KPI, eskalasi menengah' },
-  { value: 'editor',        label: 'Editor',         desc: 'Kerjakan proyek & ESS' },
-  { value: 'client',        label: 'Klien',          desc: 'Pesan & lacak layanan' },
-  { value: 'mediator',      label: 'Mediator',       desc: 'Selesaikan sengketa' },
-  { value: 'finance',       label: 'Keuangan',       desc: 'Escrow & penggajian' },
+// Demo accounts seeded by manava-api (prisma/seed.ts). Selecting one
+// pre-fills the form; authentication still goes through the real backend.
+const DEMO_PASSWORD = 'manava123'
+const demoAccounts: { role: UserRole; email: string; label: string; desc: string }[] = [
+  { role: 'superadmin',    email: 'admin@manava.id', label: 'Superadmin',    desc: 'Akun, role, parameter sistem' },
+  { role: 'hr_admin',      email: 'hasna@manava.id', label: 'HR Admin',      desc: 'ATS, departemen, peringatan' },
+  { role: 'admin_manager', email: 'eko@manava.id',   label: 'Admin Manager', desc: 'Tim, KPI, persetujuan cuti' },
+  { role: 'editor',        email: 'budi@manava.id',  label: 'Editor',        desc: 'Kerjakan proyek & ESS' },
+  { role: 'client',        email: 'citra@client.com', label: 'Klien',        desc: 'Pesan & lacak layanan' },
+  { role: 'mediator',      email: 'dewi@manava.id',  label: 'Mediator',      desc: 'Selesaikan sengketa' },
+  { role: 'finance',       email: 'fani@manava.id',  label: 'Keuangan',      desc: 'Escrow & penggajian' },
 ]
 
-interface LoginPageProps { onLogin: (role: UserRole) => void }
+interface LoginPageProps { onLogin: (email: string, password: string) => Promise<unknown> }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
   const [showPassword, setShowPassword] = useState(false)
-  const [selectedRole, setSelectedRole] = useState<UserRole>('superadmin')
-  const [email, setEmail] = useState('admin@manava.id')
+  const [email, setEmail] = useState('hasna@manava.id')
+  const [password, setPassword] = useState(DEMO_PASSWORD)
+  const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const reduceMotion = useReducedMotion()
+
+  const selectedDemo = demoAccounts.find(a => a.email === email)
+
+  function pickDemo(account: (typeof demoAccounts)[number]) {
+    setEmail(account.email)
+    setPassword(DEMO_PASSWORD)
+    setError('')
+  }
+
+  async function handleSubmit() {
+    if (!email.trim() || !password) {
+      setError('Email dan kata sandi wajib diisi.')
+      return
+    }
+    setIsSubmitting(true)
+    setError('')
+    try {
+      await onLogin(email.trim(), password)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Login gagal'
+      setError(
+        message === 'Invalid credentials'
+          ? 'Email atau kata sandi salah.'
+          : `Tidak dapat masuk: ${message}`,
+      )
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-primary flex">
@@ -71,43 +104,67 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           <h1 className="text-3xl font-bold text-navy mb-1">Selamat datang kembali</h1>
           <p className="text-navy/50 text-sm mb-8">Masuk ke akun Anda</p>
 
-          <div className="space-y-5">
+          <form
+            className="space-y-5"
+            onSubmit={e => { e.preventDefault(); void handleSubmit() }}
+          >
             <div>
               <label className="label">Alamat email</label>
-              <input type="email" className="input" value={email} onChange={e => setEmail(e.target.value)} placeholder="anda@manava.id" />
+              <input
+                type="email"
+                className="input"
+                value={email}
+                onChange={e => { setEmail(e.target.value); setError('') }}
+                placeholder="anda@manava.id"
+                autoComplete="email"
+              />
             </div>
             <div>
               <label className="label">Kata sandi</label>
               <div className="relative">
-                <input type={showPassword ? 'text' : 'password'} className="input pr-11" defaultValue="••••••••" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="input pr-11"
+                  value={password}
+                  onChange={e => { setPassword(e.target.value); setError('') }}
+                  autoComplete="current-password"
+                />
                 <button type="button" onClick={() => setShowPassword(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-navy/40 hover:text-navy transition-colors">
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            {/* Role selector */}
+            {/* Demo account quick-fill */}
             <div>
-              <label className="label">Peran demo</label>
+              <label className="label">Akun demo <span className="text-navy/40 font-normal">(isi otomatis)</span></label>
               <div className="grid grid-cols-2 gap-2">
-                {roles.map(r => (
+                {demoAccounts.map(a => (
                   <button
-                    key={r.value}
+                    key={a.role}
                     type="button"
-                    onClick={() => setSelectedRole(r.value)}
-                    className={`p-3 rounded-xl border text-left transition-all duration-150 ${selectedRole === r.value ? 'border-navy bg-navy-50' : 'border-border bg-white hover:border-navy/30'}`}
+                    onClick={() => pickDemo(a)}
+                    className={`p-3 rounded-xl border text-left transition-all duration-150 ${selectedDemo?.role === a.role ? 'border-navy bg-navy-50' : 'border-border bg-white hover:border-navy/30'}`}
                   >
-                    <p className={`text-sm font-medium ${selectedRole === r.value ? 'text-navy' : 'text-navy/80'}`}>{r.label}</p>
-                    <p className="text-xs text-navy/40 mt-0.5">{r.desc}</p>
+                    <p className={`text-sm font-medium ${selectedDemo?.role === a.role ? 'text-navy' : 'text-navy/80'}`}>{a.label}</p>
+                    <p className="text-xs text-navy/40 mt-0.5">{a.desc}</p>
                   </button>
                 ))}
               </div>
             </div>
 
-            <button onClick={() => onLogin(selectedRole)} className="btn-primary w-full justify-center py-3 text-base mt-2">
-              Masuk sebagai {roles.find(r => r.value === selectedRole)?.label} <ArrowRight className="w-5 h-5" />
+            {error && <p className="text-sm text-red-600">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="btn-primary w-full justify-center py-3 text-base mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isSubmitting
+                ? <><Loader2 className="w-5 h-5 animate-spin" /> Memeriksa…</>
+                : <>Masuk{selectedDemo ? ` sebagai ${selectedDemo.label}` : ''} <ArrowRight className="w-5 h-5" /></>}
             </button>
-          </div>
+          </form>
 
           <p className="text-center text-sm text-navy/50 mt-6">
             Belum punya akun?{' '}

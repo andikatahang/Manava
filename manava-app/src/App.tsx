@@ -74,14 +74,20 @@ function RoleGuard({ role, children }: { role: UserRole; children: React.ReactNo
 }
 
 function AppRoutes() {
-  const { user, login, logout, isAuthenticated } = useAuth()
+  const { user, login, logout, isAuthenticated, isHydrating } = useAuth()
+
+  // Wait for the silent refresh before deciding login vs app — avoids a
+  // login-page flash on reload for users with a live session.
+  if (isHydrating) {
+    return <div className="min-h-screen bg-primary" aria-busy="true" />
+  }
 
   if (!isAuthenticated || !user) {
     return (
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/apply" element={<ApplyPage />} />
-        <Route path="/login" element={<LoginPage onLogin={(role: UserRole) => login(role)} />} />
+        <Route path="/login" element={<LoginPage onLogin={login} />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     )
