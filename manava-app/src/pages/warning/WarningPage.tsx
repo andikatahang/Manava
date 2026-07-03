@@ -2,16 +2,16 @@ import { useMemo, useState } from 'react'
 import { AlertOctagon, Plus, Filter, Calendar } from 'lucide-react'
 import { PageHeader, StatPillsRow } from '../../components/page/PageHeader'
 import { Modal } from '../../components/ui/Modal'
-import { mockEditors, mockAdminManagers } from '../../data/mockData'
 import {
   useWarnings, useWarningMutations,
   type Warning, type WarningSeverity as Severity,
   type WarningStatus as Status, type WarningTargetRole as TargetRole,
 } from '../../hooks/queries/useWarnings'
+import { useUsers } from '../../hooks/queries/useUsers'
 import type { UserRole } from '../../types'
 
-// Pool of candidate targets: active editors + admin managers. Sourced from
-// the fixture tables (seeded into Postgres with identical ids).
+// Pool of candidate targets: real user accounts with role editor or
+// admin_manager, so every warning is addressed to an account that can see it.
 interface Candidate { id: string; name: string; role: TargetRole; subLabel: string }
 
 const ROLE_LABEL: Record<TargetRole, string> = {
@@ -53,19 +53,18 @@ export default function WarningPage({ role }: WarningPageProps) {
   const mutations = useWarningMutations()
   const warnings = warningsQuery.data ?? []
 
-  const candidates = useMemo<Candidate[]>(() => ([
-    ...mockEditors
-      .filter(e => e.status === 'active')
-      .map(e => ({ id: e.editor_id, name: e.full_name, role: 'editor' as TargetRole, subLabel: e.department })),
-    ...mockAdminManagers.map(m => ({ id: m.id, name: m.full_name, role: 'admin_manager' as TargetRole, subLabel: m.department })),
-  ]), [])
+  const usersQuery = useUsers(h.canIssue)
+  const candidates = useMemo<Candidate[]>(
+    () =>
+      (usersQuery.data ?? [])
+        .filter(u => u.is_active && (u.role === 'editor' || u.role === 'admin_manager'))
+        .map(u => ({ id: u.user_id, name: u.full_name, role: u.role as TargetRole, subLabel: u.email })),
+    [usersQuery.data],
+  )
 
   async function issueWarning(input: { targetId: string; reason: string; severity: Severity }) {
-    const target = candidates.find(c => c.id === input.targetId)
-    if (!target) return
     await mutations.create.mutateAsync({
-      target_name: target.name,
-      target_role: target.role,
+      target_user_id: input.targetId,
       reason: input.reason.trim(),
       severity: input.severity,
     })
@@ -141,8 +140,11 @@ export default function WarningPage({ role }: WarningPageProps) {
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                {role === 'editor' && w.status === 'aktif' && (
-                  <button className="bg-[#021526] hover:brightness-110 text-white font-semibold px-3.5 py-1.5 rounded-full text-[12px]">
+                {(role === 'editor' || role === 'admin_manager') && w.status === 'aktif' && (
+                  <button
+                    onClick={() => updateStatus(w.id, 'diakui')}
+                    className="bg-[#021526] hover:brightness-110 text-white font-semibold px-3.5 py-1.5 rounded-full text-[12px]"
+                  >
                     Akui peringatan
                   </button>
                 )}
@@ -346,9 +348,19 @@ function WarningDetail({ warning, role, onClose, onStatusChange }: WarningDetail
         <p className="text-[11px] text-navy/50">
           {canManage
             ? 'Sebagai HR Admin, Anda dapat mengubah status peringatan.'
-            : 'Detail hanya-baca berdasarkan role Anda.'}
+            : warning.status === 'aktif'
+              ? 'Akui peringatan ini sebagai tanda Anda telah membacanya.'
+              : 'Detail hanya-baca berdasarkan role Anda.'}
         </p>
         <div className="flex gap-2">
+          {!canManage && warning.status === 'aktif' && (
+            <button
+              onClick={() => onStatusChange('diakui')}
+              className="btn-secondary text-sm"
+            >
+              Akui peringatan
+            </button>
+          )}
           {canManage && warning.status === 'aktif' && (
             <button
               onClick={() => onStatusChange('diakui')}

@@ -21,6 +21,7 @@ export interface Warning {
 
 interface ApiWarning {
   id: string
+  target_user_id: string | null
   target_name: string
   target_role: WarningTargetRole
   reason: string
@@ -47,13 +48,16 @@ function toWarning(w: ApiWarning): Warning {
 
 const KEY = ['warnings']
 
-export function useWarnings() {
+// The API scopes the list by role: HR gets every warning, editors and admin
+// managers only get warnings addressed to their own account.
+export function useWarnings(enabled = true) {
   return useQuery({
     queryKey: KEY,
     queryFn: async () => {
       const rows = await api<ApiWarning[]>('/warnings')
       return rows.map(toWarning)
     },
+    enabled,
   })
 }
 
@@ -63,8 +67,7 @@ export function useWarningMutations() {
 
   const create = useMutation({
     mutationFn: (input: {
-      target_name: string
-      target_role: WarningTargetRole
+      target_user_id: string
       reason: string
       severity: WarningSeverity
     }) => api<ApiWarning>('/warnings', { method: 'POST', body: input }),

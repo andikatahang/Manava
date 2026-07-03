@@ -216,6 +216,7 @@ model User {
   refresh_tokens RefreshToken[]
   messages      Message[]
   issued_warnings Warning[] @relation("WarningIssuer")
+  received_warnings Warning[] @relation("WarningTarget")
 
   @@index([role])
 }
@@ -336,21 +337,24 @@ model LeaveRequest {
 }
 
 model Warning {
-  id           String           @id @default(cuid())
-  target_name  String
-  target_role  WarningTargetRole
-  reason       String
-  severity     WarningSeverity
-  status       WarningStatus    @default(aktif)
-  issued_by_id String
-  issued_at    DateTime         @default(now())
-  expires_at   DateTime
-  updated_at   DateTime         @updatedAt
+  id             String           @id @default(cuid())
+  target_user_id String?
+  target_name    String
+  target_role    WarningTargetRole
+  reason         String
+  severity       WarningSeverity
+  status         WarningStatus    @default(aktif)
+  issued_by_id   String
+  issued_at      DateTime         @default(now())
+  expires_at     DateTime
+  updated_at     DateTime         @updatedAt
 
-  issuer User @relation("WarningIssuer", fields: [issued_by_id], references: [user_id], onDelete: Restrict)
+  issuer User  @relation("WarningIssuer", fields: [issued_by_id], references: [user_id], onDelete: Restrict)
+  target User? @relation("WarningTarget", fields: [target_user_id], references: [user_id], onDelete: Cascade)
 
   @@index([status])
   @@index([severity])
+  @@index([target_user_id])
 }
 
 model EditorMetrics {

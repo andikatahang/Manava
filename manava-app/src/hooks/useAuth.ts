@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { User } from '../types'
 import { api, setAccessToken, tryRefresh, type AuthPayload } from '../lib/api'
 
@@ -8,6 +9,10 @@ import { api, setAccessToken, tryRefresh, type AuthPayload } from '../lib/api'
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
   const [isHydrating, setIsHydrating] = useState(true)
+  // Server data is scoped per account (warnings, leave requests, …), so the
+  // react-query cache must be wiped whenever the session identity changes —
+  // otherwise the next user briefly sees the previous user's data.
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     let cancelled = false
@@ -28,6 +33,7 @@ export function useAuth() {
       body: { identifier, password },
       skipRefresh: true,
     })
+    queryClient.clear()
     setAccessToken(payload.accessToken)
     setUser(payload.user)
     return payload.user
@@ -46,6 +52,7 @@ export function useAuth() {
       body: input,
       skipRefresh: true,
     })
+    queryClient.clear()
     setAccessToken(payload.accessToken)
     setUser(payload.user)
     return payload.user
@@ -59,6 +66,7 @@ export function useAuth() {
     }
     setAccessToken(null)
     setUser(null)
+    queryClient.clear()
   }
 
   return { user, login, register, logout, isAuthenticated: user !== null, isHydrating }

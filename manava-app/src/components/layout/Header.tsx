@@ -4,6 +4,7 @@ import { Bell, MessageSquare, CheckCheck, AlertTriangle, FileText, CreditCard, U
 import type { UserRole } from '../../types'
 import { APPROVES_REQUESTS_FROM } from '../../lib/leaveRequests'
 import { useLeaveRequests } from '../../hooks/queries/useLeaveRequests'
+import { useWarnings } from '../../hooks/queries/useWarnings'
 import { formatDate } from '../../lib/utils'
 
 const pageTitles: Record<string, string> = {
@@ -136,7 +137,28 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
     [leaveQuery.data, approvableRoles, readLeaveIds],
   )
 
-  const allNotifs = [...leaveNotifs, ...notifs]
+  // Real warning notifications for warning recipients: the API already scopes
+  // GET /warnings to the logged-in user for these roles, so every active
+  // warning in the list is one addressed to me.
+  const receivesWarnings = role === 'editor' || role === 'admin_manager'
+  const warningsQuery = useWarnings(receivesWarnings)
+  const [readWarningIds, setReadWarningIds] = useState<ReadonlySet<string>>(new Set())
+  const warningNotifs: Notification[] = useMemo(
+    () =>
+      (receivesWarnings ? warningsQuery.data ?? [] : [])
+        .filter(w => w.status === 'aktif')
+        .map(w => ({
+          id: `warning-${w.id}`,
+          icon: 'alert' as const,
+          title: `Peringatan kerja (${w.severity}) dari HR`,
+          body: w.reason,
+          time: `Diterbitkan ${formatDate(w.issuedAt)} · oleh ${w.issuedBy}`,
+          read: readWarningIds.has(w.id),
+        })),
+    [warningsQuery.data, readWarningIds, receivesWarnings],
+  )
+
+  const allNotifs = [...warningNotifs, ...leaveNotifs, ...notifs]
   const unread = allNotifs.filter(n => !n.read).length
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -161,12 +183,20 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
       navigate('/attendance')
       return
     }
+    if (n.id.startsWith('warning-')) {
+      const warningId = n.id.slice('warning-'.length)
+      setReadWarningIds(prev => new Set(prev).add(warningId))
+      setOpen(false)
+      navigate('/warning')
+      return
+    }
     setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))
   }
 
   function markAllRead() {
     setNotifs(prev => prev.map(n => ({ ...n, read: true })))
     setReadLeaveIds(new Set(leaveNotifs.map(n => n.id.slice('leave-'.length))))
+    setReadWarningIds(new Set(warningNotifs.map(n => n.id.slice('warning-'.length))))
   }
 
   return (

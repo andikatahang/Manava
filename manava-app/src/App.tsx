@@ -51,7 +51,7 @@ const ALLOWED_PATHS: Record<UserRole, string[]> = {
     '/ess', '/warning', '/settings', '/profile',
   ],
   editor: [
-    '/dashboard', '/projects', '/chat', '/ess', '/attendance', '/settings', '/profile',
+    '/dashboard', '/projects', '/chat', '/ess', '/attendance', '/warning', '/settings', '/profile',
   ],
   client: [
     '/dashboard', '/browse-editors', '/projects', '/settings',

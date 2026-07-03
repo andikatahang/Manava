@@ -81,6 +81,7 @@ const configs: Record<UserRole, RoleHomeConfig> = {
       { label: 'Ajukan Cuti',        to: '/ess',       icon: ClipboardCheck, accent: 'pink' },
       { label: 'Slip Gaji',          to: '/ess',       icon: Wallet,       accent: 'emerald' },
       { label: 'KPI Saya',           to: '/dashboard', icon: BarChart2,    accent: 'navy' },
+      { label: 'Peringatan Saya',    to: '/warning',   icon: AlertOctagon, accent: 'amber' },
       { label: 'Pengaturan',         to: '/settings',  icon: Settings,     accent: 'navy' },
     ],
     spotlight: [
