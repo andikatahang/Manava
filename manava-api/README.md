@@ -25,7 +25,7 @@ DATABASE_URL="postgresql://manava:manava_dev_change_me@localhost:5432/manava?sch
 
 Migrasi dijalankan otomatis oleh container api saat start (`prisma migrate deploy`).
 
-Buka `http://localhost:5173` dan login dengan akun seed (semua berpassword `manava123`):
+Buka `http://localhost:5173` dan login dengan akun seed (semua memakai password dari `SEED_PASSWORD` di `.env`):
 
 | Role | Email |
 |---|---|
@@ -88,7 +88,7 @@ manava-api/
 ├── prisma/
 │   ├── schema.prisma      # 22 entity + Warning + RefreshToken (enum lengkap)
 │   ├── migrations/        # dikelola prisma migrate
-│   └── seed.ts            # fixture = mock frontend, password "manava123"
+│   └── seed.ts            # fixture = mock frontend, password dari SEED_PASSWORD
 ├── src/
 │   ├── index.ts           # bootstrap Express + registrasi router
 │   ├── config/env.ts      # validasi env (zod) — fail fast
