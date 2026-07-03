@@ -3,6 +3,7 @@ import { Shield, UserPlus, Search, MoreHorizontal, KeyRound, CircleSlash2, Check
 import { PageHeader } from '../../components/page/PageHeader'
 import { StatPillsRow } from '../../components/page/PageHeader'
 import { mockUsers } from '../../data/mockData'
+import { isRoleDisabled } from '../../lib/roles'
 import type { UserRole } from '../../types'
 
 const ROLE_LABEL: Record<UserRole, string> = {
@@ -29,7 +30,9 @@ export default function UsersPage() {
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all')
 
-  const allUsers = Object.values(mockUsers)
+  // Akun ber-role nonaktif (client/mediator/finance) disembunyikan dari
+  // manajemen akun selama role tersebut dinonaktifkan.
+  const allUsers = Object.values(mockUsers).filter(u => !isRoleDisabled(u.role))
   const filtered = allUsers.filter(u => {
     const matchesQuery = !query || u.full_name.toLowerCase().includes(query.toLowerCase()) || u.email.toLowerCase().includes(query.toLowerCase())
     const matchesRole = roleFilter === 'all' || u.role === roleFilter
@@ -38,8 +41,8 @@ export default function UsersPage() {
 
   const stats = [
     { label: 'Total akun', value: allUsers.length, tone: 'navy' as const, hint: 'aktif di sistem' },
-    { label: 'Internal staff', value: allUsers.filter(u => ['superadmin','hr_admin','admin_manager','editor','mediator','finance'].includes(u.role)).length, tone: 'blue' as const, hint: '6 role internal' },
-    { label: 'Eksternal klien', value: allUsers.filter(u => u.role === 'client').length, tone: 'emerald' as const, hint: 'COMPANY / INDIVIDUAL' },
+    { label: 'Staf admin', value: allUsers.filter(u => ['superadmin', 'hr_admin', 'admin_manager'].includes(u.role)).length, tone: 'blue' as const, hint: '3 role admin' },
+    { label: 'Editor', value: allUsers.filter(u => u.role === 'editor').length, tone: 'emerald' as const, hint: 'tenaga produksi' },
     { label: 'Suspended', value: allUsers.filter(u => !u.is_active).length, tone: 'red' as const, hint: 'dinonaktifkan' },
   ]
 
@@ -70,7 +73,7 @@ export default function UsersPage() {
           />
         </div>
         <div className="flex items-center gap-1.5 overflow-x-auto">
-          {(['all', 'superadmin', 'hr_admin', 'admin_manager', 'editor', 'client', 'mediator', 'finance'] as const).map(r => (
+          {(['all', 'superadmin', 'hr_admin', 'admin_manager', 'editor'] as const).map(r => (
             <button
               key={r}
               type="button"
