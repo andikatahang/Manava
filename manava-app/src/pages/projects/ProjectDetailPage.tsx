@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft, User, Calendar, CreditCard, CheckCircle2,
-  RotateCcw, Briefcase, Upload,
+  ArrowLeft, User, Calendar, CreditCard, CheckCircle2, Eye,
+  Briefcase, Upload,
 } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
 import { cn } from '../../lib/utils'
-import { formatCurrency } from '../../lib/utils'
+import { formatCurrency, formatDate } from '../../lib/utils'
 import { mockProjects, mockRevisionEnvelopes, mockDisputes, mockReviews } from '../../data/mockData'
 import { StageRail } from './StageRail'
 import { attentionFor, projectCategory } from './lifecycle'
@@ -15,8 +15,10 @@ import {
   PaymentPanel, DisputePanel, tabCounts, DELIVERABLES,
 } from './detailPanels'
 import type { DeliverableVersion } from './detailPanels'
+import { projectOffers } from './workflow'
+import type { ProjectOffer } from './workflow'
 import { RatingPanel } from './RatingPanel'
-import type { UserRole, RevisionEnvelope, Dispute, Review } from '../../types'
+import type { UserRole, ProjectStatus, RevisionEnvelope, Dispute, Review } from '../../types'
 
 type Tab = 'ringkasan' | 'kontrak' | 'hasil' | 'chat' | 'pembayaran' | 'sengketa' | 'penilaian'
 
@@ -45,13 +47,28 @@ const TONE_PILL: Record<string, string> = {
   emerald: 'bg-emerald-50 text-emerald-700',
 }
 
+// Keyed by project id so per-project state (status, offer, deliverables…)
+// resets when navigating directly between two project detail pages.
 export default function ProjectDetailPage({ role }: { role: UserRole }) {
+  const { id } = useParams()
+  return <ProjectDetail key={id} role={role} />
+}
+
+function ProjectDetail({ role }: { role: UserRole }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('ringkasan')
   const isEditor = role === 'editor'
 
   const project = mockProjects.find(p => p.project_id === id)
+
+  // Live workflow state. Status transitions (offer accepted → in_progress →
+  // in_review → completed/disputed) happen here; changes are written back to
+  // the mock stores so they survive navigating away and back (prototype-only).
+  const [status, setStatusState] = useState<ProjectStatus>(() => project?.status ?? 'draft')
+  const [offer, setOfferState] = useState<ProjectOffer | null>(
+    () => (id ? projectOffers[id] ?? null : null),
+  )
 
   // Revision Envelope state lives at the page so it survives tab switches and
   // stays in sync between the Ringkasan and Kontrak tabs.
@@ -85,18 +102,76 @@ export default function ProjectDetailPage({ role }: { role: UserRole }) {
     )
   }
 
+  // Merged view: the found mock project + live workflow status.
+  const proj = { ...project, status }
+
+  function setStatus(next: ProjectStatus) {
+    setStatusState(next)
+    project!.status = next // persist across navigation (mock store)
+  }
+
+  function setOffer(next: ProjectOffer) {
+    setOfferState(next)
+    projectOffers[project!.project_id] = next
+  }
+
+  function syncDeliverables(next: DeliverableVersion[]) {
+    setDeliverables(next)
+    DELIVERABLES[project!.project_id] = next
+  }
+
+  // ── Workflow transitions ──
+  function handleOfferResponse(accepted: boolean) {
+    if (!offer) return
+    setOffer({ ...offer, status: accepted ? 'accepted' : 'rejected' })
+    if (accepted) {
+      // Offer terms become the project's commercial terms; work starts now.
+      project!.project_value = offer.price
+      project!.dp_amount = offer.price / 2
+      project!.final_amount = offer.price / 2
+      project!.started_at = new Date().toISOString().slice(0, 10)
+      setStatus('in_progress')
+    }
+  }
+
+  function handleUpload(v: DeliverableVersion) {
+    syncDeliverables([v, ...deliverables])
+    setStatus('in_review')
+  }
+
+  function handleApprove(v: DeliverableVersion) {
+    syncDeliverables(deliverables.map(d =>
+      d.version === v.version ? { ...d, status: 'approved' as const } : d,
+    ))
+    project!.completed_at = new Date().toISOString().slice(0, 10)
+    setStatus('completed')
+  }
+
+  // Minor revision confirmed by the client — work returns to the editor.
+  function handleRevisionRequest(v: DeliverableVersion) {
+    syncDeliverables(deliverables.map(d =>
+      d.version === v.version ? { ...d, status: 'revision_requested' as const } : d,
+    ))
+    setStatus('in_progress')
+  }
+
+  function handleDisputeCreate(d: Dispute) {
+    setDisputes(prev => [d, ...prev])
+    setStatus('disputed')
+  }
+
   const baseTabs = isEditor ? EDITOR_TABS : CLIENT_TABS
   // The rating tab only appears once the project is completed.
-  const TABS = project.status === 'completed'
+  const TABS = status === 'completed'
     ? [...baseTabs, { key: 'penilaian' as Tab, label: 'Penilaian' }]
     : baseTabs
 
-  const counts = tabCounts(project)
-  const attention = attentionFor(project.status)
-  const { Icon, label: category } = projectCategory(project.title)
-  const showPay = !isEditor && (project.status === 'awaiting_dp' || project.status === 'in_review')
-  const showRevise = !isEditor && (project.status === 'in_progress' || project.status === 'in_review')
-  const showSubmit = isEditor && (project.status === 'in_progress' || project.status === 'revision')
+  const counts = tabCounts(proj)
+  const attention = attentionFor(status)
+  const { Icon, label: category } = projectCategory(proj.title)
+  const showPay = !isEditor && status === 'awaiting_dp'
+  const showReview = role === 'client' && status === 'in_review'
+  const showSubmit = isEditor && (status === 'in_progress' || status === 'revision')
 
   const badge = (key: Tab) => {
     const n = key === 'hasil' ? deliverables.length : key === 'chat' ? counts.chat : key === 'sengketa' ? disputes.length : 0
@@ -123,24 +198,29 @@ export default function ProjectDetailPage({ role }: { role: UserRole }) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-navy/40">{category}</span>
-                <StatusBadge status={project.status} />
-                {attention && project.status !== 'completed' && (
+                <StatusBadge status={status} />
+                {attention && status !== 'completed' && (
                   <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full', TONE_PILL[attention.tone])}>
                     {attention.label}
                   </span>
                 )}
               </div>
               <h1 className="text-xl sm:text-2xl font-bold text-navy mt-1.5 leading-tight" style={{ fontFamily: "'Inter Display', sans-serif" }}>
-                {project.title}
+                {proj.title}
               </h1>
               <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-3 text-xs text-navy/55">
                 <span className="flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5" />
-                  {isEditor ? project.client_name : project.editor_name}
+                  {isEditor ? proj.client_name : proj.editor_name}
                 </span>
-                <span className="flex items-center gap-1.5 font-semibold text-navy"><CreditCard className="w-3.5 h-3.5" />{formatCurrency(project.project_value)}</span>
-                {project.started_at && (
-                  <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" />Mulai {project.started_at}</span>
+                {proj.project_value > 0 && (
+                  <span className="flex items-center gap-1.5 font-semibold text-navy"><CreditCard className="w-3.5 h-3.5" />{formatCurrency(proj.project_value)}</span>
+                )}
+                {proj.started_at && (
+                  <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" />Mulai {proj.started_at}</span>
+                )}
+                {offer?.status === 'accepted' && (
+                  <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" />Tenggat {formatDate(offer.deadline)}</span>
                 )}
               </div>
             </div>
@@ -148,26 +228,25 @@ export default function ProjectDetailPage({ role }: { role: UserRole }) {
 
           {/* Signature: lifecycle rail */}
           <div className="mt-6 max-w-xl">
-            <StageRail status={project.status} />
+            <StageRail status={status} />
           </div>
 
-          {/* Primary actions */}
-          {(showPay || showRevise || showSubmit) && (
+          {/* Primary actions — shortcuts into the tab where the work happens */}
+          {(showPay || showReview || showSubmit) && (
             <div className="flex gap-2 mt-6 flex-wrap">
               {showPay && (
                 <button className="btn-primary text-sm">
-                  <CheckCircle2 className="w-4 h-4" />
-                  {project.status === 'awaiting_dp' ? 'Bayar DP' : 'Setujui & bayar pelunasan'}
+                  <CheckCircle2 className="w-4 h-4" /> Bayar DP
+                </button>
+              )}
+              {showReview && (
+                <button onClick={() => setTab('hasil')} className="btn-primary text-sm">
+                  <Eye className="w-4 h-4" /> Tinjau Hasil Kerja
                 </button>
               )}
               {showSubmit && (
-                <button className="btn-primary text-sm">
+                <button onClick={() => setTab('hasil')} className="btn-primary text-sm">
                   <Upload className="w-4 h-4" /> Kirim untuk ditinjau
-                </button>
-              )}
-              {showRevise && (
-                <button className="btn-secondary text-sm">
-                  <RotateCcw className="w-4 h-4" /> Ajukan revisi
                 </button>
               )}
             </div>
@@ -196,10 +275,10 @@ export default function ProjectDetailPage({ role }: { role: UserRole }) {
 
       {/* Panel */}
       <div className="card no-hover">
-        {tab === 'ringkasan' && <OverviewPanel project={project} envelope={envelope} />}
+        {tab === 'ringkasan' && <OverviewPanel project={proj} envelope={envelope} />}
         {tab === 'kontrak' && (
           <ContractPanel
-            project={project}
+            project={proj}
             role={role}
             envelope={envelope}
             agreedAt={envelopeAgreedAt}
@@ -209,33 +288,45 @@ export default function ProjectDetailPage({ role }: { role: UserRole }) {
         )}
         {tab === 'hasil' && (
           <DeliverablesPanel
-            project={project}
+            project={proj}
             role={role}
             versions={deliverables}
-            onUpload={v => setDeliverables(prev => [v, ...prev])}
+            onUpload={handleUpload}
+            onApprove={handleApprove}
+            onRequestRevision={handleRevisionRequest}
+            onDiscuss={() => setTab('chat')}
+            onDispute={() => setTab('sengketa')}
           />
         )}
-        {tab === 'chat' && <ChatPanel project={project} />}
-        {tab === 'pembayaran' && <PaymentPanel project={project} />}
+        {tab === 'chat' && (
+          <ChatPanel
+            project={proj}
+            role={role}
+            offer={offer}
+            onSendOffer={setOffer}
+            onOfferResponse={handleOfferResponse}
+          />
+        )}
+        {tab === 'pembayaran' && <PaymentPanel project={proj} />}
         {tab === 'sengketa' && (
           <DisputePanel
-            project={project}
+            project={proj}
             role={role}
             disputes={disputes}
-            onCreate={d => setDisputes(prev => [d, ...prev])}
+            onCreate={handleDisputeCreate}
           />
         )}
-        {tab === 'penilaian' && project.status === 'completed' && (
+        {tab === 'penilaian' && status === 'completed' && (
           <RatingPanel
-            project={project}
+            project={proj}
             role={role}
             review={review}
             onSubmit={(rating, comment) => setReview({
               review_id: `rev-${Date.now()}`,
-              project_id: project.project_id,
+              project_id: proj.project_id,
               rating,
               comment,
-              reviewer_name: project.client_name,
+              reviewer_name: proj.client_name,
               created_at: new Date().toISOString(),
             })}
           />

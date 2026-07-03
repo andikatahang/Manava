@@ -19,7 +19,7 @@ const STATUS_LABELS: Record<ProjectStatus, string> = {
 }
 
 const ALL_STATUSES: ProjectStatus[] = [
-  'in_progress', 'in_review', 'revision', 'disputed', 'awaiting_dp', 'completed', 'cancelled',
+  'draft', 'in_progress', 'in_review', 'revision', 'disputed', 'awaiting_dp', 'completed', 'cancelled',
 ]
 
 // ─── Client / Editor Grid View ───────────────────────────────────────────────
@@ -48,6 +48,7 @@ function ProjectsHubView({
 
   // Status distribution for the portfolio bar (clean data-viz)
   const SEGMENTS: { status: ProjectStatus; color: string }[] = [
+    { status: 'draft', color: '#9ca3af' },
     { status: 'in_progress', color: '#2563eb' },
     { status: 'in_review', color: '#021526' },
     { status: 'revision', color: '#d97706' },

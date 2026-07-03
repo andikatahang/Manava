@@ -58,6 +58,8 @@ export interface Attention {
 // sub-areas (payment, review, revision, dispute).
 export function attentionFor(status: ProjectStatus): Attention | null {
   switch (status) {
+    case 'draft':
+      return { label: 'Diskusi & penawaran', tone: 'navy' }
     case 'awaiting_dp':
       return { label: 'Menunggu pembayaran DP', tone: 'amber' }
     case 'in_review':

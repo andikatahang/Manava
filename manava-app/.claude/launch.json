@@ -7,6 +7,19 @@
       "runtimeArgs": ["run", "dev"],
       "port": 5173,
       "autoPort": true
+    },
+    {
+      "name": "manava-dev",
+      "runtimeExecutable": "wsl.exe",
+      "runtimeArgs": [
+        "-d",
+        "ubuntu-26.04",
+        "-e",
+        "bash",
+        "-c",
+        "source ~/.nvm/nvm.sh && cd ~/Workspace/Manava/manava-app && npx vite --port 5173 --strictPort"
+      ],
+      "port": 5173
     }
   ]
 }
