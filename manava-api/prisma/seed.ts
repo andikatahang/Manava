@@ -1,13 +1,19 @@
 // Seed the database with the same fixture data used by the frontend mocks
-// so the app looks identical after wiring. All seeded users share the
-// password "manava123" (bcrypt-hashed) so any role can log in during defense.
+// so the app looks identical after wiring. All seeded users share one
+// password (bcrypt-hashed) supplied via SEED_PASSWORD — jangan hardcode
+// password di file ini; GitGuardian memindai repo untuk pasangan email+password.
 
+import 'dotenv/config'
 import { PrismaClient, UserRole, EditorStatus, PerformanceBand } from '@prisma/client'
 import * as bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
-const DEFAULT_PASSWORD = 'manava123'
+const DEFAULT_PASSWORD = process.env.SEED_PASSWORD
+if (!DEFAULT_PASSWORD || DEFAULT_PASSWORD.length < 8) {
+  console.error('❌ SEED_PASSWORD wajib diset di .env (min. 8 karakter) sebelum menjalankan seed.')
+  process.exit(1)
+}
 
 // ─── Fixture data (ported from manava-app/src/data/mockData.ts) ───────────────
 
@@ -224,9 +230,10 @@ async function main() {
   console.log(`📄 Seeded ${jobApplications.length} job applications`)
 
   console.log('\n✅ Seed complete.')
-  console.log('   Try: hasna@manava.id / manava123  (HR Admin)')
-  console.log('        budi@manava.id  / manava123  (Editor)')
-  console.log('        eko@manava.id   / manava123  (Admin Manager)')
+  console.log('   Login dengan password dari SEED_PASSWORD di .env:')
+  console.log('   Try: hasna@manava.id  (HR Admin)')
+  console.log('        budi@manava.id   (Editor)')
+  console.log('        eko@manava.id    (Admin Manager)')
 }
 
 main()
