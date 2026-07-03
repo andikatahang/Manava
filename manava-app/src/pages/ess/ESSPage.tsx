@@ -238,7 +238,7 @@ export default function ESSPage({ role = 'editor' }: { role?: UserRole }) {
   const [leaveForm, setLeaveForm] = useState({ type: 'cuti', start: '', end: '', reason: '' })
 
   const selfId = selfIdFor(role)
-  const myLeave = mockLeaveRequests.filter(l => l.editor_id === selfId)
+  const myLeave = mockLeaveRequests.filter(l => l.requester_id === selfId)
 
   return (
     <div className="max-w-3xl space-y-6">

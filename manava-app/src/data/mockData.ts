@@ -144,12 +144,12 @@ export const mockAttendance: AttendanceRecord[] = [
 
 export const mockLeaveRequests: LeaveRequest[] = [
   // Editor requests → routed to Admin Manager for approval.
-  { leave_id: 'l1', editor_id: 'e1', editor_name: 'Budi Santoso', requester_role: 'editor', leave_type: 'cuti', start_date: '2026-06-11', end_date: '2026-06-12', status: 'approved', created_at: '2026-06-09' },
-  { leave_id: 'l2', editor_id: 'e3', editor_name: 'Andi Kurniawan', requester_role: 'editor', leave_type: 'izin', start_date: '2026-06-26', end_date: '2026-06-26', status: 'pending', created_at: '2026-06-24' },
-  { leave_id: 'l3', editor_id: 'e2', editor_name: 'Sari Dewi', requester_role: 'editor', leave_type: 'cuti', start_date: '2026-07-14', end_date: '2026-07-18', status: 'pending', created_at: '2026-06-23' },
+  { leave_id: 'l1', requester_id: 'e1', requester_name: 'Budi Santoso', requester_role: 'editor', leave_type: 'cuti', start_date: '2026-06-11', end_date: '2026-06-12', status: 'approved', created_at: '2026-06-09' },
+  { leave_id: 'l2', requester_id: 'e3', requester_name: 'Andi Kurniawan', requester_role: 'editor', leave_type: 'izin', start_date: '2026-06-26', end_date: '2026-06-26', status: 'pending', created_at: '2026-06-24' },
+  { leave_id: 'l3', requester_id: 'e2', requester_name: 'Sari Dewi', requester_role: 'editor', leave_type: 'cuti', start_date: '2026-07-14', end_date: '2026-07-18', status: 'pending', created_at: '2026-06-23' },
   // Admin Manager requests → routed one level up to HR Admin (various departments).
-  { leave_id: 'l4', editor_id: 'u5', editor_name: 'Eko Manager', requester_role: 'admin_manager', leave_type: 'cuti', start_date: '2026-07-02', end_date: '2026-07-04', status: 'pending', created_at: '2026-06-27' },
-  { leave_id: 'l5', editor_id: 'am2', editor_name: 'Rina Wijaya', requester_role: 'admin_manager', leave_type: 'izin', start_date: '2026-06-30', end_date: '2026-06-30', status: 'pending', created_at: '2026-06-26' },
+  { leave_id: 'l4', requester_id: 'u5', requester_name: 'Eko Manager', requester_role: 'admin_manager', leave_type: 'cuti', start_date: '2026-07-02', end_date: '2026-07-04', status: 'pending', created_at: '2026-06-27' },
+  { leave_id: 'l5', requester_id: 'am2', requester_name: 'Rina Wijaya', requester_role: 'admin_manager', leave_type: 'izin', start_date: '2026-06-30', end_date: '2026-06-30', status: 'pending', created_at: '2026-06-26' },
 ]
 
 export const mockEscrowAccounts: EscrowAccount[] = [

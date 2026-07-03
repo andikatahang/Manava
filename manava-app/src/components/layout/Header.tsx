@@ -1,7 +1,10 @@
-import { useState, useRef, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Bell, MessageSquare, CheckCheck, AlertTriangle, FileText, CreditCard, User, Clock, PackageCheck, X, Menu } from 'lucide-react'
 import type { UserRole } from '../../types'
+import { APPROVES_REQUESTS_FROM } from '../../lib/leaveRequests'
+import { useLeaveRequests } from '../../hooks/queries/useLeaveRequests'
+import { formatDate } from '../../lib/utils'
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -55,7 +58,6 @@ const NOTIFS_BY_ROLE: Record<UserRole, Notification[]> = {
     { id: 'n2', icon: 'user', title: '3 pelamar baru', body: 'Posisi Senior Photo Retoucher menerima 3 lamaran hari ini', time: '1 jam lalu', read: false },
     { id: 'n3', icon: 'payment', title: 'Pencairan escrow tertunda', body: 'IDR 12.500.000 siap dicairkan — proyek #PRJ-002 selesai', time: '2 jam lalu', read: false },
     { id: 'n4', icon: 'contract', title: 'Kontrak ditandatangani', body: 'Klien Artisan Studio menandatangani Brief #BRF-009', time: '4 jam lalu', read: true },
-    { id: 'n5', icon: 'clock', title: 'Permohonan cuti', body: 'Ahmad Rizki mengajukan cuti 2 hari mulai Sen 30 Jun', time: '6 jam lalu', read: true },
   ],
   hr_admin: [
     { id: 'n1', icon: 'user', title: '5 pelamar baru', body: 'Posisi Video Editor — E-commerce menerima 5 lamaran hari ini', time: '20 mnt lalu', read: false },
@@ -65,7 +67,6 @@ const NOTIFS_BY_ROLE: Record<UserRole, Notification[]> = {
   ],
   admin_manager: [
     { id: 'n1', icon: 'user', title: '3 pelamar baru', body: 'Posisi Senior Photo Retoucher menerima 3 lamaran hari ini', time: '1 jam lalu', read: false },
-    { id: 'n2', icon: 'clock', title: 'Permohonan cuti', body: 'Ahmad Rizki mengajukan cuti 2 hari mulai Sen 30 Jun', time: '2 jam lalu', read: false },
     { id: 'n3', icon: 'alert', title: 'Peringatan KPI', body: 'Tingkat penyelesaian Budi Santoso turun ke 72% bulan ini', time: '5 jam lalu', read: true },
     { id: 'n4', icon: 'user', title: 'Pengakhiran kerja dimulai', body: 'Checklist pengakhiran kerja Diana Permata menunggu persetujuan Anda', time: '1 hr lalu', read: true },
   ],
@@ -111,7 +112,32 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
   const [open, setOpen] = useState(false)
   const showChat = role === 'editor' || role === 'superadmin'
   const [notifs, setNotifs] = useState<Notification[]>(() => NOTIFS_BY_ROLE[role] ?? [])
-  const unread = notifs.filter(n => !n.read).length
+  const navigate = useNavigate()
+
+  // Real leave-request notifications for approver roles, derived from the
+  // shared query cache: every pending request this role can action becomes a
+  // notification. Read-state is session-local (ids in a Set) since the queue
+  // itself lives in the DB.
+  const approvableRoles = useMemo(() => APPROVES_REQUESTS_FROM[role] ?? [], [role])
+  const leaveQuery = useLeaveRequests(approvableRoles.length > 0)
+  const [readLeaveIds, setReadLeaveIds] = useState<ReadonlySet<string>>(new Set())
+  const leaveNotifs: Notification[] = useMemo(
+    () =>
+      (leaveQuery.data ?? [])
+        .filter(l => l.status === 'pending' && approvableRoles.includes(l.requester_role))
+        .map(l => ({
+          id: `leave-${l.leave_id}`,
+          icon: 'clock' as const,
+          title: 'Permohonan cuti menunggu persetujuan',
+          body: `${l.requester_name} mengajukan ${l.leave_type === 'cuti' ? 'cuti tahunan' : 'izin'} ${formatDate(l.start_date)} – ${formatDate(l.end_date)}`,
+          time: `Diajukan ${formatDate(l.created_at)}`,
+          read: readLeaveIds.has(l.leave_id),
+        })),
+    [leaveQuery.data, approvableRoles, readLeaveIds],
+  )
+
+  const allNotifs = [...leaveNotifs, ...notifs]
+  const unread = allNotifs.filter(n => !n.read).length
   const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -125,12 +151,22 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
 
-  function markRead(id: string) {
-    setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+  // Leave notifications navigate to the approval queue; static ones just
+  // toggle their read flag.
+  function handleNotifClick(n: Notification) {
+    if (n.id.startsWith('leave-')) {
+      const leaveId = n.id.slice('leave-'.length)
+      setReadLeaveIds(prev => new Set(prev).add(leaveId))
+      setOpen(false)
+      navigate('/attendance')
+      return
+    }
+    setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))
   }
 
   function markAllRead() {
     setNotifs(prev => prev.map(n => ({ ...n, read: true })))
+    setReadLeaveIds(new Set(leaveNotifs.map(n => n.id.slice('leave-'.length))))
   }
 
   return (
@@ -188,12 +224,12 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
 
               {/* List */}
               <div className="max-h-96 overflow-y-auto divide-y divide-border">
-                {notifs.map(n => {
+                {allNotifs.map(n => {
                   const Icon = ICON_MAP[n.icon]
                   return (
                     <button
                       key={n.id}
-                      onClick={() => markRead(n.id)}
+                      onClick={() => handleNotifClick(n)}
                       className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-primary-200 transition-colors ${!n.read ? 'bg-navy-50/40' : ''}`}
                     >
                       <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 ${ICON_COLORS[n.icon]}`}>
@@ -215,7 +251,7 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
               {/* Footer */}
               <div className="px-4 py-2.5 border-t border-border bg-primary-200/60">
                 <p className="text-xs text-center text-navy/40">
-                  {notifs.length} notifikasi · Hanya sesi ini
+                  {allNotifs.length} notifikasi
                 </p>
               </div>
             </div>

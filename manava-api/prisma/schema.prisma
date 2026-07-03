@@ -212,6 +212,7 @@ model User {
 
   editor        Editor?
   admin_manager AdminManager?
+  leave_requests LeaveRequest[]
   refresh_tokens RefreshToken[]
   messages      Message[]
   issued_warnings Warning[] @relation("WarningIssuer")
@@ -256,7 +257,6 @@ model Editor {
   department_memberships DepartmentMember[]
   projects        Project[]
   attendance      AttendanceRecord[]
-  leave_requests  LeaveRequest[]
   payslips        Payslip[]
   metrics         EditorMetrics?
 
@@ -317,8 +317,10 @@ model AttendanceRecord {
 
 model LeaveRequest {
   leave_id       String        @id @default(cuid())
-  editor_id      String
-  editor_name    String
+  // Requester is a User (not Editor) so Admin Managers can file their own
+  // leave — they have no Editor row. Role still drives approval routing.
+  requester_id   String
+  requester_name String
   requester_role RequesterRole
   leave_type     LeaveType
   start_date     DateTime      @db.Date
@@ -327,10 +329,10 @@ model LeaveRequest {
   created_at     DateTime      @default(now())
   updated_at     DateTime      @updatedAt
 
-  editor Editor @relation(fields: [editor_id], references: [editor_id], onDelete: Cascade)
+  requester User @relation(fields: [requester_id], references: [user_id], onDelete: Cascade)
 
   @@index([status])
-  @@index([editor_id])
+  @@index([requester_id])
 }
 
 model Warning {

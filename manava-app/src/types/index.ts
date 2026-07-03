@@ -142,8 +142,9 @@ export interface AttendanceRecord {
 
 export interface LeaveRequest {
   leave_id: string
-  editor_id: string
-  editor_name: string
+  // Requester is a User (editors and admin managers both file leave).
+  requester_id: string
+  requester_name: string
   // Role of whoever filed the request. Drives approval routing up the hierarchy:
   // an 'editor' request is approved by Admin Manager, an 'admin_manager' request
   // is approved by HR Admin.

@@ -32,7 +32,7 @@ type Presence = { label: string; time?: string; tone: 'emerald' | 'blue' }
 // with a deterministic clock-in (no per-editor attendance feed in this build).
 function presenceFor(editor: Editor, idx: number): Presence {
   const leave = mockLeaveRequests.find(l =>
-    l.editor_name === editor.full_name && l.requester_role === 'editor' &&
+    l.requester_name === editor.full_name && l.requester_role === 'editor' &&
     l.status !== 'rejected' && l.start_date <= TODAY && TODAY <= l.end_date,
   )
   if (leave) return { label: leave.leave_type === 'cuti' ? 'Cuti' : 'Izin', tone: 'blue' }

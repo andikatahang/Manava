@@ -7,36 +7,23 @@ import { StatusBadge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
 import { Drawer } from '../../components/ui/Drawer'
 import { formatDate } from '../../lib/utils'
-import { mockAttendance, mockLeaveRequests, mockEditors, mockAdminManagers, mockUsers } from '../../data/mockData'
+import { mockAttendance, mockEditors, mockAdminManagers } from '../../data/mockData'
 
 // Mock attendance is implicitly one editor's record. Use the first active editor
 // as the "subject" so manager / HR drawer headers identify whose day is being viewed.
 const SUBJECT_EDITOR = mockEditors[0]
 import type { UserRole, AttendanceRecord, LeaveRequest, TeamMember } from '../../types'
 import { PageHeader } from '../../components/page/PageHeader'
-
-// ── leave approval hierarchy ───────────────────────────────────────────────────
-// Requests travel one level up the org chart: Editor → Admin Manager → HR Admin.
-type RequesterRole = 'editor' | 'admin_manager'
-
-// Which requester roles each approver is responsible for. An Admin Manager clears
-// editor requests; HR Admin clears Admin Manager requests; Superadmin oversees all.
-const APPROVES_REQUESTS_FROM: Partial<Record<UserRole, RequesterRole[]>> = {
-  admin_manager: ['editor'],
-  hr_admin: ['admin_manager'],
-  superadmin: ['editor', 'admin_manager'],
-}
-
-// Human label for where a given requester's leave is sent.
-const ROUTES_TO_LABEL: Record<RequesterRole, string> = {
-  editor: 'Admin Manager',
-  admin_manager: 'HR Admin',
-}
-
-const REQUESTER_ROLE_LABEL: Record<RequesterRole, string> = {
-  editor: 'Editor',
-  admin_manager: 'Admin Manager',
-}
+// Leave data is DB-backed; the approval hierarchy maps are shared with the
+// header notification badge. Requests travel one level up the org chart:
+// Editor → Admin Manager → HR Admin.
+import {
+  APPROVES_REQUESTS_FROM,
+  REQUESTER_ROLE_LABEL,
+  ROUTES_TO_LABEL,
+  type RequesterRole,
+} from '../../lib/leaveRequests'
+import { useLeaveRequests, useLeaveRequestMutations } from '../../hooks/queries/useLeaveRequests'
 
 // ── constants ────────────────────────────────────────────────────────────────
 const CAL_YEAR = 2026
@@ -90,7 +77,9 @@ type LeaveForm = { type: LeaveType; start: string; end: string; reason: string }
 
 export default function AttendancePage({ role, embedded = false, forcedView }: { role: UserRole; embedded?: boolean; forcedView?: Tab }) {
   const [tab, setTab] = useState<Tab>(forcedView ?? 'attendance')
-  const [leaves, setLeaves] = useState<LeaveRequest[]>(mockLeaveRequests)
+  const leaveQuery = useLeaveRequests()
+  const leaves = useMemo(() => leaveQuery.data ?? [], [leaveQuery.data])
+  const { submit, approve, reject } = useLeaveRequestMutations()
   const [dayDetail, setDayDetail] = useState<string | null>(null)
   const [leaveDetail, setLeaveDetail] = useState<LeaveRequest | null>(null)
   const [leaveModal, setLeaveModal] = useState(false)
@@ -136,34 +125,38 @@ export default function AttendancePage({ role, embedded = false, forcedView }: {
     setTimeout(() => setToast(null), 2500)
   }
   function approveLeave(id: string) {
-    setLeaves(prev => prev.map(l => (l.leave_id === id ? { ...l, status: 'approved' as const } : l)))
-    setLeaveDetail(d => (d ? { ...d, status: 'approved' } : null))
-    flash('Permohonan disetujui.')
+    approve.mutate(id, {
+      onSuccess: () => {
+        setLeaveDetail(d => (d ? { ...d, status: 'approved' } : null))
+        flash('Permohonan disetujui.')
+      },
+      onError: e => flash(e instanceof Error ? e.message : 'Gagal menyetujui permohonan.'),
+    })
   }
   function rejectLeave(id: string) {
-    setLeaves(prev => prev.map(l => (l.leave_id === id ? { ...l, status: 'rejected' as const } : l)))
-    setLeaveDetail(d => (d ? { ...d, status: 'rejected' } : null))
-    flash('Permohonan ditolak.')
+    reject.mutate(id, {
+      onSuccess: () => {
+        setLeaveDetail(d => (d ? { ...d, status: 'rejected' } : null))
+        flash('Permohonan ditolak.')
+      },
+      onError: e => flash(e instanceof Error ? e.message : 'Gagal menolak permohonan.'),
+    })
   }
   function submitLeave() {
     if (!leaveForm.start || !leaveForm.end) return
-    // Attribute the request to the current role and route it one level up.
-    const requester = role === 'admin_manager' ? mockUsers.admin_manager : null
-    const newLeave: LeaveRequest = {
-      leave_id: `l-${Date.now()}`,
-      editor_id: requester ? requester.user_id : SUBJECT_EDITOR.editor_id,
-      editor_name: requester ? requester.full_name : SUBJECT_EDITOR.full_name,
-      requester_role: myRequesterRole,
-      leave_type: leaveForm.type,
-      start_date: leaveForm.start,
-      end_date: leaveForm.end,
-      status: 'pending',
-      created_at: TODAY,
-    }
-    setLeaves(prev => [newLeave, ...prev])
-    setLeaveModal(false)
-    setLeaveForm({ type: 'cuti', start: '', end: '', reason: '' })
-    flash(`Permohonan cuti terkirim ke ${ROUTES_TO_LABEL[myRequesterRole]}.`)
+    // Requester identity is derived server-side from the session; the request
+    // is routed one level up automatically.
+    submit.mutate(
+      { leave_type: leaveForm.type, start_date: leaveForm.start, end_date: leaveForm.end },
+      {
+        onSuccess: () => {
+          setLeaveModal(false)
+          setLeaveForm({ type: 'cuti', start: '', end: '', reason: '' })
+          flash(`Permohonan cuti terkirim ke ${ROUTES_TO_LABEL[myRequesterRole]}.`)
+        },
+        onError: e => flash(e instanceof Error ? e.message : 'Gagal mengirim permohonan.'),
+      },
+    )
   }
 
   const h = HEADER_BY_ROLE[role] ?? HEADER_BY_ROLE.editor
@@ -239,7 +232,7 @@ export default function AttendancePage({ role, embedded = false, forcedView }: {
       <Drawer
         open={!!leaveDetail}
         onClose={() => setLeaveDetail(null)}
-        title={leaveDetail?.editor_name ?? ''}
+        title={leaveDetail?.requester_name ?? ''}
         subtitle={leaveDetail ? `${leaveDetail.leave_type === 'cuti' ? 'Cuti Tahunan' : 'Izin / Sakit'} · ${formatDate(leaveDetail.start_date)} – ${formatDate(leaveDetail.end_date)}` : ''}
         footer={leaveDetail && canActOnDetail(leaveDetail) ? (
           <div className="grid grid-cols-2 gap-2">
@@ -413,7 +406,7 @@ function TeamRoster({ role, leaves }: { role: UserRole; leaves: LeaveRequest[] }
 
   const onLeaveToday = (name: string) =>
     leaves.some(l =>
-      l.editor_name === name && l.requester_role === requesterScope &&
+      l.requester_name === name && l.requester_role === requesterScope &&
       l.status !== 'rejected' && l.start_date <= TODAY && TODAY <= l.end_date,
     )
   const present = roster.filter(m => !onLeaveToday(m.full_name))
@@ -481,9 +474,9 @@ function TeamRoster({ role, leaves }: { role: UserRole; leaves: LeaveRequest[] }
           <ul className="divide-y divide-border">
             {leaveRequests.map(l => (
               <li key={l.leave_id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                <RosterAvatar name={l.editor_name} />
+                <RosterAvatar name={l.requester_name} />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-navy truncate">{l.editor_name}</p>
+                  <p className="text-sm font-semibold text-navy truncate">{l.requester_name}</p>
                   <p className="text-xs text-navy/50 truncate">
                     {l.leave_type === 'cuti' ? 'Cuti Tahunan' : 'Izin / Sakit'} · {formatDate(l.start_date)} – {formatDate(l.end_date)}
                   </p>
@@ -811,10 +804,10 @@ function LeaveView({
                 className="w-full text-left px-4 py-3.5 flex items-center gap-3 hover:bg-navy-50/40 transition-colors"
               >
                 <div className="w-9 h-9 rounded-xl bg-navy text-white text-xs font-bold flex items-center justify-center shrink-0">
-                  {l.editor_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                  {l.requester_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-navy truncate">{l.editor_name}</p>
+                  <p className="text-sm font-semibold text-navy truncate">{l.requester_name}</p>
                   <p className="text-xs text-navy/50">
                     {l.leave_type === 'cuti' ? 'Cuti Tahunan' : 'Izin'} · {formatDate(l.start_date)} – {formatDate(l.end_date)}
                   </p>
@@ -835,7 +828,7 @@ function LeaveDetailBody({ leave }: { leave: LeaveRequest }) {
     (new Date(leave.end_date).getTime() - new Date(leave.start_date).getTime()) / 86400000,
   ) + 1
   // Project conflict warning — heuristic from mock: editor 'e1' has active project p1.
-  const hasConflict = leave.editor_id === 'e1' && leave.status === 'pending'
+  const hasConflict = leave.requester_id === 'u2' && leave.status === 'pending'
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3">
