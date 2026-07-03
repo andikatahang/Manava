@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react'
 import logoLight from '../../assets/logo-light.png'
@@ -8,15 +7,13 @@ import type { UserRole } from '../../types'
 
 // Demo accounts seeded by manava-api (prisma/seed.ts). Selecting one
 // pre-fills the form; authentication still goes through the real backend.
+// Hanya role aktif — client, mediator, dan finance dinonaktifkan sementara.
 const DEMO_PASSWORD = 'manava123'
 const demoAccounts: { role: UserRole; email: string; label: string; desc: string }[] = [
   { role: 'superadmin',    email: 'admin@manava.id', label: 'Superadmin',    desc: 'Akun, role, parameter sistem' },
   { role: 'hr_admin',      email: 'hasna@manava.id', label: 'HR Admin',      desc: 'ATS, departemen, peringatan' },
   { role: 'admin_manager', email: 'eko@manava.id',   label: 'Admin Manager', desc: 'Tim, KPI, persetujuan cuti' },
   { role: 'editor',        email: 'budi@manava.id',  label: 'Editor',        desc: 'Kerjakan proyek & ESS' },
-  { role: 'client',        email: 'citra@client.com', label: 'Klien',        desc: 'Pesan & lacak layanan' },
-  { role: 'mediator',      email: 'dewi@manava.id',  label: 'Mediator',      desc: 'Selesaikan sengketa' },
-  { role: 'finance',       email: 'fani@manava.id',  label: 'Keuangan',      desc: 'Escrow & penggajian' },
 ]
 
 interface LoginPageProps { onLogin: (identifier: string, password: string) => Promise<unknown> }
@@ -51,7 +48,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       setError(
         message === 'Invalid credentials'
           ? 'Email atau kata sandi salah.'
-          : `Tidak dapat masuk: ${message}`,
+          : message === 'Role dinonaktifkan'
+            ? 'Akun ini memakai role yang sedang dinonaktifkan.'
+            : `Tidak dapat masuk: ${message}`,
       )
       setIsSubmitting(false)
     }
@@ -167,8 +166,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           </form>
 
           <p className="text-center text-sm text-navy/50 mt-6">
-            Belum punya akun?{' '}
-            <Link to="/register" className="text-navy font-medium hover:underline">Daftar Sekarang</Link>
+            Pendaftaran klien sedang dinonaktifkan sementara.
           </p>
         </div>
       </div>

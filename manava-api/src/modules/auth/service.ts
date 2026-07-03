@@ -4,6 +4,16 @@ import { hashPassword, verifyPassword } from '../../lib/password.js'
 import { generateRefreshToken, hashRefreshToken, signAccessToken } from '../../lib/jwt.js'
 import { HttpError } from '../../middleware/errorHandler.js'
 
+// Role yang dinonaktifkan sementara: login, refresh, dan sesi aktifnya ditolak.
+// Data user tetap di database sehingga role dapat diaktifkan kembali nanti.
+const DISABLED_ROLES: readonly UserRole[] = ['client', 'mediator', 'finance']
+
+function assertRoleActive(role: UserRole): void {
+  if (DISABLED_ROLES.includes(role)) {
+    throw new HttpError(403, 'Role dinonaktifkan')
+  }
+}
+
 export interface AuthUser {
   user_id: string
   full_name: string
@@ -30,6 +40,7 @@ export async function login(identifier: string, password: string): Promise<AuthR
   }
   const ok = await verifyPassword(password, user.password_hash)
   if (!ok) throw new HttpError(401, 'Invalid credentials')
+  assertRoleActive(user.role)
 
   return issueTokens(toAuthUser(user))
 }
@@ -44,7 +55,9 @@ export interface RegisterInput {
 
 // Self-service signup — always creates a client account and logs it in.
 // Email and username must each be unique across all users.
+// NOTE: pendaftaran publik dinonaktifkan selama role client tidak aktif.
 export async function register(input: RegisterInput): Promise<AuthResult> {
+  assertRoleActive('client')
   const emailTaken = await prisma.user.findUnique({ where: { email: input.email } })
   if (emailTaken) throw new HttpError(409, 'Email already registered')
 
@@ -83,6 +96,7 @@ export async function refresh(rawToken: string): Promise<AuthResult> {
     data: { revoked_at: new Date() },
   })
 
+  assertRoleActive(record.user.role)
   return issueTokens(toAuthUser(record.user))
 }
 
@@ -109,6 +123,7 @@ export async function getUserById(userId: string): Promise<AuthUser> {
     },
   })
   if (!user || !user.is_active) throw new HttpError(401, 'User not found')
+  assertRoleActive(user.role)
   return toAuthUser(user)
 }
 
