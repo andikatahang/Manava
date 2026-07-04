@@ -78,6 +78,7 @@ const DotField = memo(({
       const rect = canvas!.parentElement!.getBoundingClientRect();
       const w = rect.width;
       const h = rect.height;
+      if (w < 1 || h < 1) return; // layout not settled yet — observer will re-fire
 
       canvas!.width = w * dpr;
       canvas!.height = h * dpr;
@@ -234,6 +235,17 @@ const DotField = memo(({
     }
 
     doResize();
+    // A window 'resize' alone misses the first cold load: fonts/CSS finish
+    // after mount and grow the parent without any window resize event, so the
+    // canvas would stay empty until a manual refresh. ResizeObserver re-fires
+    // whenever the parent's box actually changes.
+    const parentObserver = new ResizeObserver(() => {
+      const rect = canvas.parentElement!.getBoundingClientRect();
+      if (Math.abs(rect.width - sizeRef.current.w) > 1 || Math.abs(rect.height - sizeRef.current.h) > 1) {
+        resize();
+      }
+    });
+    parentObserver.observe(canvas.parentElement!);
     window.addEventListener('resize', resize);
     window.addEventListener('mousemove', onMouseMove, { passive: true });
     rafRef.current = requestAnimationFrame(tick);
@@ -247,6 +259,7 @@ const DotField = memo(({
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       clearInterval(speedInterval);
       clearTimeout(resizeTimer);
+      parentObserver.disconnect();
       window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', onMouseMove);
     };
