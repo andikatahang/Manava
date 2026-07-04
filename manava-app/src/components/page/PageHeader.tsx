@@ -98,16 +98,18 @@ export function PageHeader({
         </nav>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+      {/* Compact: eyebrow inline dengan role chip, judul lebih kecil, deskripsi
+          satu baris — header tidak lagi memakan banyak ruang vertikal. */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="min-w-0 max-w-[680px]">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#596074]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#596074]">
             {eyebrow}
           </p>
-          <h1 className="text-[clamp(1.5rem,3.4vw,2rem)] font-bold tracking-[-0.03em] leading-[1.1] text-[#021526] mt-1.5">
+          <h1 className="text-[clamp(1.2rem,2.4vw,1.45rem)] font-bold tracking-[-0.02em] leading-tight text-[#021526] mt-0.5">
             {title}
           </h1>
           {description && (
-            <p className="text-[13.5px] sm:text-[14px] text-[#596074] mt-2 leading-relaxed">
+            <p className="text-[12.5px] text-[#596074] mt-1 leading-snug">
               {description}
             </p>
           )}
@@ -115,7 +117,7 @@ export function PageHeader({
 
         <div className="flex items-center gap-2 flex-shrink-0">
           {role && (
-            <span className="hidden md:inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#021526]/70 bg-[#021526]/[0.04] border border-[#021526]/10 px-3 py-1.5 rounded-full">
+            <span className="hidden md:inline-flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#021526]/70 bg-[#021526]/[0.04] border border-[#021526]/10 px-3 py-1.5 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
               {roleChipLabel[role]}
             </span>
@@ -124,7 +126,7 @@ export function PageHeader({
         </div>
       </div>
 
-      {children && <div className="mt-5 sm:mt-6">{children}</div>}
+      {children && <div className="mt-3.5">{children}</div>}
     </header>
   )
 }
@@ -145,32 +147,34 @@ const STAT_TONE: Record<NonNullable<StatPillProps['tone']>, string> = {
   lime: 'text-[#021526]',
 }
 
+// Slim pill: label + angka dalam satu baris, hint jadi tooltip — statistik
+// tidak lagi berupa kartu besar yang memakan ruang vertikal.
 export function StatPill({ label, value, tone = 'navy', hint }: StatPillProps) {
   return (
     <div
-      className="rounded-[8px] bg-[#fbfbfb] border border-black/[0.05] px-4 py-3.5"
+      className="inline-flex items-center gap-2.5 rounded-full bg-[#fbfbfb] border border-black/[0.05] px-4 py-2"
       style={{ fontFamily: "'Inter Display', 'Open Runde', sans-serif" }}
+      title={hint}
     >
-      <p className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#596074]">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#596074] whitespace-nowrap">
         {label}
-      </p>
-      <p className={`text-[clamp(1.35rem,2.5vw,1.6rem)] font-bold tracking-[-0.03em] tabular-nums leading-none mt-2 ${STAT_TONE[tone]}`}>
+      </span>
+      <span className={`text-[15px] font-bold tracking-[-0.02em] tabular-nums leading-none ${STAT_TONE[tone]}`}>
         {value}
-      </p>
-      {hint && <p className="text-[11.5px] text-[#596074] mt-1.5">{hint}</p>}
+      </span>
     </div>
   )
 }
 
 interface StatPillsRowProps {
   items: StatPillProps[]
+  /** Dipertahankan untuk kompatibilitas pemanggil lama; layout kini flex-wrap. */
   cols?: 2 | 3 | 4
 }
 
-export function StatPillsRow({ items, cols = 4 }: StatPillsRowProps) {
-  const grid = cols === 2 ? 'sm:grid-cols-2' : cols === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-4'
+export function StatPillsRow({ items }: StatPillsRowProps) {
   return (
-    <div className={`grid grid-cols-2 ${grid} gap-3`}>
+    <div className="flex flex-wrap gap-2">
       {items.map(it => <StatPill key={it.label} {...it} />)}
     </div>
   )

@@ -110,60 +110,63 @@ export default function WarningPage({ role }: WarningPageProps) {
         ))}
       </div>
 
-      <div className="space-y-3">
-        {filtered.map(w => (
-          <article key={w.id} className="rounded-[12px] border border-black/[0.06] bg-[#fbfbfb] p-5">
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-              <div className="flex items-start gap-4 min-w-0 flex-1">
-                <span className="w-11 h-11 rounded-full bg-[#FEE2E2] text-[#B91C1C] flex items-center justify-center flex-shrink-0">
-                  <AlertOctagon className="w-5 h-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-[#021526] text-[14.5px]">{w.targetName}</h3>
-                    <span className="text-[11px] text-[#596074]/80">· {w.targetRole === 'admin_manager' ? 'Admin Manager' : 'Editor'}</span>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold uppercase tracking-[0.06em] border ${SEVERITY_TONE[w.severity]}`}>
-                      {w.severity}
-                    </span>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold ${STATUS_TONE[w.status]}`}>
-                      {w.status}
-                    </span>
-                  </div>
-                  <p className="text-[13px] text-[#021526]/80 mt-2 leading-relaxed">{w.reason}</p>
-                  <div className="flex items-center gap-3 mt-3 text-[11.5px] text-[#596074]">
-                    <span>Diterbitkan oleh <span className="font-medium text-[#021526]">{w.issuedBy}</span></span>
-                    <span className="text-[#596074]/30">·</span>
-                    <span className="inline-flex items-center gap-1"><Calendar className="w-3 h-3" /> {w.issuedAt}</span>
-                    <span className="text-[#596074]/30">·</span>
-                    <span>Kedaluwarsa {w.expiresAt}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {(role === 'editor' || role === 'admin_manager') && w.status === 'aktif' && (
-                  <button
-                    onClick={() => updateStatus(w.id, 'diakui')}
-                    className="bg-[#021526] hover:brightness-110 text-white font-semibold px-3.5 py-1.5 rounded-full text-[12px]"
-                  >
-                    Akui peringatan
-                  </button>
-                )}
-                <button
-                  onClick={() => setSelected(w)}
-                  className="text-[12px] font-semibold text-[#021526] hover:underline"
-                >
-                  Detail
-                </button>
-              </div>
-            </div>
-          </article>
-        ))}
-      </div>
+      {/* Tabel minimalis — satu baris ringkas per peringatan; detail lengkap
+          (catatan, penerbit) dibuka lewat tombol Detail. */}
+      <div className="rounded-[12px] border border-black/[0.06] bg-white overflow-hidden">
+        <div className="hidden sm:grid grid-cols-[1.4fr_0.7fr_0.7fr_0.8fr_190px] items-center gap-3 px-5 py-3 bg-[#fafafa] border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-[#596074]/80">
+          <span>Penerima</span>
+          <span>Severity</span>
+          <span>Status</span>
+          <span>Kedaluwarsa</span>
+          <span />
+        </div>
 
-      <p className="text-[11.5px] text-[#596074]/80">
-        HR Admin adalah satu-satunya role yang dapat menerbitkan peringatan kerja formal.
-        Manajer & editor melihat peringatan yang diterima dan menindaklanjuti dengan action plan.
-      </p>
+        {filtered.length === 0 ? (
+          <p className="text-sm text-[#596074]/70 px-5 py-8 text-center">Tidak ada peringatan pada filter ini.</p>
+        ) : (
+          <ul className="divide-y divide-black/[0.05]">
+            {filtered.map(w => (
+              <li key={w.id} className="grid grid-cols-1 sm:grid-cols-[1.4fr_0.7fr_0.7fr_0.8fr_190px] items-center gap-2 sm:gap-3 px-5 py-3">
+                <span className="flex items-center gap-2.5 min-w-0">
+                  <span className="w-8 h-8 rounded-lg bg-[#FEE2E2] text-[#B91C1C] flex items-center justify-center flex-shrink-0">
+                    <AlertOctagon className="w-4 h-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-[#021526] truncate">{w.targetName}</span>
+                    <span className="block text-[11px] text-[#596074] truncate">{ROLE_LABEL[w.targetRole]}</span>
+                  </span>
+                </span>
+                <span>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold uppercase tracking-[0.06em] border ${SEVERITY_TONE[w.severity]}`}>
+                    {w.severity}
+                  </span>
+                </span>
+                <span>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold ${STATUS_TONE[w.status]}`}>
+                    {w.status}
+                  </span>
+                </span>
+                <span className="text-[12.5px] text-[#596074] tabular-nums inline-flex items-center gap-1">
+                  <Calendar className="w-3 h-3" /> {w.expiresAt}
+                </span>
+                <span className="flex sm:justify-end gap-2">
+                  {(role === 'editor' || role === 'admin_manager') && w.status === 'aktif' && (
+                    <button
+                      onClick={() => updateStatus(w.id, 'diakui')}
+                      className="bg-[#021526] hover:brightness-110 text-white font-semibold px-3 py-1.5 rounded-full text-[11.5px]"
+                    >
+                      Akui
+                    </button>
+                  )}
+                  <button onClick={() => setSelected(w)} className="btn-secondary text-xs py-1.5 px-3.5">
+                    Detail
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title="Terbitkan Peringatan Kerja" size="md">
         <IssueWarningForm
