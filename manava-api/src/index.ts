@@ -2,7 +2,6 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
-import cookieParser from 'cookie-parser'
 import { env } from './config/env.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { ok } from './lib/response.js'
@@ -21,8 +20,7 @@ import { applicationsRouter } from './modules/applications/routes.js'
 const app = express()
 
 app.use(helmet())
-app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }))
-app.use(cookieParser())
+app.use(cors({ origin: env.CORS_ORIGIN }))
 // 8mb: job applications carry the CV inline as a base64 data URL (max 5MB file).
 app.use(express.json({ limit: '8mb' }))
 if (env.NODE_ENV !== 'test') app.use(morgan('dev'))

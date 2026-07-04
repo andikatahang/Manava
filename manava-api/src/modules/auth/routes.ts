@@ -1,6 +1,5 @@
 import { Router } from 'express'
 import { z } from 'zod'
-import { env } from '../../config/env.js'
 import { validateBody } from '../../middleware/validate.js'
 import { authenticate } from '../../middleware/authenticate.js'
 import { asyncHandler } from '../../utils/asyncHandler.js'
@@ -10,7 +9,8 @@ import { getUserById, login, logout, refresh, register, type AuthResult } from '
 
 export const authRouter = Router()
 
-const REFRESH_COOKIE = 'manava_refresh'
+// Cookie-free auth: the refresh token travels in the JSON body and the client
+// keeps it in localStorage. Tokens are still rotated + hashed server-side.
 
 // identifier = email or username
 const loginSchema = z.object({
@@ -24,8 +24,7 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const { identifier, password } = req.body as z.infer<typeof loginSchema>
     const result = await login(identifier, password)
-    setRefreshCookie(res, result)
-    res.json(ok({ user: result.user, accessToken: result.accessToken }))
+    res.json(ok(authPayload(result)))
   }),
 )
 
@@ -46,28 +45,25 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const input = req.body as z.infer<typeof registerSchema>
     const result = await register(input)
-    setRefreshCookie(res, result)
-    res.status(201).json(ok({ user: result.user, accessToken: result.accessToken }))
+    res.status(201).json(ok(authPayload(result)))
   }),
 )
 
 authRouter.post(
   '/refresh',
   asyncHandler(async (req, res) => {
-    const raw = req.cookies?.[REFRESH_COOKIE]
-    if (!raw) throw new HttpError(401, 'Refresh cookie missing')
+    const raw = (req.body as { refreshToken?: unknown })?.refreshToken
+    if (typeof raw !== 'string' || !raw) throw new HttpError(401, 'Refresh token missing')
     const result = await refresh(raw)
-    setRefreshCookie(res, result)
-    res.json(ok({ user: result.user, accessToken: result.accessToken }))
+    res.json(ok(authPayload(result)))
   }),
 )
 
 authRouter.post(
   '/logout',
   asyncHandler(async (req, res) => {
-    const raw = req.cookies?.[REFRESH_COOKIE] ?? null
-    await logout(raw)
-    res.clearCookie(REFRESH_COOKIE, cookieOpts())
+    const raw = (req.body as { refreshToken?: unknown })?.refreshToken
+    await logout(typeof raw === 'string' && raw ? raw : null)
     res.json(ok({ success: true }))
   }),
 )
@@ -83,20 +79,11 @@ authRouter.get(
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-import type { Response } from 'express'
-
-function cookieOpts() {
+function authPayload(result: AuthResult) {
   return {
-    httpOnly: true,
-    secure: env.NODE_ENV === 'production',
-    sameSite: 'lax' as const,
-    path: '/api/v1/auth',
+    user: result.user,
+    accessToken: result.accessToken,
+    refreshToken: result.refreshToken,
+    refreshExpiresAt: result.refreshExpiresAt,
   }
-}
-
-function setRefreshCookie(res: Response, result: AuthResult) {
-  res.cookie(REFRESH_COOKIE, result.refreshToken, {
-    ...cookieOpts(),
-    expires: result.refreshExpiresAt,
-  })
 }

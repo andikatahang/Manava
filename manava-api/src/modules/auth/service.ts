@@ -15,7 +15,7 @@ export interface AuthUser {
 
 export interface AuthResult {
   accessToken: string
-  refreshToken: string       // raw token, sent to client via httpOnly cookie
+  refreshToken: string       // raw token, returned in the response body (no cookies)
   refreshExpiresAt: Date
   user: AuthUser
 }

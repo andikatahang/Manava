@@ -1,7 +1,7 @@
 // Job-application API client. Candidates submit from the public /apply page;
-// HR admin reviews via /recruitment. A cookie still guards against the same
-// browser re-submitting the current vacancy (the server also rejects a second
-// active application for the same email).
+// HR admin reviews via /recruitment. A localStorage flag guards against the
+// same browser re-submitting the current vacancy (the server also rejects a
+// second active application for the same email).
 
 import { api, apiBlob } from './api'
 
@@ -88,18 +88,25 @@ export function rejectApplication(id: string): Promise<JobApplication> {
   return api<JobApplication>(`/applications/${id}/reject`, { method: 'PATCH' })
 }
 
-// ── Cookie guard ──────────────────────────────────────────────────────────
+// ── Duplicate-apply guard (localStorage, cookie-free) ─────────────────────
 // Bump this when a new vacancy opens — candidates may then apply again.
 export const CURRENT_VACANCY_ID = 'vac-2026-06'
-const COOKIE_KEY = `manava_applied_${CURRENT_VACANCY_ID}`
+const APPLIED_KEY = `manava_applied_${CURRENT_VACANCY_ID}`
 
 export function hasApplied(): boolean {
-  return document.cookie.split('; ').some(c => c.startsWith(`${COOKIE_KEY}=`))
+  try {
+    return localStorage.getItem(APPLIED_KEY) === '1'
+  } catch {
+    return false
+  }
 }
 
 export function markApplied(): void {
-  const maxAge = 60 * 60 * 24 * 90 // 90 days
-  document.cookie = `${COOKIE_KEY}=1; path=/; max-age=${maxAge}; SameSite=Lax`
+  try {
+    localStorage.setItem(APPLIED_KEY, '1')
+  } catch {
+    // Storage unavailable — guard simply won't persist.
+  }
 }
 
 export const SKILL_OPTIONS = [

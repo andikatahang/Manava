@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { User } from '../types'
-import { api, setAccessToken, tryRefresh, type AuthPayload } from '../lib/api'
+import { api, setAccessToken, setRefreshToken, revokeSession, tryRefresh, type AuthPayload } from '../lib/api'
 
-// Real backend auth. The access token lives in memory (lib/api.ts); the
-// refresh token is an httpOnly cookie, so a page reload re-hydrates the
-// session via POST /auth/refresh.
+// Real backend auth, cookie-free. The access token lives in memory
+// (lib/api.ts); the refresh token in localStorage, so a page reload
+// re-hydrates the session via POST /auth/refresh.
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
   const [isHydrating, setIsHydrating] = useState(true)
@@ -35,6 +35,7 @@ export function useAuth() {
     })
     queryClient.clear()
     setAccessToken(payload.accessToken)
+    setRefreshToken(payload.refreshToken)
     setUser(payload.user)
     return payload.user
   }
@@ -54,13 +55,14 @@ export function useAuth() {
     })
     queryClient.clear()
     setAccessToken(payload.accessToken)
+    setRefreshToken(payload.refreshToken)
     setUser(payload.user)
     return payload.user
   }
 
   const logout = async () => {
     try {
-      await api('/auth/logout', { method: 'POST', skipRefresh: true })
+      await revokeSession()
     } catch {
       // Session cleanup is best-effort; clear local state regardless.
     }
