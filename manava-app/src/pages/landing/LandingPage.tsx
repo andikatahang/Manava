@@ -5,9 +5,9 @@ import logoLight from '../../assets/logo-light.png'
 import { Card } from '../../components/ui/Card'
 import DotField from '../../components/dot-field/DotField'
 import {
-  Sparkles, ArrowRight, ChevronRight, Check, Plus, Minus,
-  Users, FileText, Shield, BarChart2, ScanLine, Scale,
-  FileCheck2, PackageCheck, BadgeDollarSign, Briefcase,
+  Sparkles, ArrowRight, Check, Plus, Minus,
+  Users, BarChart2, CalendarClock, AlertOctagon, UserCheck, Building2,
+  FileCheck2, PackageCheck, BadgeDollarSign,
 } from 'lucide-react'
 
 /* ──────────────────────────────────────────────────────────
@@ -26,56 +26,54 @@ type Stat = { value: string; label: string; sub: string }
 type Faq = { q: string; a: string }
 
 const features: Feature[] = [
-  { icon: FileText, title: 'Revision Envelope', tag: 'Kontrol Lingkup',
-    desc: 'Kunci setiap pekerjaan dengan kerangka INCLUDED / EXCLUDED / ALLOWANCE sebelum satu piksel pun bergerak.' },
-  { icon: Shield, title: 'Dual-Phase Escrow', tag: 'Pembayaran Aman',
-    desc: '50% saat kontrak disetujui, 50% saat hasil diterima, dicairkan otomatis dalam satu jam.' },
-  { icon: ScanLine, title: 'AI Revision Classifier', tag: 'akurasi ≥85%',
-    desc: 'Deteksi perubahan mengklasifikasi tiap revisi sebagai minor (gratis) atau major (berbayar), dengan bukti.' },
-  { icon: Users, title: 'Smart Recruitment', tag: 'ATS + DSS',
-    desc: 'Alur pelamar terstruktur dengan penilaian departemen yang objektif dan dibantu AI.' },
-  { icon: BarChart2, title: 'Integrated KPI & Payroll', tag: 'Kinerja',
-    desc: 'Rating klien, penyelesaian, dan penilaian manajer menyatu menjadi bonus yang adil berbasis data.' },
-  { icon: Scale, title: 'Dispute Resolution', tag: 'SLA 48 jam',
-    desc: 'Mediator ditugaskan otomatis dalam dua jam. Keputusan mengikat, jejak audit yang tak bisa diubah.' },
+  { icon: Users, title: 'Smart Recruitment', tag: 'ATS',
+    desc: 'Lamaran publik masuk ke pipeline terstruktur — seleksi, interview, hingga akun editor dibuat otomatis saat diterima.' },
+  { icon: CalendarClock, title: 'Cuti Berjenjang', tag: 'Persetujuan',
+    desc: 'Permohonan cuti naik satu tingkat: editor disetujui manajer, manajer disetujui HR — dengan notifikasi langsung ke approver.' },
+  { icon: AlertOctagon, title: 'Peringatan Kerja', tag: 'Kepatuhan',
+    desc: 'HR menerbitkan peringatan dengan severity dan masa berlaku; penerima mendapat notifikasi dan mengakuinya secara tercatat.' },
+  { icon: UserCheck, title: 'Layanan Mandiri (ESS)', tag: 'Karyawan',
+    desc: 'Presensi, pengajuan cuti, dan slip gaji dalam satu tempat — karyawan tidak perlu menunggu balasan email HR.' },
+  { icon: BarChart2, title: 'KPI & Payroll', tag: 'Kinerja',
+    desc: 'Rating, penyelesaian tepat waktu, dan penilaian manajer menyatu menjadi kompensasi yang adil berbasis data.' },
+  { icon: Building2, title: 'Dashboard Departemen', tag: 'Tim',
+    desc: 'Manajer memantau anggota, beban kerja, dan persetujuan timnya dari satu dasbor departemen.' },
 ]
 
 const steps: Step[] = [
-  { icon: FileCheck2, step: '01', title: 'Pesan & Kunci Lingkup',
-    desc: 'Klien memesan editor, Revision Envelope ditetapkan, dan brief ditandatangani secara digital.' },
-  { icon: PackageCheck, step: '02', title: 'Kerjakan & Klasifikasi',
-    desc: 'Editor bekerja dalam lingkup yang disepakati. Tiap revisi diklasifikasi minor atau major secara otomatis.' },
-  { icon: BadgeDollarSign, step: '03', title: 'Cairkan Pembayaran',
-    desc: 'Saat hasil diterima, tahap escrow terakhir dicairkan ke perusahaan dalam waktu kurang dari satu jam.' },
+  { icon: FileCheck2, step: '01', title: 'Lamar & Seleksi',
+    desc: 'Kandidat melamar tanpa perlu akun. HR menyeleksi lewat pipeline ATS, dan akun editor dibuat otomatis saat diterima.' },
+  { icon: PackageCheck, step: '02', title: 'Bekerja & Terpantau',
+    desc: 'Editor mengerjakan proyek dengan presensi, cuti berjenjang, dan KPI yang tercatat rapi — transparan bagi semua pihak.' },
+  { icon: BadgeDollarSign, step: '03', title: 'Gaji & Bonus',
+    desc: 'Penggajian mengikuti kinerja terukur: KPI dan penilaian manajer menentukan bonus, slip gaji tersedia di ESS.' },
 ]
 
 const roles: Role[] = [
-  { role: 'Superadmin', initial: 'S', color: '#0050F8', points: ['Kendali penuh platform', 'Alur rekrutmen', 'Operasi penggajian & HR', 'Pelaporan pendapatan'] },
-  { role: 'Editor', initial: 'E', color: '#3B82F6', points: ['Lihat proyek yang ditugaskan', 'Kirim hasil kerja', 'ESS: cuti & slip gaji', 'Lacak KPI & bonus'] },
-  { role: 'Klien', initial: 'C', color: '#10B981', points: ['Cari & pesan editor', 'Setujui brief & lingkup', 'Lacak status revisi', 'Pembayaran escrow aman'] },
-  { role: 'Mediator', initial: 'M', color: '#F59E0B', points: ['Tinjau bukti sengketa', 'Deteksi perubahan AI', 'Terbitkan keputusan mengikat', 'Log penyelesaian tak terubah'] },
-  { role: 'Manajer Admin', initial: 'A', color: '#EC4899', points: ['Setujui permohonan cuti', 'Nilai kinerja editor', 'Pantau absensi', 'Kelola KPI tim'] },
-  { role: 'Keuangan', initial: 'F', color: '#06B6D4', points: ['Rekonsiliasi escrow', 'Pengakuan pendapatan', 'Pemrosesan penggajian', 'Kepatuhan IFRS 15'] },
+  { role: 'Superadmin', initial: 'S', color: '#0050F8', points: ['Kendali penuh platform', 'Kelola akun & akses', 'Jejak audit sistem', 'Pengawasan lintas modul'] },
+  { role: 'HR Admin', initial: 'H', color: '#10B981', points: ['Rekrutmen & onboarding', 'Terbitkan peringatan kerja', 'Eskalasi cuti manajer', 'Presensi & penggajian'] },
+  { role: 'Manajer Admin', initial: 'A', color: '#EC4899', points: ['Setujui cuti tim editor', 'Nilai kinerja editor', 'Pantau absensi', 'Dashboard departemen'] },
+  { role: 'Editor', initial: 'E', color: '#3B82F6', points: ['Lihat proyek yang ditugaskan', 'ESS: cuti & slip gaji', 'Lacak KPI & bonus', 'Terima & akui peringatan'] },
 ]
 
 const stats: Stat[] = [
-  { value: '11', label: 'Modul', sub: 'HR hingga Keuangan, semua terhubung' },
-  { value: '6', label: 'Peran pengguna', sub: 'Kontrol akses granular' },
-  { value: '48 jam', label: 'SLA Sengketa', sub: 'Mediator ditugaskan otomatis' },
-  { value: '≥85%', label: 'Akurasi AI', sub: 'Klasifikasi revisi' },
+  { value: '8', label: 'Modul HR', sub: 'Rekrutmen hingga penggajian, semua terhubung' },
+  { value: '4', label: 'Peran pengguna', sub: 'Kontrol akses granular' },
+  { value: '1 klik', label: 'Lamar kerja', sub: 'Tanpa akun untuk melamar' },
+  { value: '1 tingkat', label: 'Persetujuan cuti', sub: 'Selalu naik ke atasan langsung' },
 ]
 
 const faqs: Faq[] = [
-  { q: 'Bagaimana Revision Envelope menjaga lingkup tetap adil?',
-    a: 'Setiap proyek menetapkan apa yang INCLUDED, EXCLUDED, dan ALLOWANCE putaran gratis. Setelah brief ditandatangani, batasannya terkunci dan terlihat oleh kedua pihak — sehingga "perubahan kecil" tidak diam-diam menjadi pekerjaan ulang tanpa bayaran.' },
-  { q: 'Kapan uang benar-benar berpindah?',
-    a: 'DP 50% ditahan di escrow saat kontrak disetujui. 50% sisanya ditagih sebelum pengiriman dan dicairkan ke perusahaan dalam satu jam setelah klien menerima hasil kerja.' },
-  { q: 'Apa yang terjadi jika AI ragu menilai sebuah revisi?',
-    a: 'Jika tingkat keyakinan klasifikasi turun di bawah 85%, revisi ditandai untuk mediator manusia. Setiap keputusan — AI maupun manual — dicatat beserta buktinya untuk jejak audit.' },
+  { q: 'Bagaimana cara bergabung sebagai editor?',
+    a: 'Kirim lamaran lewat halaman Lowongan Pekerjaan — tanpa perlu membuat akun. HR meninjau lamaran Anda di pipeline ATS, mengundang interview, dan begitu diterima akun editor Anda dibuat otomatis beserta email undangan masuk.' },
+  { q: 'Bagaimana alur persetujuan cuti bekerja?',
+    a: 'Permohonan selalu naik satu tingkat: cuti editor disetujui Manajer Admin, cuti Manajer Admin disetujui HR Admin. Approver mendapat notifikasi langsung di aplikasi, jadi tidak ada permohonan yang tenggelam.' },
+  { q: 'Bagaimana peringatan kerja dikelola?',
+    a: 'Hanya HR Admin yang dapat menerbitkan peringatan, lengkap dengan severity dan masa berlaku. Penerima mendapat notifikasi, melihat detail alasannya, dan mengakui peringatan secara tercatat — semuanya terdokumentasi.' },
   { q: 'Bagaimana kompensasi editor dihitung?',
     a: 'KPI memadukan rating klien, tingkat penyelesaian tepat waktu, dan penilaian manajer tiap kuartal. Tingkatan itu menentukan bonus proyek, sehingga bayaran mengikuti kinerja terukur, bukan opini.' },
-  { q: 'Apakah ini sekadar demo atau sistem lengkap?',
-    a: 'Versi ini menjalankan seluruh 11 modul secara menyeluruh dengan data tiruan yang realistis — tanpa perlu setup. Anda bisa menelusuri pemesanan, pengiriman, klasifikasi, dan pencairan sebagai salah satu dari enam peran.' },
+  { q: 'Apa yang bisa karyawan lakukan sendiri lewat ESS?',
+    a: 'Lewat Layanan Mandiri, karyawan mencatat presensi, mengajukan cuti dan izin, mengunduh slip gaji, serta memantau KPI pribadinya — tanpa harus menunggu balasan email dari HR.' },
 ]
 
 const partners = ['Aperture', 'Frame & Co', 'Studio Nord', 'Pixelwright', 'Lumen Labs']
@@ -161,30 +159,24 @@ function Hero() {
           className="text-[clamp(2.9rem,7vw,5.25rem)] font-bold leading-[1.03] tracking-[-0.04em] text-[#021526] mb-7"
           style={{ fontFamily: "'Inter Display', 'Open Runde', sans-serif" }}
         >
-          Dari Brief ke Pembayaran,
+          Dari Rekrutmen ke Penggajian,
           <br />
           Otomatis &amp; <span className="text-[#0050F8]">Adil</span>.
         </h1>
 
         <p className="text-[clamp(1rem,1.8vw,1.18rem)] text-[#596074] max-w-[560px] mx-auto mb-10 leading-[1.65]">
-          Manava menyatukan HR, Sale of Services, dan Finance untuk studio visual
-          kepastian lingkup, pembayaran escrow yang aman, dan penyelesaian sengketa yang objektif.
+          Manava menyatukan rekrutmen, presensi, cuti, KPI, dan penggajian untuk studio visual —
+          satu sistem HR yang transparan bagi editor, manajer, dan HR.
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-3 mb-16">
           <Link
-            to="/login"
+            to="/apply"
             className="group inline-flex items-center gap-2 bg-[#D0F100] hover:brightness-95 text-[#021526] font-semibold px-7 py-3.5 rounded-full text-[15px] transition-all duration-200"
           >
-            Coba Demo
+            Gabung Sekarang
             <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-150" />
           </Link>
-          <a
-            href="#how-it-works"
-            className="inline-flex items-center gap-1.5 border border-[#021526]/15 hover:border-[#021526]/30 hover:bg-[#021526]/[0.03] text-[#021526] font-medium px-7 py-3.5 rounded-full text-[15px] transition-all duration-200"
-          >
-            Lihat cara kerja <ChevronRight className="w-4 h-4" />
-          </a>
         </div>
 
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#596074]">
@@ -294,7 +286,7 @@ function Roles() {
           title="Dibuat untuk setiap peran."
           subtitle="Tiap pengguna melihat persis yang mereka butuhkan — tidak lebih, tidak kurang."
         />
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid md:grid-cols-2 gap-3">
           {roles.map(({ role, points }) => (
             <article
               key={role}
@@ -393,32 +385,28 @@ function FinalCta() {
   return (
     <section className="bg-[#021526]">
       <div className="relative max-w-[720px] mx-auto px-6 text-center py-32">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#D0F100] mb-6">Mulai</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#D0F100] mb-6">Gabung</p>
         <h2
           className="text-[clamp(2.1rem,4.8vw,3.4rem)] font-bold tracking-[-0.035em] text-white leading-[1.08] mb-5"
           style={{ fontFamily: "'Inter Display', sans-serif" }}
         >
-          Mulai jalankan revisi
+          Berkarier di studio
           <br />
           yang adil hari ini.
         </h2>
-        <p className="text-[#9aa3bd] text-[16px] mb-4 leading-[1.7] max-w-[520px] mx-auto">
-          Jelajahi seluruh 11 modul dengan data tiruan lengkap, masuk sebagai salah satu dari enam peran —
-          telusuri sebuah pekerjaan dari pemesanan dan penguncian lingkup hingga pencairan escrow.
-        </p>
         <p className="text-[#9aa3bd] text-[16px] mb-10 leading-[1.7] max-w-[520px] mx-auto">
-          Lihat bagaimana Revision Envelope, klasifikasi AI, dan escrow dua tahap bekerja
-          bersama dalam satu proyek. Tanpa akun, tanpa konfigurasi, tanpa instalasi.
+          Kirim lamaran Anda sebagai editor — tanpa perlu akun. Begitu diterima,
+          akun Anda dibuat otomatis lengkap dengan ESS, KPI, dan slip gaji yang transparan.
         </p>
         <Link
-          to="/login"
+          to="/apply"
           className="group inline-flex items-center gap-2.5 bg-[#D0F100] hover:brightness-105 text-[#021526] font-semibold px-8 py-4 rounded-full text-[15px] transition-all duration-200 shadow-[0_8px_44px_-6px_rgba(208,241,0,0.75)]"
         >
-          Coba Demo Manava
+          Gabung Sekarang
           <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-150" />
         </Link>
         <p className="mt-5 text-[12.5px] text-white/40">
-          Gratis dijelajahi · Ganti peran kapan saja · Reset saat refresh
+          Lamar tanpa akun · Seleksi transparan · Kabar via email
         </p>
       </div>
     </section>
@@ -434,10 +422,10 @@ const footerCols: { title: string; links: { label: string; href: string }[] }[] 
     { label: 'FAQ', href: '#faq' },
   ] },
   { title: 'Modul', links: [
+    { label: 'Lowongan Pekerjaan', href: '/apply' },
     { label: 'Rekrutmen', href: '/recruitment' },
-    { label: 'Proyek', href: '/projects' },
-    { label: 'Pembayaran', href: '/payments' },
-    { label: 'Sengketa', href: '/disputes' },
+    { label: 'Presensi & Cuti', href: '/attendance' },
+    { label: 'KPI Kinerja', href: '/performance' },
   ] },
   { title: 'Legal', links: [
     { label: 'Ketentuan', href: '#' },
@@ -483,12 +471,6 @@ function Footer() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 py-12">
           <img src={logoLight} alt="Manava" className="h-7 w-auto object-contain object-left" />
           <div className="flex items-center gap-5">
-            <Link
-              to="/apply"
-              className="inline-flex items-center gap-2 bg-[#D0F100] hover:brightness-95 text-[#021526] font-semibold px-5 py-2.5 rounded-full text-[14px] transition-all duration-200"
-            >
-              <Briefcase className="w-4 h-4" /> Lowongan Pekerjaan
-            </Link>
             <span className="hidden sm:inline-flex items-center gap-2.5 text-[13px] text-white/70">
               <span className="relative flex h-2.5 w-2.5">
                 <span className="absolute inline-flex h-full w-full rounded-full bg-[#10B981] opacity-60 animate-ping motion-reduce:animate-none" />
