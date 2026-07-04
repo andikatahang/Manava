@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
-  Building2, Plus, Check, Pencil, Star, BarChart2,
-  Clock, CalendarCheck, AlertOctagon, UserX, TrendingUp, Award, ArrowLeft, UserMinus,
+  Building2, Plus, Check, Pencil, BarChart2,
+  Clock, CalendarCheck, AlertOctagon, UserX, Award, ArrowLeft, UserMinus,
 } from 'lucide-react'
 import { Modal } from '../../components/ui/Modal'
 import { PageHeader, StatPillsRow } from '../../components/page/PageHeader'
@@ -9,10 +9,10 @@ import { mockAdminManagers, mockEditors, mockEditorMetrics } from '../../data/mo
 import { useDepartments, useDepartmentMutations } from '../../hooks/queries/useDepartments'
 import type { Department, UserRole } from '../../types'
 import { ManagerDepartmentView } from './ManagerDepartmentView'
+import { IssueWarningForEditor, EditorDetailInfo, EditorAvatar } from './EditorActionModals'
 import AttendancePage from '../attendance/AttendancePage'
 import WarningPage from '../warning/WarningPage'
 import OffboardingPage from '../offboarding/OffboardingPage'
-import PerformancePage from '../performance/PerformancePage'
 
 const SPEC_LABELS: Record<string, string> = {
   product_retouch: 'Product Retouch',
@@ -27,27 +27,15 @@ const SPEC_LABELS: Record<string, string> = {
 
 const ACTIVE_EDITORS = mockEditors.filter(e => e.status === 'active')
 
-type HrTab = 'departemen' | 'kpi' | 'presensi' | 'cuti' | 'peringatan' | 'offboarding'
+type HrTab = 'departemen' | 'presensi' | 'cuti' | 'peringatan' | 'offboarding'
 
 const HR_TABS: { id: HrTab; label: string; icon: typeof Building2 }[] = [
   { id: 'departemen', label: 'Departemen', icon: Building2 },
-  { id: 'kpi', label: 'KPI Editor', icon: BarChart2 },
   { id: 'presensi', label: 'Presensi', icon: Clock },
   { id: 'cuti', label: 'Permohonan Cuti', icon: CalendarCheck },
   { id: 'peringatan', label: 'Peringatan', icon: AlertOctagon },
   { id: 'offboarding', label: 'Offboarding', icon: UserX },
 ]
-
-const BAND_LABEL: Record<string, string> = {
-  excellent: 'Sangat Baik',
-  good: 'Baik',
-  needs_improvement: 'Perlu Peningkatan',
-}
-const BAND_STYLE: Record<string, string> = {
-  excellent: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-  good: 'text-blue-700 bg-blue-50 border-blue-200',
-  needs_improvement: 'text-amber-700 bg-amber-50 border-amber-200',
-}
 
 export default function DepartmentsPage({ role, embedded = false }: { role: UserRole; embedded?: boolean }) {
   if (role === 'admin_manager') return <ManagerDepartmentView role={role} embedded={embedded} />
@@ -166,7 +154,6 @@ function HrDepartmentDashboard({ role }: { role: UserRole }) {
         )
       )}
 
-      {tab === 'kpi' && <PerformancePage role="hr_admin" embedded />}
       {tab === 'presensi' && <AttendancePage role="hr_admin" embedded forcedView="attendance" />}
       {tab === 'cuti' && <AttendancePage role="hr_admin" embedded forcedView="leave" />}
       {tab === 'peringatan' && <WarningPage role="hr_admin" />}
@@ -193,6 +180,8 @@ function HrDepartmentDashboard({ role }: { role: UserRole }) {
   )
 }
 
+// Grouped list table — satu baris ringkas per departemen, tidak memanjang
+// ke bawah; detail lengkap dibuka lewat tombol Kelola.
 function DepartemenTab({
   departments, onAdd, onManage,
 }: {
@@ -209,12 +198,55 @@ function DepartemenTab({
         </button>
       </div>
 
-      <div className="space-y-4">
-        {departments.map(d => (
-          <DepartmentKpiCard key={d.id} department={d} onManage={() => onManage(d)} />
-        ))}
+      <div className="rounded-[12px] border border-black/[0.06] bg-white overflow-hidden">
+        <div className="hidden sm:grid grid-cols-[1.4fr_1.3fr_0.8fr_0.7fr_110px] items-center gap-3 px-5 py-3 bg-[#fafafa] border-b border-black/[0.06] text-[11px] font-semibold uppercase tracking-wider text-navy/40">
+          <span>Departemen</span>
+          <span>Manajer</span>
+          <span className="text-right">KPI Rata-rata</span>
+          <span className="text-right">Anggota</span>
+          <span />
+        </div>
+
+        {departments.length === 0 ? (
+          <p className="text-sm text-navy/40 px-5 py-8 text-center">Belum ada departemen.</p>
+        ) : (
+          <ul className="divide-y divide-black/[0.05]">
+            {departments.map(d => <DepartmentRow key={d.id} department={d} onManage={() => onManage(d)} />)}
+          </ul>
+        )}
       </div>
     </div>
+  )
+}
+
+function DepartmentRow({ department, onManage }: { department: Department; onManage: () => void }) {
+  const manager = mockAdminManagers.find(m => m.id === department.manager_id)
+  const memberCount = ACTIVE_EDITORS.filter(e => department.member_ids.includes(e.editor_id)).length
+  const metrics = mockEditorMetrics.filter(m => department.member_ids.includes(m.editor_id))
+  const avgKpi = metrics.length ? metrics.reduce((s, m) => s + m.kpi_average, 0) / metrics.length : 0
+
+  return (
+    <li className="grid grid-cols-1 sm:grid-cols-[1.4fr_1.3fr_0.8fr_0.7fr_110px] items-center gap-2 sm:gap-3 px-5 py-3.5">
+      <span className="flex items-center gap-2.5 min-w-0">
+        <span className="grid place-items-center w-8 h-8 rounded-lg bg-navy/5 text-navy shrink-0">
+          <Building2 className="w-4 h-4" />
+        </span>
+        <span className="text-sm font-semibold text-navy truncate">{department.name}</span>
+      </span>
+      <span className="flex items-center gap-2 min-w-0">
+        <Avatar name={manager?.full_name ?? '—'} avatar={manager?.avatar} />
+        <span className="text-sm text-navy/70 truncate">{manager?.full_name ?? 'Belum ditunjuk'}</span>
+      </span>
+      <span className="sm:text-right text-sm font-semibold text-navy tabular-nums">
+        {metrics.length > 0 ? avgKpi.toFixed(1) : '—'}
+      </span>
+      <span className="sm:text-right text-sm text-navy/70 tabular-nums">{memberCount}</span>
+      <span className="sm:text-right">
+        <button onClick={onManage} className="btn-secondary text-xs py-1.5 px-3.5">
+          <Pencil className="w-3.5 h-3.5" /> Kelola
+        </button>
+      </span>
+    </li>
   )
 }
 
@@ -232,6 +264,9 @@ function DepartmentManageView({
   onRemoveMember: (editorId: string) => void
 }) {
   const [showPicker, setShowPicker] = useState(false)
+  const [warningTarget, setWarningTarget] = useState<(typeof ACTIVE_EDITORS)[number] | null>(null)
+  const [detailTarget, setDetailTarget] = useState<(typeof ACTIVE_EDITORS)[number] | null>(null)
+  const [removeTarget, setRemoveTarget] = useState<(typeof ACTIVE_EDITORS)[number] | null>(null)
 
   const manager = mockAdminManagers.find(m => m.id === department.manager_id)
   const members = ACTIVE_EDITORS.filter(e => department.member_ids.includes(e.editor_id))
@@ -306,41 +341,41 @@ function DepartmentManageView({
           </div>
         ) : (
           <div className="rounded-[12px] border border-black/[0.06] overflow-hidden bg-white">
-            <div className="flex items-center gap-3 px-4 py-2.5 bg-[#fafafa] border-b border-black/[0.06] text-[11px] font-medium uppercase tracking-wider text-navy/40">
-              <span className="flex-1">Editor</span>
-              <span className="w-14 text-right">KPI</span>
-              <span className="w-32 hidden sm:block">Kinerja</span>
-              <span className="w-8" />
+            <div className="hidden sm:grid grid-cols-[1.5fr_0.5fr_360px] items-center gap-3 px-4 py-2.5 bg-[#fafafa] border-b border-black/[0.06] text-[11px] font-medium uppercase tracking-wider text-navy/40">
+              <span>Editor</span>
+              <span className="text-right">KPI Score</span>
+              <span />
             </div>
             <ul className="divide-y divide-black/[0.05]">
               {members.map(e => {
                 const metric = mockEditorMetrics.find(m => m.editor_id === e.editor_id)
                 return (
-                  <li key={e.editor_id} className="flex items-center gap-3 px-4 py-3">
-                    <Avatar name={e.full_name} avatar={e.avatar} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-navy truncate">{e.full_name}</p>
-                      <div className="flex flex-wrap gap-1 mt-0.5">
-                        {e.specialization.map(s => <SkillTag key={s} skill={s} />)}
-                      </div>
-                    </div>
-                    <span className="w-14 text-right text-sm font-semibold text-navy tabular-nums">
+                  <li key={e.editor_id} className="grid grid-cols-1 sm:grid-cols-[1.5fr_0.5fr_360px] items-center gap-2 sm:gap-3 px-4 py-3">
+                    <span className="flex items-center gap-3 min-w-0">
+                      <EditorAvatar name={e.full_name} avatar={e.avatar} />
+                      <span className="text-sm font-medium text-navy truncate">{e.full_name}</span>
+                    </span>
+                    <span className="sm:text-right text-sm font-semibold text-navy tabular-nums">
                       {metric ? metric.kpi_average.toFixed(1) : '—'}
                     </span>
-                    <span className="w-32 hidden sm:block">
-                      {metric && (
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${BAND_STYLE[metric.performance_band]}`}>
-                          {BAND_LABEL[metric.performance_band]}
-                        </span>
-                      )}
+                    <span className="flex flex-wrap sm:justify-end gap-2">
+                      <button
+                        onClick={() => setWarningTarget(e)}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-700 border border-red-200 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-full transition-colors"
+                      >
+                        <AlertOctagon className="w-3.5 h-3.5" /> Peringatan Kerja
+                      </button>
+                      <button onClick={() => setDetailTarget(e)} className="btn-secondary text-xs py-1.5 px-3.5">
+                        Detail
+                      </button>
+                      <button
+                        onClick={() => setRemoveTarget(e)}
+                        title="Keluarkan dari departemen"
+                        className="grid place-items-center w-8 h-8 rounded-lg text-navy/40 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+                      >
+                        <UserMinus className="w-4 h-4" />
+                      </button>
                     </span>
-                    <button
-                      onClick={() => onRemoveMember(e.editor_id)}
-                      title="Keluarkan dari departemen"
-                      className="grid place-items-center w-8 h-8 rounded-lg text-navy/40 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
-                    >
-                      <UserMinus className="w-4 h-4" />
-                    </button>
                   </li>
                 )
               })}
@@ -348,6 +383,35 @@ function DepartmentManageView({
           </div>
         )}
       </div>
+
+      <Modal open={!!warningTarget} onClose={() => setWarningTarget(null)} title="Terbitkan Peringatan Kerja" size="md">
+        {warningTarget && <IssueWarningForEditor editor={warningTarget} onDone={() => setWarningTarget(null)} />}
+      </Modal>
+
+      <Modal open={!!detailTarget} onClose={() => setDetailTarget(null)} title="Detail Editor" size="md">
+        {detailTarget && <EditorDetailInfo editor={detailTarget} />}
+      </Modal>
+
+      <Modal open={!!removeTarget} onClose={() => setRemoveTarget(null)} title="Keluarkan dari Departemen" size="sm">
+        {removeTarget && (
+          <div className="space-y-4">
+            <p className="text-sm text-navy/70 leading-relaxed">
+              Keluarkan <span className="font-semibold text-navy">{removeTarget.full_name}</span> dari
+              departemen <span className="font-semibold text-navy">{department.name}</span>?
+              Editor tetap aktif dan dapat ditambahkan kembali kapan saja.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button className="btn-secondary" onClick={() => setRemoveTarget(null)}>Batal</button>
+              <button
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded-full transition-colors"
+                onClick={() => { onRemoveMember(removeTarget.editor_id); setRemoveTarget(null) }}
+              >
+                <UserMinus className="w-4 h-4" /> Keluarkan
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Save bar */}
       <div className="flex items-center justify-between gap-3 border-t border-black/[0.06] pt-4">
@@ -441,120 +505,6 @@ function AddEditorModal({
   )
 }
 
-function DepartmentKpiCard({ department, onManage }: { department: Department; onManage: () => void }) {
-  const manager = mockAdminManagers.find(m => m.id === department.manager_id)
-  const members = ACTIVE_EDITORS.filter(e => department.member_ids.includes(e.editor_id))
-  const memberMetrics = mockEditorMetrics.filter(m => department.member_ids.includes(m.editor_id))
-
-  const deptKpi = memberMetrics.length
-    ? memberMetrics.reduce((s, m) => s + m.kpi_average, 0) / memberMetrics.length
-    : 0
-  const avgRating = memberMetrics.length
-    ? memberMetrics.reduce((s, m) => s + m.avg_client_rating, 0) / memberMetrics.length
-    : 0
-  const avgCompletion = memberMetrics.length
-    ? memberMetrics.reduce((s, m) => s + m.completion_rate, 0) / memberMetrics.length
-    : 0
-
-  const bandCounts = { excellent: 0, good: 0, needs_improvement: 0 }
-  for (const m of memberMetrics) {
-    bandCounts[m.performance_band] = (bandCounts[m.performance_band] ?? 0) + 1
-  }
-
-  return (
-    <div className="rounded-[12px] border border-black/[0.06] bg-[#fbfbfb] p-5 space-y-4">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <span className="grid place-items-center w-10 h-10 rounded-xl bg-navy text-white shrink-0">
-          <Building2 className="w-5 h-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-navy truncate">{department.name}</h3>
-          <p className="text-xs text-navy/50">{members.length} anggota</p>
-        </div>
-        <button onClick={onManage} className="btn-secondary text-xs py-1.5 px-3 shrink-0">
-          <Pencil className="w-3.5 h-3.5" /> Kelola
-        </button>
-      </div>
-
-      {/* Manager */}
-      <div className="flex items-center gap-3 rounded-xl border border-navy/10 bg-navy/[0.03] p-3">
-        <Avatar name={manager?.full_name ?? '—'} avatar={manager?.avatar} />
-        <div className="min-w-0">
-          <p className="text-[11px] uppercase tracking-wider text-navy/40">Manajer</p>
-          <p className="text-sm font-semibold text-navy truncate">{manager?.full_name ?? 'Belum ditunjuk'}</p>
-        </div>
-      </div>
-
-      {/* Department KPI */}
-      <div>
-        <p className="text-[11px] uppercase tracking-wider text-navy/40 mb-2">KPI Departemen</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <KpiCell icon={<BarChart2 className="w-3.5 h-3.5 text-navy/50" />} label="KPI Rata-rata" value={deptKpi.toFixed(1)} highlight />
-          <KpiCell icon={<Star className="w-3.5 h-3.5 text-amber-500" />} label="Rating Klien" value={avgRating.toFixed(1)} />
-          <KpiCell icon={<TrendingUp className="w-3.5 h-3.5 text-blue-500" />} label="Penyelesaian" value={`${Math.round(avgCompletion)}%`} />
-          <KpiCell icon={<Award className="w-3.5 h-3.5 text-emerald-500" />} label="Editor" value={String(members.length)} />
-        </div>
-      </div>
-
-      {/* Performance distribution */}
-      {memberMetrics.length > 0 && (
-        <div>
-          <p className="text-[11px] uppercase tracking-wider text-navy/40 mb-2">Distribusi Kinerja</p>
-          <div className="flex gap-2 flex-wrap">
-            {Object.entries(bandCounts).map(([band, count]) => (
-              count > 0 && (
-                <span
-                  key={band}
-                  className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${BAND_STYLE[band]}`}
-                >
-                  {BAND_LABEL[band]} · {count}
-                </span>
-              )
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Member list */}
-      <div>
-        <p className="text-[11px] uppercase tracking-wider text-navy/40 mb-2">Anggota</p>
-        {members.length === 0 ? (
-          <p className="text-sm text-navy/40">Belum ada anggota.</p>
-        ) : (
-          <ul className="space-y-2.5">
-            {members.map(e => {
-              const metric = mockEditorMetrics.find(m => m.editor_id === e.editor_id)
-              return (
-                <li key={e.editor_id} className="flex items-center gap-3">
-                  <Avatar name={e.full_name} avatar={e.avatar} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-navy truncate">{e.full_name}</p>
-                    <div className="flex flex-wrap gap-1 mt-0.5">
-                      {e.specialization.map(s => <SkillTag key={s} skill={s} />)}
-                    </div>
-                  </div>
-                  {metric && (
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs font-semibold text-navy tabular-nums flex items-center gap-0.5">
-                        <Star className="w-3 h-3 text-amber-500" />
-                        {metric.kpi_average.toFixed(1)}
-                      </span>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${BAND_STYLE[metric.performance_band]}`}>
-                        {BAND_LABEL[metric.performance_band]}
-                      </span>
-                    </div>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </div>
-    </div>
-  )
-}
-
 function KpiCell({ label, value, icon, highlight }: { label: string; value: string; icon?: React.ReactNode; highlight?: boolean }) {
   return (
     <div className={`rounded-xl border px-3 py-2.5 ${highlight ? 'border-navy/20 bg-navy/[0.04]' : 'border-border'}`}>
@@ -610,14 +560,6 @@ function DepartmentBasicForm({
         <button className="btn-primary" onClick={submit}>{submitLabel}</button>
       </div>
     </div>
-  )
-}
-
-function SkillTag({ skill }: { skill: string }) {
-  return (
-    <span className="text-[10px] font-medium text-navy/60 bg-navy/5 px-1.5 py-0.5 rounded">
-      {SPEC_LABELS[skill] ?? skill}
-    </span>
   )
 }
 
