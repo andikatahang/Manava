@@ -2,14 +2,20 @@
 //   1 Superadmin, 1 HR Admin, 5 Admin Manajer, 50 Editor — 5 departments.
 // Transactional data (attendance, leave, warnings, applications) starts EMPTY
 // so everything visible in the app is produced by real usage.
-// All seeded users share the password "manava123" (bcrypt-hashed).
+// Password bersama dibaca dari SEED_PASSWORD env var (jangan hardcode —
+// GitGuardian memindai repo untuk pasangan email+password).
 
+import 'dotenv/config'
 import { PrismaClient, UserRole, EditorStatus, PerformanceBand } from '@prisma/client'
 import * as bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
-const DEFAULT_PASSWORD = 'manava123'
+const DEFAULT_PASSWORD = process.env.SEED_PASSWORD
+if (!DEFAULT_PASSWORD || DEFAULT_PASSWORD.length < 8) {
+  console.error('❌ SEED_PASSWORD wajib diset di .env (min. 8 karakter) sebelum menjalankan seed.')
+  process.exit(1)
+}
 
 // ─── Accounts ─────────────────────────────────────────────────────────────────
 
@@ -116,7 +122,7 @@ async function main() {
       },
     })
   }
-  console.log(`👤 Seeded ${allUsers.length} users (password: "${DEFAULT_PASSWORD}")`)
+  console.log(`👤 Seeded ${allUsers.length} users (password: SEED_PASSWORD dari .env)`)
 
   // ── Admin Managers ─────────────────────────────────────────────────────────
   for (const [i, m] of ADMIN_MANAGERS.entries()) {
@@ -202,7 +208,7 @@ async function main() {
   })
   console.log('🕐 Seeded attendance settings (09:00 – 17:00, kode 30 menit)')
 
-  console.log('\n✅ Seed complete. Semua akun memakai password "manava123".')
+  console.log('\n✅ Seed complete. Login dengan password dari SEED_PASSWORD di .env.')
   console.log('   Superadmin     : administrator.sistem@manava.id')
   console.log('   HR Admin       : andi.pratama@manava.id')
   console.log('   Admin Manajer  : muhammad.rizki@manava.id (dan 4 lainnya)')

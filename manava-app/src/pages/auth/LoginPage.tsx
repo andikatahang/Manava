@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react'
 import logoLight from '../../assets/logo-light.png'
@@ -8,7 +7,10 @@ import type { UserRole } from '../../types'
 
 // Demo accounts seeded by manava-api (prisma/seed.ts). Selecting one
 // pre-fills the form; authentication still goes through the real backend.
-const DEMO_PASSWORD = 'manava123'
+// Hanya role aktif — client, mediator, dan finance dinonaktifkan sementara.
+// Password TIDAK di-hardcode (temuan GitGuardian): prefill hanya aktif jika
+// VITE_DEMO_PASSWORD diset di .env lokal (nilai = SEED_PASSWORD manava-api).
+const DEMO_PASSWORD: string = import.meta.env.VITE_DEMO_PASSWORD ?? ''
 const demoAccounts: { role: UserRole; email: string; label: string; desc: string }[] = [
   { role: 'superadmin',    email: 'administrator.sistem@manava.id', label: 'Superadmin', desc: 'Akun, role, parameter sistem' },
   { role: 'hr_admin',      email: 'andi.pratama@manava.id',   label: 'HR Admin',      desc: 'ATS, departemen, peringatan' },
@@ -51,7 +53,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       setError(
         message === 'Invalid credentials'
           ? 'Email atau kata sandi salah.'
-          : `Tidak dapat masuk: ${message}`,
+          : message === 'Role dinonaktifkan'
+            ? 'Akun ini memakai role yang sedang dinonaktifkan.'
+            : `Tidak dapat masuk: ${message}`,
       )
       setIsSubmitting(false)
     }
@@ -167,8 +171,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           </form>
 
           <p className="text-center text-sm text-navy/50 mt-6">
-            Belum punya akun?{' '}
-            <Link to="/register" className="text-navy font-medium hover:underline">Daftar Sekarang</Link>
+            Pendaftaran klien sedang dinonaktifkan sementara.
           </p>
         </div>
       </div>

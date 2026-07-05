@@ -1,10 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import type { UserRole } from './types'
+import { isRoleDisabled } from './lib/roles'
 import { useAuth } from './hooks/useAuth'
 import { AppLayout } from './components/layout/AppLayout'
 import LandingPage from './pages/landing/LandingPage'
 import LoginPage from './pages/auth/LoginPage'
-import RegisterPage from './pages/auth/RegisterPage'
 import ApplyPage from './pages/apply/ApplyPage'
 import RecruitmentPage from './pages/recruitment/RecruitmentPage'
 import ApplicantDetailPage from './pages/recruitment/ApplicantDetailPage'
@@ -60,7 +60,7 @@ function RoleGuard({ role, children }: { role: UserRole; children: React.ReactNo
 }
 
 function AppRoutes() {
-  const { user, login, register, logout, isAuthenticated, isHydrating } = useAuth()
+  const { user, login, logout, isAuthenticated, isHydrating } = useAuth()
 
   // Wait for the silent refresh before deciding login vs app — avoids a
   // login-page flash on reload for users with a live session.
@@ -74,7 +74,6 @@ function AppRoutes() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/apply" element={<ApplyPage />} />
         <Route path="/login" element={<LoginPage onLogin={login} />} />
-        <Route path="/register" element={<RegisterPage onRegister={register} />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     )
@@ -82,12 +81,27 @@ function AppRoutes() {
 
   const role = user.role
 
+  // Pengaman ekstra: sesi lama dengan role yang sudah dinonaktifkan
+  // (client/mediator/finance) tidak boleh masuk ke UI aplikasi.
+  if (isRoleDisabled(role)) {
+    return (
+      <div className="min-h-screen bg-primary flex flex-col items-center justify-center gap-4 p-8 text-center">
+        <h1 className="text-2xl font-bold text-navy">Role dinonaktifkan</h1>
+        <p className="text-navy/60 max-w-md text-sm">
+          Akses untuk role ini sedang dinonaktifkan sementara. Silakan hubungi administrator.
+        </p>
+        <button type="button" onClick={() => void logout()} className="btn-primary px-6 py-2.5">
+          Keluar
+        </button>
+      </div>
+    )
+  }
+
   return (
     <AppLayout user={user} onLogout={logout}>
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/register" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<RoleHomePage user={user} />} />
         <Route path="/recruitment" element={<RoleGuard role={role}><RecruitmentPage role={role} /></RoleGuard>} />
         <Route path="/recruitment/:id" element={<RoleGuard role={role}><ApplicantDetailPage /></RoleGuard>} />
