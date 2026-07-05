@@ -5,6 +5,8 @@ import type { UserRole } from '../../types'
 import { APPROVES_REQUESTS_FROM } from '../../lib/leaveRequests'
 import { useLeaveRequests } from '../../hooks/queries/useLeaveRequests'
 import { useWarnings } from '../../hooks/queries/useWarnings'
+import { useAttendancePending, useReviewQueue } from '../../hooks/queries/useAttendance'
+import { fmtTimeWIB } from '../../lib/attendance'
 import { formatDate } from '../../lib/utils'
 
 const pageTitles: Record<string, string> = {
@@ -158,7 +160,38 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
     [warningsQuery.data, readWarningIds, receivesWarnings],
   )
 
-  const allNotifs = [...warningNotifs, ...leaveNotifs, ...notifs]
+  // Attendance notifications. Editors / Admin Managers see their own
+  // forgotten clock-outs (the API scopes review=pending to them); HR sees a
+  // single aggregated "N presensi perlu tinjauan" from the review queue.
+  const isHRRole = role === 'hr_admin' || role === 'superadmin'
+  const clocksIn = role === 'editor' || role === 'admin_manager'
+  const myPendingQuery = useAttendancePending(clocksIn)
+  const reviewQueueQuery = useReviewQueue(isHRRole)
+  const [readAttendanceIds, setReadAttendanceIds] = useState<ReadonlySet<string>>(new Set())
+  const attendanceNotifs: Notification[] = useMemo(() => {
+    if (clocksIn) {
+      return (myPendingQuery.data ?? []).map(r => ({
+        id: `attendance-${r.id}`,
+        icon: 'clock' as const,
+        title: 'Anda lupa clock-out',
+        body: `Presensi ${formatDate(r.date)} (masuk ${fmtTimeWIB(r.clock_in)}) belum lengkap — kirim penjelasan agar HR bisa meninjau.`,
+        time: `Menunggu tinjauan HR`,
+        read: readAttendanceIds.has(r.id),
+      }))
+    }
+    const queue = reviewQueueQuery.data ?? []
+    if (!isHRRole || queue.length === 0) return []
+    return [{
+      id: 'attendance-queue',
+      icon: 'clock' as const,
+      title: `${queue.length} presensi perlu tinjauan`,
+      body: 'Clock-out yang terlupa menunggu keputusan Anda (setujui / tolak).',
+      time: 'Antrian tinjauan presensi',
+      read: readAttendanceIds.has('queue'),
+    }]
+  }, [clocksIn, isHRRole, myPendingQuery.data, reviewQueueQuery.data, readAttendanceIds])
+
+  const allNotifs = [...warningNotifs, ...attendanceNotifs, ...leaveNotifs, ...notifs]
   const unread = allNotifs.filter(n => !n.read).length
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -183,6 +216,13 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
       navigate('/attendance')
       return
     }
+    if (n.id.startsWith('attendance')) {
+      const key = n.id === 'attendance-queue' ? 'queue' : n.id.slice('attendance-'.length)
+      setReadAttendanceIds(prev => new Set(prev).add(key))
+      setOpen(false)
+      navigate('/attendance')
+      return
+    }
     if (n.id.startsWith('warning-')) {
       const warningId = n.id.slice('warning-'.length)
       setReadWarningIds(prev => new Set(prev).add(warningId))
@@ -197,6 +237,7 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
     setNotifs(prev => prev.map(n => ({ ...n, read: true })))
     setReadLeaveIds(new Set(leaveNotifs.map(n => n.id.slice('leave-'.length))))
     setReadWarningIds(new Set(warningNotifs.map(n => n.id.slice('warning-'.length))))
+    setReadAttendanceIds(new Set(attendanceNotifs.map(n => (n.id === 'attendance-queue' ? 'queue' : n.id.slice('attendance-'.length)))))
   }
 
   return (

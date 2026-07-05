@@ -1,41 +1,11 @@
+// DB-backed quick clock-in/out card. Clock-in needs the rotating daily code
+// (typed by everyone, visible only on HR's attendance page); clock-out is one
+// tap. Timestamps come from the server — this card never sends a time.
+
 import { useEffect, useState } from 'react'
-import { Clock, LogIn, LogOut, Sparkles } from 'lucide-react'
-
-type AttendanceState = 'clocked_out' | 'clocked_in'
-
-interface PersistedAttendance {
-  state: AttendanceState
-  clockInAt?: string
-  clockOutAt?: string
-  dateKey: string
-}
-
-const STORAGE_KEY = 'manava_attendance'
-
-function todayKey(): string {
-  return new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
-}
-
-function load(): PersistedAttendance {
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const parsed: PersistedAttendance = JSON.parse(raw)
-      if (parsed.dateKey === todayKey()) return parsed
-    }
-  } catch {}
-  return { state: 'clocked_out', dateKey: todayKey() }
-}
-
-function save(value: PersistedAttendance): void {
-  try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(value))
-  } catch {}
-}
-
-function fmtClock(d: Date): string {
-  return new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' }).format(d)
-}
+import { Clock, KeyRound, LogIn, LogOut, Sparkles, CheckCircle2 } from 'lucide-react'
+import { useAttendanceToday, useAttendanceMutations } from '../../hooks/queries/useAttendance'
+import { fmtTimeWIB } from '../../lib/attendance'
 
 function fmtElapsed(ms: number): string {
   const totalSec = Math.max(0, Math.floor(ms / 1000))
@@ -46,38 +16,51 @@ function fmtElapsed(ms: number): string {
 }
 
 export function QuickAttendance() {
-  const [data, setData] = useState<PersistedAttendance>(load)
+  const todayQuery = useAttendanceToday()
+  const { clockIn, clockOut } = useAttendanceMutations()
+  const [code, setCode] = useState('')
+  const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState<Date>(new Date())
 
+  const record = todayQuery.data?.record ?? null
+  const settings = todayQuery.data?.settings
+  const isIn = !!record?.clock_in && !record?.clock_out
+  const isDone = !!record?.clock_in && !!record?.clock_out
+
   useEffect(() => {
-    if (data.state !== 'clocked_in') return
+    if (!isIn) return
     const id = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(id)
-  }, [data.state])
+  }, [isIn])
 
-  const isIn = data.state === 'clocked_in'
-  const inAt = data.clockInAt ? new Date(data.clockInAt) : undefined
-  const elapsed = isIn && inAt ? now.getTime() - inAt.getTime() : 0
+  const elapsed = isIn && record?.clock_in ? now.getTime() - new Date(record.clock_in).getTime() : 0
 
   function handleClockIn() {
-    const next: PersistedAttendance = {
-      state: 'clocked_in',
-      clockInAt: new Date().toISOString(),
-      dateKey: todayKey(),
+    if (!code.trim()) {
+      setError('Masukkan kode presensi hari ini.')
+      return
     }
-    setData(next)
-    save(next)
+    setError(null)
+    clockIn.mutate(code.trim().toUpperCase(), {
+      onSuccess: () => setCode(''),
+      onError: e => setError(e instanceof Error ? e.message : 'Gagal clock-in.'),
+    })
   }
 
   function handleClockOut() {
-    const next: PersistedAttendance = {
-      ...data,
-      state: 'clocked_out',
-      clockOutAt: new Date().toISOString(),
-    }
-    setData(next)
-    save(next)
+    setError(null)
+    clockOut.mutate(undefined, {
+      onError: e => setError(e instanceof Error ? e.message : 'Gagal clock-out.'),
+    })
   }
+
+  const subtitle = isDone
+    ? `Selesai — masuk ${fmtTimeWIB(record?.clock_in)} · pulang ${fmtTimeWIB(record?.clock_out)} WIB.`
+    : isIn
+      ? `Clock-in pada ${fmtTimeWIB(record?.clock_in)} WIB${record?.status === 'late' ? ' (terlambat)' : ''} · jangan lupa clock-out sebelum ${settings?.clock_out_time ?? '17:00'}.`
+      : settings
+        ? `Masuk sebelum ${settings.clock_in_time} WIB · toleransi ${settings.grace_minutes} menit. Minta kode harian dari HR.`
+        : 'Catat kehadiran dengan kode presensi harian dari HR.'
 
   return (
     <section
@@ -99,48 +82,68 @@ export function QuickAttendance() {
             Aksi cepat absensi
           </p>
           <h2 id="quick-attendance-heading" className="text-[clamp(1.4rem,3vw,1.8rem)] font-bold tracking-[-0.03em] leading-[1.1] mt-2">
-            {isIn ? 'Sedang bertugas' : 'Mulai hari kerja Anda'}
+            {isDone ? 'Hari kerja selesai' : isIn ? 'Sedang bertugas' : 'Mulai hari kerja Anda'}
           </h2>
-          <p className="text-[13px] text-white/65 mt-1.5 leading-relaxed">
-            {isIn
-              ? `Clock-in pada ${inAt ? fmtClock(inAt) : '—'} WIB · jangan lupa clock-out sebelum 17:05.`
-              : 'Catat kehadiran dengan satu tap. Timer berjalan otomatis sampai Anda clock-out.'}
-          </p>
+          <p className="text-[13px] text-white/65 mt-1.5 leading-relaxed">{subtitle}</p>
+          {error && (
+            <p role="alert" className="text-[12px] text-red-300 mt-2">{error}</p>
+          )}
         </div>
 
         {/* Timer + action */}
-        <div className="flex items-center gap-4 sm:gap-5 flex-shrink-0">
+        <div className="flex flex-wrap items-center gap-4 sm:gap-5 flex-shrink-0">
           <div className="flex flex-col items-end">
             <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50">
               <Clock className="w-3 h-3" />
-              {isIn ? 'Berjalan' : 'Siap mulai'}
+              {isDone ? 'Selesai' : isIn ? 'Berjalan' : 'Siap mulai'}
             </span>
             <span
               className="text-[clamp(1.7rem,4vw,2.4rem)] font-bold text-white tabular-nums tracking-[-0.04em] leading-none mt-1.5"
               aria-live="polite"
             >
-              {isIn ? fmtElapsed(elapsed) : '00:00:00'}
+              {isIn ? fmtElapsed(elapsed) : isDone ? `${fmtTimeWIB(record?.clock_in)}–${fmtTimeWIB(record?.clock_out)}` : '00:00:00'}
             </span>
           </div>
 
-          {isIn ? (
+          {isDone ? (
+            <span className="inline-flex items-center gap-2 bg-white/10 text-white/80 font-semibold px-5 py-3 rounded-full text-[13.5px]">
+              <CheckCircle2 className="w-4 h-4 text-[#D0F100]" />
+              Tercatat
+            </span>
+          ) : isIn ? (
             <button
               type="button"
               onClick={handleClockOut}
-              className="group inline-flex items-center gap-2 bg-white hover:brightness-95 text-[#021526] font-semibold px-5 py-3 rounded-full text-[13.5px] transition-all duration-150 shadow-[0_10px_30px_-10px_rgba(255,255,255,0.4)]"
+              disabled={clockOut.isPending}
+              className="group inline-flex items-center gap-2 bg-white hover:brightness-95 text-[#021526] font-semibold px-5 py-3 rounded-full text-[13.5px] transition-all duration-150 shadow-[0_10px_30px_-10px_rgba(255,255,255,0.4)] disabled:opacity-60"
             >
               <LogOut className="w-4 h-4" />
-              Clock-out
+              {clockOut.isPending ? 'Menyimpan…' : 'Clock-out'}
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={handleClockIn}
-              className="group inline-flex items-center gap-2 bg-[#D0F100] hover:brightness-95 text-[#021526] font-semibold px-5 py-3 rounded-full text-[13.5px] transition-all duration-150 shadow-[0_10px_30px_-10px_rgba(208,241,0,0.6)]"
-            >
-              <LogIn className="w-4 h-4" />
-              Clock-in
-            </button>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <KeyRound className="w-3.5 h-3.5 text-white/40 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  value={code}
+                  onChange={e => setCode(e.target.value.toUpperCase())}
+                  onKeyDown={e => { if (e.key === 'Enter') handleClockIn() }}
+                  placeholder="Kode"
+                  maxLength={6}
+                  aria-label="Kode presensi hari ini"
+                  className="w-28 bg-white/10 border border-white/15 rounded-full pl-9 pr-3 py-3 text-[13.5px] font-semibold tracking-[0.2em] uppercase placeholder:tracking-normal placeholder:font-normal placeholder:text-white/35 focus:outline-none focus:border-[#D0F100]/60"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleClockIn}
+                disabled={clockIn.isPending}
+                className="group inline-flex items-center gap-2 bg-[#D0F100] hover:brightness-95 text-[#021526] font-semibold px-5 py-3 rounded-full text-[13.5px] transition-all duration-150 shadow-[0_10px_30px_-10px_rgba(208,241,0,0.6)] disabled:opacity-60"
+              >
+                <LogIn className="w-4 h-4" />
+                {clockIn.isPending ? 'Memeriksa…' : 'Clock-in'}
+              </button>
+            </div>
           )}
         </div>
       </div>

@@ -1,18 +1,12 @@
 import { useMemo, useState } from 'react'
 import {
-  Clock, Calendar, CheckCircle2, XCircle, AlertCircle, AlertTriangle,
-  CalendarDays, Lock, ChevronRight, Plus, ArrowRight,
+  Calendar, CheckCircle2, XCircle, AlertTriangle, ChevronRight, Plus, ArrowRight,
 } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
 import { Drawer } from '../../components/ui/Drawer'
 import { formatDate } from '../../lib/utils'
-import { mockAttendance, mockEditors, mockAdminManagers } from '../../data/mockData'
-
-// Mock attendance is implicitly one editor's record. Use the first active editor
-// as the "subject" so manager / HR drawer headers identify whose day is being viewed.
-const SUBJECT_EDITOR = mockEditors[0]
-import type { UserRole, AttendanceRecord, LeaveRequest, TeamMember } from '../../types'
+import type { UserRole, LeaveRequest } from '../../types'
 import { PageHeader } from '../../components/page/PageHeader'
 // Leave data is DB-backed; the approval hierarchy maps are shared with the
 // header notification badge. Requests travel one level up the org chart:
@@ -24,50 +18,18 @@ import {
   type RequesterRole,
 } from '../../lib/leaveRequests'
 import { useLeaveRequests, useLeaveRequestMutations } from '../../hooks/queries/useLeaveRequests'
-
-// ── constants ────────────────────────────────────────────────────────────────
-const CAL_YEAR = 2026
-const CAL_MONTH = 6
-const TODAY = '2026-06-26'
-const DAYS_IN_MONTH = new Date(CAL_YEAR, CAL_MONTH, 0).getDate()
-const FIRST_DOW = new Date(CAL_YEAR, CAL_MONTH - 1, 1).getDay()
-const WEEK_HEADERS = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
-
-const STATUS_STYLE: Record<AttendanceRecord['status'], string> = {
-  present: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  absent:  'bg-red-100   text-red-700   border-red-200',
-  partial: 'bg-amber-100 text-amber-700 border-amber-200',
-  leave:   'bg-blue-100  text-blue-700  border-blue-200',
-}
-const STATUS_LABEL: Record<AttendanceRecord['status'], string> = {
-  present: 'Hadir', absent: 'Absen', partial: 'Sebagian', leave: 'Cuti',
-}
+// Attendance is DB-backed too: rotating daily code, clock-in/out, and the HR
+// review flow for forgotten clock-outs live in AttendanceTab.
+import { AttendanceTab } from './AttendanceTab'
 
 const HEADER_BY_ROLE: Record<UserRole, { eyebrow: string; title: string; description: string }> = {
   superadmin:    { eyebrow: 'Operasi HR', title: 'Presensi & Cuti', description: 'Pantau siklus kehadiran dan permohonan cuti lintas departemen.' },
-  hr_admin:      { eyebrow: 'Cutoff bulanan', title: 'Presensi & Cuti', description: 'Awasi rekap kehadiran dan setujui permohonan cuti dari Admin Manager sebelum lock cutoff bulanan.' },
-  admin_manager: { eyebrow: 'Operasi tim', title: 'Presensi Tim', description: 'Setujui cuti editor departemen Anda, dan ajukan cuti Anda sendiri ke HR Admin.' },
+  hr_admin:      { eyebrow: 'Operasi HR', title: 'Presensi & Cuti', description: 'Bagikan kode presensi harian, tinjau clock-out yang terlupa, dan setujui permohonan cuti dari Admin Manager.' },
+  admin_manager: { eyebrow: 'Operasi tim', title: 'Presensi Tim', description: 'Catat presensi Anda, setujui cuti editor departemen Anda, dan ajukan cuti Anda sendiri ke HR Admin.' },
   editor:        { eyebrow: 'Layanan mandiri', title: 'Presensi Saya', description: 'Catat clock-in/out hari ini dan kelola permohonan cuti Anda.' },
   client:        { eyebrow: 'Operasi', title: 'Presensi', description: '' },
   mediator:      { eyebrow: 'Operasi', title: 'Presensi', description: '' },
   finance:       { eyebrow: 'Operasi HR', title: 'Presensi & Cuti', description: 'Lihat rekap kehadiran sebagai input rekonsiliasi payroll.' },
-}
-
-// Today date is fixed for mock data — clock-out missing flag uses 17:30 cutoff per PRD.
-const recordMap: Record<string, AttendanceRecord> = Object.fromEntries(
-  mockAttendance.map(a => [a.date, a]),
-)
-
-function isWeekend(day: number) {
-  return [0, 6].includes(new Date(CAL_YEAR, CAL_MONTH - 1, day).getDay())
-}
-function dayDate(day: number) {
-  return `${CAL_YEAR}-0${CAL_MONTH}-${String(day).padStart(2, '0')}`
-}
-function fmtFullDate(iso: string) {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString('id-ID', {
-    weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
-  })
 }
 
 // ── page ─────────────────────────────────────────────────────────────────────
@@ -80,15 +42,10 @@ export default function AttendancePage({ role, embedded = false, forcedView }: {
   const leaveQuery = useLeaveRequests()
   const leaves = useMemo(() => leaveQuery.data ?? [], [leaveQuery.data])
   const { submit, approve, reject } = useLeaveRequestMutations()
-  const [dayDetail, setDayDetail] = useState<string | null>(null)
   const [leaveDetail, setLeaveDetail] = useState<LeaveRequest | null>(null)
   const [leaveModal, setLeaveModal] = useState(false)
   const [leaveForm, setLeaveForm] = useState<LeaveForm>({ type: 'cuti', start: '', end: '', reason: '' })
   const [toast, setToast] = useState<string | null>(null)
-
-  const isManager = role === 'admin_manager' || role === 'hr_admin' || role === 'superadmin'
-  const canLock = role === 'hr_admin'
-  const isEditor = role === 'editor'
 
   // Approval scope + submission rights derived from the hierarchy map.
   // Memoized so its identity is stable per role (keeps dependent useMemos honest).
@@ -115,10 +72,6 @@ export default function AttendancePage({ role, embedded = false, forcedView }: {
   // A request is actionable here only if it was filed by a role we approve for.
   const canActOnDetail = (l: LeaveRequest) =>
     l.status === 'pending' && approvableRoles.includes(l.requester_role)
-  const needsClarification = useMemo(
-    () => mockAttendance.filter(a => a.clock_in && !a.clock_out && a.date.startsWith('2026-06')),
-    [],
-  )
 
   function flash(msg: string) {
     setToast(msg)
@@ -160,7 +113,6 @@ export default function AttendancePage({ role, embedded = false, forcedView }: {
   }
 
   const h = HEADER_BY_ROLE[role] ?? HEADER_BY_ROLE.editor
-  const detailRecord = dayDetail ? recordMap[dayDetail] : null
 
   return (
     <div className="space-y-6">
@@ -185,18 +137,7 @@ export default function AttendancePage({ role, embedded = false, forcedView }: {
         </div>
       )}
 
-      {tab === 'attendance' && (
-        <AttendanceView
-          role={role}
-          isEditor={isEditor}
-          isManager={isManager}
-          canLock={canLock}
-          needsClarification={needsClarification}
-          leaves={leaves}
-          onOpenDay={setDayDetail}
-          onLockMonth={() => flash('Rekap Juni 2026 berhasil dikunci.')}
-        />
-      )}
+      {tab === 'attendance' && <AttendanceTab role={role} leaves={leaves} flash={flash} />}
 
       {tab === 'leave' && (
         <LeaveView
@@ -208,25 +149,6 @@ export default function AttendancePage({ role, embedded = false, forcedView }: {
           onAjukan={() => setLeaveModal(true)}
         />
       )}
-
-      {/* Day detail drawer */}
-      <Drawer
-        open={!!dayDetail}
-        onClose={() => setDayDetail(null)}
-        title={role === 'editor' || !dayDetail ? (dayDetail ? fmtFullDate(dayDetail) : '') : SUBJECT_EDITOR.full_name}
-        subtitle={
-          role === 'editor'
-            ? (detailRecord ? STATUS_LABEL[detailRecord.status] : 'Tidak ada catatan')
-            : dayDetail ? `${fmtFullDate(dayDetail)} · ${detailRecord ? STATUS_LABEL[detailRecord.status] : 'Tidak ada catatan'}` : ''
-        }
-      >
-        <DayDetailBody
-          record={detailRecord}
-          subject={role === 'editor' ? null : SUBJECT_EDITOR}
-          canClarify={role === 'admin_manager'}
-          onClarify={k => flash(`Status diubah ke ${STATUS_LABEL[k]}.`)}
-        />
-      </Drawer>
 
       {/* Leave detail drawer */}
       <Drawer
@@ -319,418 +241,6 @@ function TabBtn({ active, onClick, label, badge }: { active: boolean; onClick: (
         <span className="ml-1.5 bg-amber-400 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{badge}</span>
       )}
     </button>
-  )
-}
-
-// ── Attendance view ──────────────────────────────────────────────────────────
-function AttendanceView({
-  role, isEditor, isManager, canLock, needsClarification, leaves, onOpenDay, onLockMonth,
-}: {
-  role: UserRole
-  isEditor: boolean
-  isManager: boolean
-  canLock: boolean
-  needsClarification: AttendanceRecord[]
-  leaves: LeaveRequest[]
-  onOpenDay: (date: string) => void
-  onLockMonth: () => void
-}) {
-  const todayRec = recordMap[TODAY]
-
-  // EDITOR primary affordance: clock in/out. Other roles: managerial signal cards.
-  return (
-    <div className="space-y-6">
-      {isEditor && <EditorTodayCard record={todayRec} onOpen={() => onOpenDay(TODAY)} />}
-
-      {role === 'admin_manager' && (
-        <SignalCard
-          icon={AlertTriangle}
-          tone="amber"
-          title={`${needsClarification.length} hari perlu klarifikasi`}
-          body="Editor di departemen Anda lupa clock-out. Klarifikasi sebelum cutoff bulanan."
-          action={needsClarification.length > 0 ? { label: 'Lihat daftar', onClick: () => onOpenDay(needsClarification[0]!.date) } : undefined}
-        />
-      )}
-
-      {canLock && (
-        <SignalCard
-          icon={Lock}
-          tone="navy"
-          title="Cutoff bulanan: 30 Jun 2026 · 18:00 WIB"
-          body="Setelah dikunci, tidak ada klarifikasi missing clock-out yang bisa masuk. Pastikan Admin Manager menyelesaikan klarifikasi terlebih dahulu."
-          action={{ label: 'Kunci Rekap Juni', onClick: onLockMonth }}
-        />
-      )}
-
-      {/* Compact stats row — labels short, drill-in via calendar. */}
-      <StatStrip />
-
-      {/* Calendar — primary surface. Click → drawer. */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="font-semibold text-navy">Juni 2026</h3>
-            <p className="text-xs text-navy/50 mt-0.5">Klik tanggal untuk lihat detail.</p>
-          </div>
-          {isManager && (
-            <span className="text-xs text-navy/40">Lihat sebagai: <span className="font-medium text-navy">Tim</span></span>
-          )}
-        </div>
-        <CalendarGrid onOpenDay={onOpenDay} />
-        <LegendRow />
-      </div>
-
-      {/* Team roster — single column: who is in today + who filed leave. */}
-      {isManager && <TeamRoster role={role} leaves={leaves} />}
-    </div>
-  )
-}
-
-// ── Team roster (manager view) ─────────────────────────────────────────────────
-// Single-column snapshot for managers: who is present today (with clock-in) and
-// who has filed leave. The roster is scoped to the viewer's supervisory level —
-// HR Admin sees Admin Managers across departments; an Admin Manager sees the
-// editors in their team. Clock-in times are a deterministic mock (no per-person
-// attendance feed yet); present members are the roster minus anyone on leave today.
-const MOCK_CLOCK_INS = ['08:00', '08:05', '07:58', '08:12', '08:03']
-
-function TeamRoster({ role, leaves }: { role: UserRole; leaves: LeaveRequest[] }) {
-  // HR Admin oversees managers; everyone else at this level oversees editors.
-  const seesManagers = role === 'hr_admin'
-  const requesterScope: RequesterRole = seesManagers ? 'admin_manager' : 'editor'
-  const roster: TeamMember[] = seesManagers
-    ? mockAdminManagers
-    : mockEditors
-        .filter(e => e.status === 'active')
-        .map(e => ({ id: e.editor_id, full_name: e.full_name, department: e.department, avatar: e.avatar }))
-
-  const onLeaveToday = (name: string) =>
-    leaves.some(l =>
-      l.requester_name === name && l.requester_role === requesterScope &&
-      l.status !== 'rejected' && l.start_date <= TODAY && TODAY <= l.end_date,
-    )
-  const present = roster.filter(m => !onLeaveToday(m.full_name))
-  const leaveRequests = leaves
-    .filter(l => l.requester_role === requesterScope)
-    .slice()
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))
-
-  const presentSubtitle = seesManagers ? 'Admin Manager per departemen' : fmtFullDate(TODAY)
-  const leaveSubtitle = seesManagers
-    ? 'Admin Manager yang mengajukan cuti / izin.'
-    : 'Anggota tim yang mengajukan cuti / izin.'
-
-  return (
-    <div className="space-y-6">
-      {/* Hadir hari ini */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="font-semibold text-navy">Hadir Hari Ini</h3>
-            <p className="text-xs text-navy/50 mt-0.5">{presentSubtitle}</p>
-          </div>
-          <span className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full shrink-0">
-            {present.length} hadir
-          </span>
-        </div>
-        {present.length === 0 ? (
-          <p className="text-sm text-navy/50 py-6 text-center">Belum ada yang clock-in hari ini.</p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {present.map((m, i) => (
-              <li key={m.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                <RosterAvatar name={m.full_name} avatar={m.avatar} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-navy truncate">{m.full_name}</p>
-                  <p className="text-xs text-navy/50 truncate">{m.department}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-[11px] uppercase tracking-wider text-navy/40">Masuk</p>
-                  <p className="text-sm font-bold text-navy tabular-nums flex items-center gap-1 justify-end">
-                    <Clock className="w-3.5 h-3.5 text-emerald-600" />
-                    {MOCK_CLOCK_INS[i % MOCK_CLOCK_INS.length]}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {/* Pengajuan cuti */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="font-semibold text-navy">Pengajuan Cuti</h3>
-            <p className="text-xs text-navy/50 mt-0.5">{leaveSubtitle}</p>
-          </div>
-          <span className="text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full shrink-0">
-            {leaveRequests.length} pengajuan
-          </span>
-        </div>
-        {leaveRequests.length === 0 ? (
-          <p className="text-sm text-navy/50 py-6 text-center">Belum ada pengajuan cuti.</p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {leaveRequests.map(l => (
-              <li key={l.leave_id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                <RosterAvatar name={l.requester_name} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-navy truncate">{l.requester_name}</p>
-                  <p className="text-xs text-navy/50 truncate">
-                    {l.leave_type === 'cuti' ? 'Cuti Tahunan' : 'Izin / Sakit'} · {formatDate(l.start_date)} – {formatDate(l.end_date)}
-                  </p>
-                </div>
-                <StatusBadge status={l.status} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function RosterAvatar({ name, avatar }: { name: string; avatar?: string }) {
-  if (avatar) return <img src={avatar} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
-  return (
-    <div className="w-9 h-9 rounded-full bg-navy/10 flex items-center justify-center text-xs font-semibold text-navy shrink-0">
-      {name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-    </div>
-  )
-}
-
-function EditorTodayCard({ record, onOpen }: { record: AttendanceRecord | undefined; onOpen: () => void }) {
-  const hasIn = !!record?.clock_in
-  const hasOut = !!record?.clock_out
-  return (
-    <div className="card flex flex-wrap items-center justify-between gap-4">
-      <div className="min-w-0">
-        <p className="text-xs uppercase tracking-wider text-navy/40 mb-1">Hari ini</p>
-        <p className="text-sm text-navy/60 mb-2">{fmtFullDate(TODAY)}</p>
-        <div className="flex items-baseline gap-3">
-          <p className="text-3xl font-bold text-navy leading-none">{record?.clock_in ?? '--:--'}</p>
-          <span className="text-navy/30">→</span>
-          <p className="text-3xl font-bold text-navy leading-none">{record?.clock_out ?? '--:--'}</p>
-        </div>
-        {hasIn && !hasOut && (
-          <p className="text-xs text-amber-700 mt-2 flex items-center gap-1.5">
-            <AlertCircle className="w-3.5 h-3.5" />Anda belum clock-out hari ini.
-          </p>
-        )}
-      </div>
-      <div className="flex gap-2 shrink-0">
-        {!hasIn && <button className="btn-primary"><Clock className="w-4 h-4" />Masuk</button>}
-        {hasIn && !hasOut && <button className="btn-primary"><Clock className="w-4 h-4" />Keluar</button>}
-        <button className="btn-secondary" onClick={onOpen}>Detail</button>
-      </div>
-    </div>
-  )
-}
-
-function SignalCard({
-  icon: Icon, tone, title, body, action,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  tone: 'amber' | 'navy'
-  title: string
-  body: string
-  action?: { label: string; onClick: () => void }
-}) {
-  const toneStyle = tone === 'amber'
-    ? 'bg-amber-50 border-amber-200 text-amber-900'
-    : 'bg-navy text-white border-navy'
-  const iconStyle = tone === 'amber' ? 'text-amber-600' : 'text-white/80'
-  return (
-    <div className={`rounded-2xl border p-5 flex flex-wrap items-start gap-4 ${toneStyle}`}>
-      <Icon className={`w-5 h-5 mt-0.5 shrink-0 ${iconStyle}`} />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold leading-tight">{title}</p>
-        <p className={`text-xs mt-1 ${tone === 'amber' ? 'text-amber-800/80' : 'text-white/70'}`}>{body}</p>
-      </div>
-      {action && (
-        <button
-          onClick={action.onClick}
-          className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shrink-0 ${tone === 'amber' ? 'bg-white text-amber-800 hover:bg-amber-100 border border-amber-300' : 'bg-white text-navy hover:bg-white/90'}`}
-        >
-          {action.label}
-        </button>
-      )}
-    </div>
-  )
-}
-
-function StatStrip() {
-  const inMonth = mockAttendance.filter(a => a.date.startsWith('2026-06'))
-  const present = inMonth.filter(a => a.status === 'present').length
-  const absent  = inMonth.filter(a => a.status === 'absent').length
-  const leave   = inMonth.filter(a => a.status === 'leave').length
-  const partial = inMonth.filter(a => a.status === 'partial').length
-  const cells: Array<[string, number, string]> = [
-    ['Hadir',     present, 'text-emerald-600'],
-    ['Sebagian',  partial, 'text-amber-600'],
-    ['Cuti',      leave,   'text-blue-600'],
-    ['Absen',     absent,  'text-red-600'],
-  ]
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-      {cells.map(([label, count, color]) => (
-        <div key={label} className="bg-white border border-border rounded-xl px-4 py-3">
-          <p className="text-[11px] uppercase tracking-wider text-navy/40">{label}</p>
-          <p className={`text-xl font-bold leading-tight mt-0.5 ${color}`}>{count}</p>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function CalendarGrid({ onOpenDay }: { onOpenDay: (date: string) => void }) {
-  return (
-    <div className="grid grid-cols-7 gap-1.5">
-      {WEEK_HEADERS.map(d => (
-        <div key={d} className="text-center text-xs font-medium text-navy/40 py-1">{d}</div>
-      ))}
-      {Array.from({ length: FIRST_DOW }).map((_, i) => <div key={`off-${i}`} />)}
-      {Array.from({ length: DAYS_IN_MONTH }).map((_, i) => {
-        const day = i + 1
-        const date = dayDate(day)
-        const rec = recordMap[date]
-        const isToday = date === TODAY
-        const weekend = isWeekend(day)
-        const base = `rounded-lg p-1.5 text-center border transition-all cursor-pointer hover:scale-[1.03] ${isToday ? 'ring-2 ring-navy ring-offset-1' : ''}`
-
-        if (rec) {
-          return (
-            <button
-              key={date}
-              type="button"
-              onClick={() => onOpenDay(date)}
-              className={`${base} ${STATUS_STYLE[rec.status]}`}
-              title={STATUS_LABEL[rec.status]}
-            >
-              <p className="text-xs font-bold">{day}</p>
-              {rec.clock_in && <p className="text-[9px] opacity-70">{rec.clock_in}</p>}
-            </button>
-          )
-        }
-        if (weekend) {
-          return <div key={date} className={`${base} bg-gray-50 border-gray-100 cursor-default hover:scale-100`}>
-            <p className="text-xs text-navy/20">{day}</p>
-          </div>
-        }
-        return (
-          <button
-            key={date}
-            type="button"
-            onClick={() => onOpenDay(date)}
-            className={`${base} bg-white border-border hover:bg-navy-50/50`}
-          >
-            <p className="text-xs text-navy/40">{day}</p>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-function LegendRow() {
-  return (
-    <div className="flex flex-wrap gap-4 mt-4 pt-3 border-t border-border">
-      {(['present', 'partial', 'leave', 'absent'] as const).map(k => (
-        <div key={k} className="flex items-center gap-1.5 text-xs text-navy/60">
-          <span className={`w-3 h-3 rounded-sm border ${STATUS_STYLE[k]}`} />
-          {STATUS_LABEL[k]}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function DayDetailBody({
-  record, subject, canClarify, onClarify,
-}: {
-  record: AttendanceRecord | null
-  subject: { full_name: string; department: string; avatar?: string } | null
-  canClarify: boolean
-  onClarify: (status: AttendanceRecord['status']) => void
-}) {
-  if (!record) {
-    return (
-      <div className="space-y-5">
-        {subject && <SubjectStrip subject={subject} />}
-        <div className="text-center py-12 text-navy/50">
-          <CalendarDays className="w-10 h-10 mx-auto mb-3 text-navy/20" />
-          <p className="text-sm">Belum ada catatan untuk tanggal ini.</p>
-        </div>
-      </div>
-    )
-  }
-  const missing = record.clock_in && !record.clock_out
-  return (
-    <div className="space-y-5">
-      {subject && <SubjectStrip subject={subject} />}
-      <div className="flex items-center gap-3">
-        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${STATUS_STYLE[record.status]}`}>
-          {STATUS_LABEL[record.status]}
-        </span>
-        {missing && (
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700">
-            <AlertCircle className="w-3.5 h-3.5" />Clock-out tidak tercatat
-          </span>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <Stat label="Clock-in"  value={record.clock_in ?? '—'} />
-        <Stat label="Clock-out" value={record.clock_out ?? '—'} />
-      </div>
-
-      {canClarify && missing && (
-        <div className="rounded-xl border border-border p-4 bg-navy-50/30">
-          <p className="text-xs font-semibold text-navy mb-2">Klarifikasi sebagai Admin Manager</p>
-          <p className="text-xs text-navy/60 mb-3">
-            Tentukan status hari ini sebelum cutoff bulanan. HR Admin akan mengunci rekap setelah cutoff.
-          </p>
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              className="px-3 py-2 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
-              onClick={() => onClarify('present')}
-            >
-              Bekerja Penuh
-            </button>
-            <button
-              className="px-3 py-2 rounded-lg text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
-              onClick={() => onClarify('partial')}
-            >
-              Sebagian
-            </button>
-            <button
-              className="px-3 py-2 rounded-lg text-xs font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100"
-              onClick={() => onClarify('absent')}
-            >
-              Absen
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function SubjectStrip({ subject }: { subject: { full_name: string; department: string; avatar?: string } }) {
-  return (
-    <div className="flex items-center gap-3 bg-navy/5 border border-navy/10 rounded-xl px-3 py-2.5">
-      {subject.avatar
-        ? <img src={subject.avatar} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
-        : <div className="w-9 h-9 rounded-full bg-navy/10 flex items-center justify-center text-xs font-semibold text-navy shrink-0">
-            {subject.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-          </div>
-      }
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-navy truncate">{subject.full_name}</p>
-        <p className="text-xs text-navy/50 truncate">{subject.department}</p>
-      </div>
-    </div>
   )
 }
 
@@ -871,4 +381,3 @@ function LeaveDetailBody({ leave }: { leave: LeaveRequest }) {
     </div>
   )
 }
-

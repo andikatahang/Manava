@@ -112,9 +112,21 @@ enum PayslipStatus {
 
 enum AttendanceStatus {
   present
+  late
   absent
   partial
   leave
+  incomplete
+}
+
+// HR validation state for an attendance day. A normal complete day stays
+// `none`; a missing clock-out becomes `pending` and ends as `approved`
+// (HR filled the clock-out) or `rejected` (counted as absent).
+enum AttendanceReview {
+  none
+  pending
+  approved
+  rejected
 }
 
 enum LeaveType {
@@ -217,6 +229,8 @@ model User {
   messages      Message[]
   issued_warnings Warning[] @relation("WarningIssuer")
   received_warnings Warning[] @relation("WarningTarget")
+  attendance      AttendanceRecord[] @relation("AttendanceUser")
+  attendance_adjustments AttendanceRecord[] @relation("AttendanceAdjuster")
 
   @@index([role])
 }
@@ -257,7 +271,6 @@ model Editor {
   user            User              @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
   department_memberships DepartmentMember[]
   projects        Project[]
-  attendance      AttendanceRecord[]
   payslips        Payslip[]
   metrics         EditorMetrics?
 
@@ -301,19 +314,60 @@ model DepartmentMember {
   @@index([editor_id])
 }
 
+// Attendance belongs to a User (not Editor) so Admin Managers and HR Admins
+// clock in too. Originals (clock_in / clock_out) are immutable once written:
+// a missing clock-out is repaired via the adjusted_* fields so history always
+// shows what the user recorded vs. what HR fixed.
 model AttendanceRecord {
-  id         String           @id @default(cuid())
-  editor_id  String
-  date       DateTime         @db.Date
-  clock_in   String?
-  clock_out  String?
-  status     AttendanceStatus
-  created_at DateTime         @default(now())
+  id      String           @id @default(cuid())
+  user_id String
+  date    DateTime         @db.Date
+  clock_in  DateTime?
+  clock_out DateTime?
+  status  AttendanceStatus
+  review  AttendanceReview @default(none)
 
-  editor Editor @relation(fields: [editor_id], references: [editor_id], onDelete: Cascade)
+  // HR repair of a missing clock-out — original clock_out stays NULL forever.
+  adjusted_clock_out DateTime?
+  adjusted_by_id     String?
+  adjusted_at        DateTime?
+  adjustment_note    String?
 
-  @@unique([editor_id, date])
+  // The user's side of the story for an incomplete day.
+  user_explanation   String?
+  proposed_clock_out DateTime?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  user     User  @relation("AttendanceUser", fields: [user_id], references: [user_id], onDelete: Cascade)
+  adjuster User? @relation("AttendanceAdjuster", fields: [adjusted_by_id], references: [user_id], onDelete: SetNull)
+
+  @@unique([user_id, date])
   @@index([date])
+  @@index([review])
+}
+
+// Standing schedule configuration (single row, id "default"). Replaces the
+// old "HR sets times daily" chore — HR edits this once; the daily code
+// rotates automatically within the configured window.
+model AttendanceSetting {
+  id                    String   @id @default("default")
+  clock_in_time         String   @default("08:00") // HH:MM WIB
+  clock_out_time        String   @default("17:00") // HH:MM WIB
+  grace_minutes         Int      @default(10)
+  code_duration_minutes Int      @default(120) // code stays valid this long past clock-in time
+  updated_at            DateTime @updatedAt
+}
+
+// One attendance code per calendar day. Auto-created on first use; HR can
+// regenerate, which invalidates the old code immediately.
+model AttendanceCode {
+  date            DateTime @id @db.Date
+  code            String
+  generated_by_id String? // null = auto-generated
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
 }
 
 model LeaveRequest {

@@ -115,6 +115,7 @@ async function main() {
   await prisma.warning.deleteMany()
   await prisma.leaveRequest.deleteMany()
   await prisma.attendanceRecord.deleteMany()
+  await prisma.attendanceCode.deleteMany()
   await prisma.editorMetrics.deleteMany()
   await prisma.departmentMember.deleteMany()
   await prisma.department.deleteMany()
@@ -222,6 +223,55 @@ async function main() {
     })
   }
   console.log(`📄 Seeded ${jobApplications.length} job applications`)
+
+  // ── Attendance ───────────────────────────────────────────────────────────
+  // A few recent days for Budi (editor) + Eko (admin manager) so the calendar
+  // has color, plus one forgotten clock-out each state: pending (in HR's
+  // review queue), approved (repaired by HR), rejected (counted absent).
+  const wib = (day: string, hm: string) => new Date(`${day}T${hm}:00+07:00`)
+  const yesterday = (offset: number) => {
+    const d = new Date()
+    d.setDate(d.getDate() - offset)
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(d)
+  }
+  const [d1, d2, d3, d4] = [yesterday(1), yesterday(2), yesterday(3), yesterday(4)]
+  const attendanceSeed = [
+    // Budi: normal day, late day, and a forgotten clock-out awaiting HR.
+    { user_id: 'u2', date: d4!, in: '07:58', out: '17:02', status: 'present', review: 'none' },
+    { user_id: 'u2', date: d3!, in: '08:24', out: '17:05', status: 'late', review: 'none' },
+    { user_id: 'u2', date: d1!, in: '08:03', out: null, status: 'incomplete', review: 'pending' },
+    // Eko: normal day + a forgotten clock-out already repaired by HR.
+    { user_id: 'u5', date: d3!, in: '07:55', out: '17:00', status: 'present', review: 'none' },
+    {
+      user_id: 'u5', date: d2!, in: '08:01', out: null, status: 'present', review: 'approved',
+      adjusted_out: '17:00', note: 'Konfirmasi via WA — lupa clock-out, pulang normal.',
+      explanation: 'Lupa clock-out, langsung pulang setelah meeting sore.', proposed: '17:00',
+    },
+    // Sari: forgotten clock-out that HR rejected → counted absent.
+    {
+      user_id: 'u7', date: d2!, in: '08:05', out: null, status: 'absent', review: 'rejected',
+      note: 'Tidak ada konfirmasi hingga cutoff — dihitung absen.',
+    },
+  ] as const
+  for (const a of attendanceSeed) {
+    await prisma.attendanceRecord.create({
+      data: {
+        user_id: a.user_id,
+        date: new Date(a.date),
+        clock_in: wib(a.date, a.in),
+        clock_out: a.out ? wib(a.date, a.out) : null,
+        status: a.status,
+        review: a.review,
+        adjusted_clock_out: 'adjusted_out' in a ? wib(a.date, a.adjusted_out) : null,
+        adjusted_by_id: a.review === 'approved' || a.review === 'rejected' ? 'u11' : null,
+        adjusted_at: a.review === 'approved' || a.review === 'rejected' ? new Date() : null,
+        adjustment_note: 'note' in a ? a.note : null,
+        user_explanation: 'explanation' in a ? a.explanation : null,
+        proposed_clock_out: 'proposed' in a ? wib(a.date, a.proposed) : null,
+      },
+    })
+  }
+  console.log(`🕐 Seeded ${attendanceSeed.length} attendance records (1 pending HR review)`)
 
   console.log('\n✅ Seed complete.')
   console.log('   Try: hasna@manava.id / manava123  (HR Admin)')

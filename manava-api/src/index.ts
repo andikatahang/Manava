@@ -14,6 +14,7 @@ import { editorsRouter } from './modules/editors/routes.js'
 import { departmentsRouter } from './modules/departments/routes.js'
 import { warningsRouter } from './modules/warnings/routes.js'
 import { leaveRequestsRouter } from './modules/leaveRequests/routes.js'
+import { attendanceRouter } from './modules/attendance/routes.js'
 import { projectsRouter } from './modules/projects/routes.js'
 import { applicationsRouter } from './modules/applications/routes.js'
 
@@ -36,6 +37,7 @@ app.use('/api/v1/editors', editorsRouter)
 app.use('/api/v1/departments', departmentsRouter)
 app.use('/api/v1/warnings', warningsRouter)
 app.use('/api/v1/leave-requests', leaveRequestsRouter)
+app.use('/api/v1/attendance', attendanceRouter)
 app.use('/api/v1/projects', projectsRouter)
 app.use('/api/v1/applications', applicationsRouter)
 
