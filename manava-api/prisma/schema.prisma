@@ -351,12 +351,14 @@ model AttendanceRecord {
 // Standing schedule configuration (single row, id "default"). Replaces the
 // old "HR sets times daily" chore — HR edits this once; the daily code
 // rotates automatically within the configured window.
+// The code duration doubles as the lateness allowance: clock-in after
+// clock_in_time is 'late', and clock_in_time + code_duration_minutes is the
+// hard cutoff (no clock-in past it). No separate grace period.
 model AttendanceSetting {
   id                    String   @id @default("default")
   clock_in_time         String   @default("08:00") // HH:MM WIB
   clock_out_time        String   @default("17:00") // HH:MM WIB
-  grace_minutes         Int      @default(10)
-  code_duration_minutes Int      @default(120) // code stays valid this long past clock-in time
+  code_duration_minutes Int      @default(120) // late window; hard clock-in cutoff past clock_in_time
   updated_at            DateTime @updatedAt
 }
 

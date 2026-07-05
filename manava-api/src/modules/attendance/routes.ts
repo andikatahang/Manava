@@ -16,6 +16,7 @@ import {
   finalizeOverdueRecords,
   getOrCreateTodayCode,
   getSettings,
+  hmOf,
   minutesOfDay,
   parseHM,
   regenerateTodayCode,
@@ -49,7 +50,6 @@ const settingsSchema = z
   .object({
     clock_in_time: HM,
     clock_out_time: HM,
-    grace_minutes: z.number().int().min(0).max(120),
     code_duration_minutes: z.number().int().min(15).max(720),
   })
   .refine(s => parseHM(s.clock_in_time) < parseHM(s.clock_out_time), {
@@ -102,7 +102,7 @@ attendanceRouter.post(
     const closeMin = parseHM(settings.clock_in_time) + settings.code_duration_minutes
     if (nowMin < openMin || nowMin > closeMin) {
       return res.status(422).json(fail(
-        `Clock-in hanya bisa dilakukan pada jendela kode hari ini (kode aktif s.d. ${settings.code_duration_minutes} menit setelah ${settings.clock_in_time} WIB).`,
+        `Clock-in hanya bisa dilakukan pukul ${hmOf(openMin)}–${hmOf(closeMin)} WIB (setelah ${settings.clock_in_time} tercatat terlambat).`,
       ))
     }
 

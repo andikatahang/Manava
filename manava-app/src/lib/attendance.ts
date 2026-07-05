@@ -28,8 +28,17 @@ export interface Attendance {
 export interface AttendanceSettings {
   clock_in_time: string // HH:MM WIB
   clock_out_time: string
-  grace_minutes: number
+  // Doubles as the lateness allowance: clock-in past clock_in_time is late,
+  // clock_in_time + duration is the hard cutoff (no clock-in after it).
   code_duration_minutes: number
+}
+
+/** End of the clock-in window ("batas keterlambatan"), e.g. 08:00+15 → "08:15". */
+export function clockInDeadline(s: AttendanceSettings): string {
+  const [h, m] = s.clock_in_time.split(':').map(Number)
+  const total = (h ?? 0) * 60 + (m ?? 0) + s.code_duration_minutes
+  const clamped = Math.min(total, 23 * 60 + 59)
+  return `${String(Math.floor(clamped / 60)).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`
 }
 
 export interface AttendanceToday {

@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import { Clock, KeyRound, LogIn, LogOut, Sparkles, CheckCircle2 } from 'lucide-react'
 import { useAttendanceToday, useAttendanceMutations } from '../../hooks/queries/useAttendance'
-import { fmtTimeWIB } from '../../lib/attendance'
+import { clockInDeadline, fmtTimeWIB } from '../../lib/attendance'
 
 function fmtElapsed(ms: number): string {
   const totalSec = Math.max(0, Math.floor(ms / 1000))
@@ -59,7 +59,7 @@ export function QuickAttendance() {
     : isIn
       ? `Clock-in pada ${fmtTimeWIB(record?.clock_in)} WIB${record?.status === 'late' ? ' (terlambat)' : ''} · jangan lupa clock-out sebelum ${settings?.clock_out_time ?? '17:00'}.`
       : settings
-        ? `Masuk sebelum ${settings.clock_in_time} WIB · toleransi ${settings.grace_minutes} menit. Minta kode harian dari HR.`
+        ? `Masuk sebelum ${settings.clock_in_time} WIB · batas akhir clock-in ${clockInDeadline(settings)} (tercatat terlambat). Minta kode harian dari HR.`
         : 'Catat kehadiran dengan kode presensi harian dari HR.'
 
   return (

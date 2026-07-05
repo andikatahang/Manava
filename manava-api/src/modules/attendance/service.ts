@@ -125,13 +125,19 @@ export function allowClockInAttempt(userId: string): boolean {
 
 // ── Status derivation ────────────────────────────────────────────────────────
 
+// No separate grace period: anything past the official clock-in time is
+// late, and the code window end is the hard cutoff (handled at clock-in).
 export function deriveClockInStatus(
   clockIn: Date,
-  settings: { clock_in_time: string; grace_minutes: number },
+  settings: { clock_in_time: string },
 ): 'present' | 'late' {
-  return minutesOfDay(clockIn) > parseHM(settings.clock_in_time) + settings.grace_minutes
-    ? 'late'
-    : 'present'
+  return minutesOfDay(clockIn) > parseHM(settings.clock_in_time) ? 'late' : 'present'
+}
+
+/** Minutes since midnight → "HH:MM" (for window boundaries in messages/UI). */
+export function hmOf(minutes: number): string {
+  const clamped = Math.max(0, Math.min(minutes, 23 * 60 + 59))
+  return `${String(Math.floor(clamped / 60)).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`
 }
 
 // Shared shape for every record the API returns: the owner's name/role plus

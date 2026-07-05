@@ -12,7 +12,7 @@ import { Drawer } from '../../components/ui/Drawer'
 import { Modal } from '../../components/ui/Modal'
 import type { UserRole, LeaveRequest } from '../../types'
 import {
-  fmtTimeWIB,
+  clockInDeadline, fmtTimeWIB,
   type Attendance, type AttendanceSettings, type AttendanceStatus,
 } from '../../lib/attendance'
 import {
@@ -260,7 +260,7 @@ function TodayCard({ record, settings, today, mutations }: {
         </div>
         {settings && !hasIn && (
           <p className="text-xs text-navy/50 mt-2">
-            Masuk sebelum <span className="font-medium text-navy">{settings.clock_in_time}</span> WIB · toleransi {settings.grace_minutes} menit.
+            Masuk sebelum <span className="font-medium text-navy">{settings.clock_in_time}</span> WIB · batas akhir clock-in {clockInDeadline(settings)} (tercatat terlambat).
           </p>
         )}
         {hasIn && !hasOut && (
@@ -342,7 +342,7 @@ function HrCodePanel({ code, settings, onRegenerate, onOpenSettings }: {
           </button>
         </div>
         <p className="text-xs text-white/60 mt-2">
-          Berlaku s.d. {settings.code_duration_minutes} menit setelah {settings.clock_in_time} WIB · dibagikan ke semua pengguna. Kode berganti otomatis tiap hari.
+          Berlaku s.d. {clockInDeadline(settings)} WIB — setelah {settings.clock_in_time} tercatat terlambat. Dibagikan ke semua pengguna; kode berganti otomatis tiap hari.
         </p>
       </div>
       <div className="flex gap-2 shrink-0">
@@ -763,16 +763,12 @@ function SettingsModal({ open, settings, onClose, onSave, isPending }: {
             <input type="time" value={form.clock_out_time} onChange={e => setForm(f => ({ ...f, clock_out_time: e.target.value }))} className="input" />
           </div>
           <div>
-            <label className="label">Toleransi terlambat (menit)</label>
-            <input type="number" min={0} max={120} value={form.grace_minutes} onChange={e => setForm(f => ({ ...f, grace_minutes: Number(e.target.value) }))} className="input" />
-          </div>
-          <div>
             <label className="label">Durasi kode (menit)</label>
             <input type="number" min={15} max={720} value={form.code_duration_minutes} onChange={e => setForm(f => ({ ...f, code_duration_minutes: Number(e.target.value) }))} className="input" />
           </div>
         </div>
         <p className="text-xs text-navy/50">
-          Berlaku untuk semua pengguna mulai hari ini. Kode presensi tetap berganti otomatis setiap hari.
+          Durasi kode sekaligus batas keterlambatan: masuk setelah jam masuk tercatat <span className="font-medium">terlambat</span>, dan clock-in ditutup pada jam masuk + durasi (misal 08:00 + 15 menit → tutup 08:15). Kode aktif mulai 30 menit sebelum jam masuk. Berlaku untuk semua pengguna mulai hari ini.
         </p>
         <div className="flex justify-end gap-2 pt-1">
           <button onClick={onClose} className="btn-secondary">Batal</button>
