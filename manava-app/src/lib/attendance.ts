@@ -91,6 +91,26 @@ export async function fetchAttendance(params: AttendanceListParams = {}): Promis
   return rows.map(normalize)
 }
 
+// One row per team member (one level below the caller) for the department
+// presensi table: today's record + this month's history.
+export interface TeamAttendanceMember {
+  user_id: string
+  full_name: string
+  role: string
+  avatar: string | null
+  today: Attendance | null
+  records: Attendance[]
+}
+
+export async function fetchTeamAttendance(): Promise<TeamAttendanceMember[]> {
+  const rows = await api<TeamAttendanceMember[]>('/attendance/team')
+  return rows.map(m => ({
+    ...m,
+    today: m.today ? normalize(m.today) : null,
+    records: m.records.map(normalize),
+  }))
+}
+
 export async function fetchReviewQueue(): Promise<Attendance[]> {
   const rows = await api<Attendance[]>('/attendance/review-queue')
   return rows.map(normalize)

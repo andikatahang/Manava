@@ -1,6 +1,6 @@
 import { useMemo, useState, type ComponentType } from 'react'
 import {
-  Star, TrendingUp, Target, Award, ChevronUp, ChevronDown, Minus,
+  Star, TrendingUp, Target, Award,
   Users, AlertTriangle, CheckCircle2, Sparkles,
 } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
@@ -8,23 +8,14 @@ import { Modal } from '../../components/ui/Modal'
 import { Drawer } from '../../components/ui/Drawer'
 import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer, Tooltip,
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Legend,
 } from 'recharts'
-import { mockEditorMetrics, mockKpiHistory, type KpiSnapshot } from '../../data/mockData'
+import { useMe } from '../../hooks/queries/useMe'
+import { useEditors } from '../../hooks/queries/useEditors'
+import { useDepartments } from '../../hooks/queries/useDepartments'
 import type { EditorMetrics, UserRole } from '../../types'
-import { PageHeader } from '../../components/page/PageHeader'
 
 type Tone = 'navy' | 'emerald' | 'amber' | 'red'
 
-const HEADER_BY_ROLE: Record<UserRole, { eyebrow: string; title: string; description: string }> = {
-  superadmin:     { eyebrow: 'KPI', title: 'Kinerja Editor', description: 'Tiga metrik agregat (rating klien, completion rate, Manager Assessment) di tiga band performansi.' },
-  hr_admin:       { eyebrow: 'KPI', title: 'KPI Editor', description: 'Snapshot performansi seluruh editor untuk evaluasi kuartalan dan keputusan payroll.' },
-  admin_manager:  { eyebrow: 'Manager Assessment', title: 'KPI Tim', description: 'Berikan penilaian internal (1-5) untuk anggota departemen Anda; rating masuk KPI band.' },
-  editor:         { eyebrow: 'KPI Saya', title: 'Kinerja & Bonus', description: 'Rating klien, completion rate, dan Manager Assessment Anda — basis bonus proyek.' },
-  client:         { eyebrow: 'KPI', title: 'Kinerja', description: '' },
-  mediator:       { eyebrow: 'KPI', title: 'Kinerja', description: '' },
-  finance:        { eyebrow: 'KPI', title: 'Kinerja Editor', description: 'Read-only — konteks untuk laporan payroll dan kompensasi.' },
-}
 
 const BAND_META: Record<EditorMetrics['performance_band'], { color: string; bg: string; label: string }> = {
   excellent:         { color: 'text-emerald-700', bg: 'bg-emerald-50', label: 'Sangat Baik' },
@@ -43,13 +34,6 @@ function StarRating({ value, max = 5 }: { value: number; max?: number }) {
       <span className="ml-1 text-sm font-semibold text-navy">{value.toFixed(1)}</span>
     </div>
   )
-}
-
-function TrendIcon({ current, previous }: { current: number; previous: number }) {
-  const delta = current - previous
-  if (delta > 0.05) return <ChevronUp className="w-4 h-4 text-emerald-500" />
-  if (delta < -0.05) return <ChevronDown className="w-4 h-4 text-red-500" />
-  return <Minus className="w-4 h-4 text-navy/30" />
 }
 
 function KpiGauge({ value, size = 'md' }: { value: number; size?: 'sm' | 'md' }) {
@@ -153,10 +137,7 @@ function EditorRow({
   )
 }
 
-function DetailBody({
-  metrics, history,
-}: { metrics: EditorMetrics; history: KpiSnapshot[] }) {
-  const prev = history[history.length - 2]
+function DetailBody({ metrics }: { metrics: EditorMetrics }) {
   const bandMeta = BAND_META[metrics.performance_band]
 
   const radarData = [
@@ -164,12 +145,6 @@ function DetailBody({
     { metric: 'Penyelesaian', value: metrics.completion_rate },
     { metric: 'Manajer', value: (metrics.manager_rating / 5) * 100 },
   ]
-
-  const trendData = history.map(h => ({
-    quarter: h.quarter,
-    KPI: h.kpi_average,
-    'Rating Klien': h.avg_client_rating,
-  }))
 
   return (
     <div className="space-y-5">
@@ -184,12 +159,6 @@ function DetailBody({
             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${bandMeta.bg} ${bandMeta.color}`}>
               <Award className="w-3 h-3" /> {bandMeta.label}
             </span>
-            {prev && (
-              <span className="flex items-center gap-1 text-xs text-navy/50">
-                <TrendIcon current={metrics.kpi_average} previous={prev.kpi_average} />
-                vs {prev.quarter}
-              </span>
-            )}
           </div>
         </div>
         <KpiGauge value={metrics.kpi_average} />
@@ -198,20 +167,14 @@ function DetailBody({
       {/* Breakdown tiles */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Rating Klien', value: metrics.avg_client_rating, prev: prev?.avg_client_rating, icon: Star, color: 'text-amber-500', fmt: (v: number) => `${v.toFixed(1)}` },
-          { label: 'Penyelesaian', value: metrics.completion_rate, prev: prev?.completion_rate, icon: TrendingUp, color: 'text-blue-500', fmt: (v: number) => `${v}%` },
-          { label: 'Manajer', value: metrics.manager_rating, prev: prev?.manager_rating, icon: Target, color: 'text-navy/60', fmt: (v: number) => `${v.toFixed(1)}` },
-        ].map(({ label, value, prev: prevValue, icon: Icon, color, fmt }) => (
+          { label: 'Rating Klien', value: metrics.avg_client_rating, icon: Star, color: 'text-amber-500', fmt: (v: number) => `${v.toFixed(1)}` },
+          { label: 'Penyelesaian', value: metrics.completion_rate, icon: TrendingUp, color: 'text-blue-500', fmt: (v: number) => `${v}%` },
+          { label: 'Manajer', value: metrics.manager_rating, icon: Target, color: 'text-navy/60', fmt: (v: number) => `${v.toFixed(1)}` },
+        ].map(({ label, value, icon: Icon, color, fmt }) => (
           <div key={label} className="bg-navy/5 border border-navy/10 rounded-xl p-3 text-center">
             <Icon className={`w-4 h-4 mx-auto mb-1 ${color}`} />
             <p className="text-lg font-bold text-navy leading-tight">{fmt(value)}</p>
             <p className="text-[11px] text-navy/50 mt-0.5">{label}</p>
-            {prevValue !== undefined && (
-              <div className="flex items-center justify-center gap-0.5 mt-1">
-                <TrendIcon current={value} previous={prevValue} />
-                <span className="text-[11px] text-navy/40">{prevValue < value ? '+' : ''}{(value - prevValue).toFixed(1)}</span>
-              </div>
-            )}
           </div>
         ))}
       </div>
@@ -226,22 +189,6 @@ function DetailBody({
             <Radar dataKey="value" stroke="#022E57" fill="#022E57" fillOpacity={0.15} strokeWidth={2} />
             <Tooltip formatter={(v) => [`${Number(v).toFixed(1)}%`]} />
           </RadarChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Trend */}
-      <div>
-        <p className="text-xs font-semibold text-navy/50 uppercase tracking-wider mb-2">Tren 4 Kuartal</p>
-        <ResponsiveContainer width="100%" height={180}>
-          <LineChart data={trendData} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e8edf2" />
-            <XAxis dataKey="quarter" tick={{ fontSize: 10, fill: '#022E5799' }} />
-            <YAxis domain={[0, 5]} tick={{ fontSize: 10, fill: '#022E5799' }} />
-            <Tooltip />
-            <Legend wrapperStyle={{ fontSize: 10 }} />
-            <Line type="monotone" dataKey="KPI" stroke="#022E57" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 5 }} />
-            <Line type="monotone" dataKey="Rating Klien" stroke="#f59e0b" strokeWidth={1.5} dot={{ r: 3 }} strokeDasharray="4 2" />
-          </LineChart>
         </ResponsiveContainer>
       </div>
 
@@ -279,15 +226,37 @@ function DetailBody({
   )
 }
 
-export default function PerformancePage({ role, embedded = false }: { role: UserRole; embedded?: boolean }) {
+export default function PerformancePage({ role }: { role: UserRole; embedded?: boolean }) {
   const isManager = role === 'superadmin' || role === 'admin_manager'
   const canRate = isManager
-  const sorted = useMemo(() => [...mockEditorMetrics].sort((a, b) => b.kpi_average - a.kpi_average), [])
 
-  const myMetrics = mockEditorMetrics.find(e => e.editor_id === 'e1') ?? mockEditorMetrics[0]
+  // Metrics ride along on GET /editors; an Admin Manager only sees the
+  // editors of departments they manage, HR/superadmin see everyone.
+  const meQuery = useMe()
+  const editorsQuery = useEditors()
+  const departmentsQuery = useDepartments()
+  const scopedEditors = useMemo(() => {
+    const editors = editorsQuery.data ?? []
+    if (role !== 'admin_manager') return editors
+    const myDeptEditorIds = new Set(
+      (departmentsQuery.data ?? [])
+        .filter(d => d.manager.user_id === meQuery.data?.user_id)
+        .flatMap(d => d.member_ids),
+    )
+    return editors.filter(e => myDeptEditorIds.has(e.editor_id))
+  }, [editorsQuery.data, departmentsQuery.data, meQuery.data, role])
+
+  const allMetrics = useMemo(
+    () => scopedEditors.map(e => e.metrics).filter((m): m is EditorMetrics => !!m),
+    [scopedEditors],
+  )
+  const sorted = useMemo(() => [...allMetrics].sort((a, b) => b.kpi_average - a.kpi_average), [allMetrics])
+
+  const myEditor = (editorsQuery.data ?? []).find(e => e.user_id === meQuery.data?.user_id)
+  const myMetrics = myEditor?.metrics ?? null
   const [selected, setSelected] = useState<EditorMetrics | null>(null)
   const [ratingModal, setRatingModal] = useState(false)
-  const [draftRating, setDraftRating] = useState(myMetrics.manager_rating)
+  const [draftRating, setDraftRating] = useState(3)
   const [ratingNote, setRatingNote] = useState('')
   const [toast, setToast] = useState<string | null>(null)
 
@@ -296,12 +265,11 @@ export default function PerformancePage({ role, embedded = false }: { role: User
     setTimeout(() => setToast(null), 2500)
   }
 
-  const headerCfg = HEADER_BY_ROLE[role] ?? HEADER_BY_ROLE.hr_admin
   const counts = {
-    total: mockEditorMetrics.length,
-    excellent: mockEditorMetrics.filter(e => e.performance_band === 'excellent').length,
-    good: mockEditorMetrics.filter(e => e.performance_band === 'good').length,
-    needs: mockEditorMetrics.filter(e => e.performance_band === 'needs_improvement').length,
+    total: allMetrics.length,
+    excellent: allMetrics.filter(e => e.performance_band === 'excellent').length,
+    good: allMetrics.filter(e => e.performance_band === 'good').length,
+    needs: allMetrics.filter(e => e.performance_band === 'needs_improvement').length,
   }
 
   const openDetail = (m: EditorMetrics) => {
@@ -318,29 +286,30 @@ export default function PerformancePage({ role, embedded = false }: { role: User
 
   // Editor view — focused single-subject layout, no list/drawer
   if (role === 'editor') {
-    const ownHistory = mockKpiHistory.filter(h => h.editor_id === myMetrics.editor_id)
+    if (!myMetrics) {
+      return (
+        <div className="card text-center py-12 text-sm text-navy/50">
+          Belum ada data KPI untuk akun Anda.
+        </div>
+      )
+    }
     return (
       <div className="space-y-6">
-        <PageHeader eyebrow={headerCfg.eyebrow} title={headerCfg.title} description={headerCfg.description} role={role} />
         <SignalCard
           tone={myMetrics.performance_band === 'excellent' ? 'emerald' : myMetrics.performance_band === 'good' ? 'navy' : 'amber'}
           icon={Sparkles}
-          title={`KPI Q2 2026 Anda — ${myMetrics.kpi_average.toFixed(2)} / 5.0`}
+          title={`KPI Anda — ${myMetrics.kpi_average.toFixed(2)} / 5.0`}
           hint={`Band: ${BAND_META[myMetrics.performance_band].label}. Skor ini menjadi basis bonus proyek kuartal berikutnya.`}
         />
         <div className="card">
-          <DetailBody metrics={myMetrics} history={ownHistory} />
+          <DetailBody metrics={myMetrics} />
         </div>
       </div>
     )
   }
 
-  // Manager / HR / Finance — list + drawer
-  const history = selected ? mockKpiHistory.filter(h => h.editor_id === selected.editor_id) : []
-
   return (
     <div className="space-y-6">
-      {!embedded && <PageHeader eyebrow={headerCfg.eyebrow} title={headerCfg.title} description={headerCfg.description} role={role} />}
 
       {/* Signal */}
       {canRate && counts.needs > 0 && (
@@ -404,7 +373,7 @@ export default function PerformancePage({ role, embedded = false }: { role: User
           ) : null
         }
       >
-        {selected && <DetailBody metrics={selected} history={history} />}
+        {selected && <DetailBody metrics={selected} />}
       </Drawer>
 
       {/* Rating modal */}

@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Shield, UserPlus, Search, MoreHorizontal, KeyRound, CircleSlash2, CheckCircle2 } from 'lucide-react'
-import { PageHeader } from '../../components/page/PageHeader'
+import { Link } from 'react-router-dom'
 import { StatPillsRow } from '../../components/page/PageHeader'
-import { mockUsers } from '../../data/mockData'
+import { useUsers } from '../../hooks/queries/useUsers'
 import type { UserRole } from '../../types'
 
 const ROLE_LABEL: Record<UserRole, string> = {
@@ -29,7 +29,8 @@ export default function UsersPage() {
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all')
 
-  const allUsers = Object.values(mockUsers)
+  const usersQuery = useUsers()
+  const allUsers = usersQuery.data ?? []
   const filtered = allUsers.filter(u => {
     const matchesQuery = !query || u.full_name.toLowerCase().includes(query.toLowerCase()) || u.email.toLowerCase().includes(query.toLowerCase())
     const matchesRole = roleFilter === 'all' || u.role === roleFilter
@@ -37,26 +38,38 @@ export default function UsersPage() {
   })
 
   const stats = [
-    { label: 'Total akun', value: allUsers.length, tone: 'navy' as const, hint: 'aktif di sistem' },
-    { label: 'Internal staff', value: allUsers.filter(u => ['superadmin','hr_admin','admin_manager','editor','mediator','finance'].includes(u.role)).length, tone: 'blue' as const, hint: '6 role internal' },
-    { label: 'Eksternal klien', value: allUsers.filter(u => u.role === 'client').length, tone: 'emerald' as const, hint: 'COMPANY / INDIVIDUAL' },
+    { label: 'Total akun', value: allUsers.length, tone: 'navy' as const, hint: 'terdaftar di sistem' },
+    { label: 'HR Admin', value: allUsers.filter(u => u.role === 'hr_admin').length, tone: 'blue' as const, hint: 'operasional HR' },
+    { label: 'Admin Manajer', value: allUsers.filter(u => u.role === 'admin_manager').length, tone: 'emerald' as const, hint: 'kepala departemen' },
+    { label: 'Editor', value: allUsers.filter(u => u.role === 'editor').length, tone: 'navy' as const, hint: 'pelaksana produksi' },
     { label: 'Suspended', value: allUsers.filter(u => !u.is_active).length, tone: 'red' as const, hint: 'dinonaktifkan' },
   ]
 
   return (
     <div className="space-y-6 max-w-[1140px]">
-      <PageHeader
-        eyebrow="Manajemen akun"
-        title="Pengguna & Role"
-        description="Pantau seluruh akun pengguna, atur role, suspend akun, dan rotasi credential. Tindakan write tercatat di Jejak Audit secara immutable."
-        role="superadmin"
-        actions={[
-          { label: 'Tambah Akun', icon: UserPlus },
-          { label: 'Audit Log', icon: Shield, variant: 'secondary', to: '/audit' },
-        ]}
+      {/* Stats + actions (nama halaman sudah di bar atas) */}
+      <div
+        className="flex flex-wrap items-center justify-between gap-3"
+        style={{ fontFamily: "'Inter Display', 'Open Runde', sans-serif" }}
       >
         <StatPillsRow items={stats} />
-      </PageHeader>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/audit"
+            className="inline-flex items-center gap-1.5 bg-white border border-[#021526]/15 hover:border-[#021526]/30 text-[#021526] font-semibold px-4 py-2 rounded-full text-[13px] tracking-[-0.01em] transition-all duration-150"
+          >
+            <Shield className="w-3.5 h-3.5" strokeWidth={2} />
+            Audit Log
+          </Link>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 bg-[#D0F100] hover:brightness-95 text-[#021526] font-semibold px-4 py-2 rounded-full text-[13px] tracking-[-0.01em] transition-all duration-150"
+          >
+            <UserPlus className="w-3.5 h-3.5" strokeWidth={2} />
+            Tambah Akun
+          </button>
+        </div>
+      </div>
 
       {/* Filter bar */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
@@ -70,7 +83,7 @@ export default function UsersPage() {
           />
         </div>
         <div className="flex items-center gap-1.5 overflow-x-auto">
-          {(['all', 'superadmin', 'hr_admin', 'admin_manager', 'editor', 'client', 'mediator', 'finance'] as const).map(r => (
+          {(['all', 'superadmin', 'hr_admin', 'admin_manager', 'editor'] as const).map(r => (
             <button
               key={r}
               type="button"

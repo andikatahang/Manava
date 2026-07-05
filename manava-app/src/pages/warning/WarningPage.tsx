@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { AlertOctagon, Plus, Filter, Calendar } from 'lucide-react'
-import { PageHeader, StatPillsRow } from '../../components/page/PageHeader'
+import { StatPillsRow } from '../../components/page/PageHeader'
 import { Modal } from '../../components/ui/Modal'
 import {
   useWarnings, useWarningMutations,
@@ -86,15 +86,21 @@ export default function WarningPage({ role }: WarningPageProps) {
 
   return (
     <div className="space-y-6 max-w-[1140px]">
-      <PageHeader
-        eyebrow={h.eyebrow}
-        title={h.title}
-        description={h.description}
-        role={role}
-        actions={h.canIssue ? [{ label: 'Terbitkan Peringatan', icon: Plus, onClick: () => setShowForm(true), variant: 'primary' }] : undefined}
-      >
+      {/* Stats + primary action (nama halaman sudah di bar atas) */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <StatPillsRow items={stats} cols={3} />
-      </PageHeader>
+        {h.canIssue && (
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="inline-flex items-center gap-1.5 bg-[#D0F100] hover:brightness-95 text-[#021526] font-semibold px-4 py-2 rounded-full text-[13px] tracking-[-0.01em] transition-all duration-150"
+            style={{ fontFamily: "'Inter Display', 'Open Runde', sans-serif" }}
+          >
+            <Plus className="w-3.5 h-3.5" strokeWidth={2} />
+            Terbitkan Peringatan
+          </button>
+        )}
+      </div>
 
       <div className="flex items-center gap-1.5 overflow-x-auto" style={{ fontFamily: "'Inter Display', 'Open Runde', sans-serif" }}>
         <Filter className="w-3.5 h-3.5 text-[#596074] flex-shrink-0" />

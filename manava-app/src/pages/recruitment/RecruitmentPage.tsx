@@ -8,13 +8,12 @@ import {
 } from '../../lib/applications'
 import { useApplications } from '../../hooks/queries/useApplications'
 import { ApplicantCard } from './ApplicantCard'
-import { PageHeader } from '../../components/page/PageHeader'
 
 const STATUSES: ApplicationStatus[] = ['new', 'interview', 'approved', 'rejected']
 
 // Flow per rework: New → (Shortlist → Interview) → Approved / Rejected.
 // All review actions live on the candidate detail page — no popups here.
-export default function RecruitmentPage({ role }: { role: UserRole }) {
+export default function RecruitmentPage(_props: { role: UserRole }) {
   const navigate = useNavigate()
   const { data: apps = [], isLoading, error } = useApplications()
   // HR lands on the actionable queue ("new") instead of every status mixed.
@@ -35,12 +34,6 @@ export default function RecruitmentPage({ role }: { role: UserRole }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="HR"
-        title="Rekrutmen"
-        description="Tinjau pelamar, kirim undangan interview, dan buat akun editor otomatis saat kandidat disetujui."
-        role={role}
-      />
 
       {/* Signal: how many decisions are queued */}
       {(countByStatus.new + countByStatus.interview) > 0 && (

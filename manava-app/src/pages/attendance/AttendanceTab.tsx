@@ -23,7 +23,7 @@ import {
   useAttendanceToday, useReviewQueue,
 } from '../../hooks/queries/useAttendance'
 
-const STATUS_STYLE: Record<AttendanceStatus, string> = {
+export const STATUS_STYLE: Record<AttendanceStatus, string> = {
   present:    'bg-emerald-100 text-emerald-700 border-emerald-200',
   late:       'bg-amber-100  text-amber-700  border-amber-200',
   incomplete: 'bg-orange-100 text-orange-700 border-orange-200',
@@ -31,7 +31,7 @@ const STATUS_STYLE: Record<AttendanceStatus, string> = {
   leave:      'bg-blue-100   text-blue-700   border-blue-200',
   partial:    'bg-gray-100   text-gray-600   border-gray-200',
 }
-const STATUS_LABEL: Record<AttendanceStatus, string> = {
+export const STATUS_LABEL: Record<AttendanceStatus, string> = {
   present: 'Hadir', late: 'Terlambat', incomplete: 'Perlu Tinjauan',
   absent: 'Absen', leave: 'Cuti', partial: 'Sebagian',
 }
@@ -46,7 +46,7 @@ const ROLE_LABEL: Record<string, string> = {
   admin_manager: 'Admin Manajer', editor: 'Editor',
 }
 
-const SESSION_LABEL: Record<AttendanceSessionType, string> = {
+export const SESSION_LABEL: Record<AttendanceSessionType, string> = {
   masuk: 'Presensi Masuk', keluar: 'Presensi Keluar',
 }
 
@@ -405,7 +405,7 @@ function CodeInput({ code, onChange, onEnter }: {
 
 // ── HR active session panel ──────────────────────────────────────────────────
 
-function ActiveSessionPanel({ sessions }: {
+export function ActiveSessionPanel({ sessions }: {
   sessions: { masuk: AttendanceSession | null; keluar: AttendanceSession | null }
 }) {
   const active = [sessions.masuk, sessions.keluar].filter((s): s is AttendanceSession => !!s)
@@ -447,7 +447,7 @@ function SessionCell({ session }: { session: AttendanceSession }) {
 
 // ── HR "Buka Presensi" popup ─────────────────────────────────────────────────
 
-function OpenPresensiModal({ open, defaultDuration, onClose, onSubmit, isPending }: {
+export function OpenPresensiModal({ open, defaultDuration, onClose, onSubmit, isPending }: {
   open: boolean
   defaultDuration: number
   onClose: () => void
@@ -672,7 +672,7 @@ function RecordsTable({ records, onOpen }: {
 
 // ── HR review queue ──────────────────────────────────────────────────────────
 
-function ReviewQueueCard({ queue, onOpen }: { queue: Attendance[]; onOpen: (r: Attendance) => void }) {
+export function ReviewQueueCard({ queue, onOpen }: { queue: Attendance[]; onOpen: (r: Attendance) => void }) {
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-4">
@@ -717,7 +717,7 @@ function ReviewQueueCard({ queue, onOpen }: { queue: Attendance[]; onOpen: (r: A
 
 // ── Stats ────────────────────────────────────────────────────────────────────
 
-function StatStrip({ records }: { records: Attendance[] }) {
+export function StatStrip({ records }: { records: Attendance[] }) {
   const count = (s: AttendanceStatus) => records.filter(r => r.status === s).length
   const cells: Array<[string, number, string]> = [
     ['Hadir', count('present'), 'text-emerald-600'],
@@ -739,7 +739,7 @@ function StatStrip({ records }: { records: Attendance[] }) {
 
 // ── Calendar ─────────────────────────────────────────────────────────────────
 
-function CalendarCard({ month, onMonthChange, recordMap, leaves, today, onOpenDay }: {
+export function CalendarCard({ month, onMonthChange, recordMap, leaves, today, onOpenDay }: {
   month: string // YYYY-MM
   onMonthChange: (m: string) => void
   recordMap: Record<string, Attendance>
@@ -841,7 +841,7 @@ function CalendarCard({ month, onMonthChange, recordMap, leaves, today, onOpenDa
 
 // ── Day detail (transparency: original vs adjusted) ──────────────────────────
 
-function DayDetailBody({ record }: { record: Attendance }) {
+export function DayDetailBody({ record }: { record: Attendance }) {
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3 flex-wrap">
@@ -958,7 +958,7 @@ function ExplainDrawer({ record, settings, onClose, onSubmit, isPending }: {
 
 // ── HR review drawer ─────────────────────────────────────────────────────────
 
-function ReviewDrawer({ record, settings, onClose, onApprove, onReject, isPending }: {
+export function ReviewDrawer({ record, settings, onClose, onApprove, onReject, isPending }: {
   record: Attendance | null
   settings: AttendanceSettings | undefined
   onClose: () => void
@@ -1051,7 +1051,7 @@ function ReviewDrawer({ record, settings, onClose, onApprove, onReject, isPendin
 
 // ── Settings modal (HR) ──────────────────────────────────────────────────────
 
-function SettingsModal({ open, settings, onClose, onSave, isPending }: {
+export function SettingsModal({ open, settings, onClose, onSave, isPending }: {
   open: boolean
   settings: AttendanceSettings
   onClose: () => void

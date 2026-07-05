@@ -6,6 +6,7 @@ import {
   fetchAttendance,
   fetchAttendanceToday,
   fetchReviewQueue,
+  fetchTeamAttendance,
   openAttendanceSession,
   rejectAttendance,
   submitExplanation,
@@ -41,6 +42,14 @@ export function useAttendancePending(enabled = true) {
   return useQuery({
     queryKey: [...ATTENDANCE_KEY, 'records', { review: 'pending' }],
     queryFn: () => fetchAttendance({ review: 'pending' }),
+    enabled,
+  })
+}
+
+export function useTeamAttendance(enabled = true) {
+  return useQuery({
+    queryKey: [...ATTENDANCE_KEY, 'team'],
+    queryFn: fetchTeamAttendance,
     enabled,
   })
 }

@@ -220,6 +220,64 @@ attendanceRouter.get(
   }),
 )
 
+// Department presensi table — members one level below the caller, each with
+// today's record + the current month's history:
+//   admin_manager → editors of the departments they manage
+//   hr_admin / superadmin → all Admin Managers
+attendanceRouter.get(
+  '/team',
+  authenticate,
+  requireRole('admin_manager', 'hr_admin', 'superadmin'),
+  asyncHandler(async (req, res) => {
+    await finalizeOverdueRecords()
+
+    type Member = { user_id: string; full_name: string; role: string; avatar: string | null }
+    const MEMBER_SELECT = { user_id: true, full_name: true, role: true, avatar: true } as const
+
+    let members: Member[]
+    if (req.user!.role === 'admin_manager') {
+      const departments = await prisma.department.findMany({
+        where: { manager: { user_id: req.user!.sub } },
+        include: { members: { include: { editor: { include: { user: { select: MEMBER_SELECT } } } } } },
+      })
+      const unique = new Map<string, Member>()
+      for (const d of departments) {
+        for (const m of d.members) unique.set(m.editor.user.user_id, m.editor.user)
+      }
+      members = [...unique.values()]
+    } else {
+      members = await prisma.user.findMany({
+        where: { role: 'admin_manager', is_active: true },
+        select: MEMBER_SELECT,
+      })
+    }
+    members.sort((a, b) => a.full_name.localeCompare(b.full_name))
+
+    const today = todayKey()
+    const month = today.slice(0, 7)
+    const ids = members.map(m => m.user_id)
+    const records = ids.length
+      ? await prisma.attendanceRecord.findMany({
+          where: { user_id: { in: ids }, date: { gte: new Date(`${month}-01`), lt: nextMonth(month) } },
+          include: RECORD_INCLUDE,
+          orderBy: { date: 'desc' },
+        })
+      : []
+    const byUser = new Map<string, typeof records>()
+    for (const r of records) {
+      const list = byUser.get(r.user_id) ?? []
+      list.push(r)
+      byUser.set(r.user_id, list)
+    }
+
+    const payload = members.map(u => {
+      const recs = byUser.get(u.user_id) ?? []
+      return { ...u, today: recs.find(r => dateKeyOf(r.date) === today) ?? null, records: recs }
+    })
+    res.json(ok(payload, { total: payload.length }))
+  }),
+)
+
 // HR work queue: every forgotten clock-out awaiting a decision, oldest first
 // so nothing rots past the payroll cutoff.
 attendanceRouter.get(

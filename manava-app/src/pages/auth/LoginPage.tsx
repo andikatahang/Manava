@@ -10,10 +10,10 @@ import type { UserRole } from '../../types'
 // pre-fills the form; authentication still goes through the real backend.
 const DEMO_PASSWORD = 'manava123'
 const demoAccounts: { role: UserRole; email: string; label: string; desc: string }[] = [
-  { role: 'superadmin',    email: 'admin@manava.id', label: 'Superadmin',    desc: 'Akun, role, parameter sistem' },
-  { role: 'hr_admin',      email: 'hasna@manava.id', label: 'HR Admin',      desc: 'ATS, departemen, peringatan' },
-  { role: 'admin_manager', email: 'eko@manava.id',   label: 'Admin Manager', desc: 'Tim, KPI, persetujuan cuti' },
-  { role: 'editor',        email: 'budi@manava.id',  label: 'Editor',        desc: 'Kerjakan proyek & ESS' },
+  { role: 'superadmin',    email: 'administrator.sistem@manava.id', label: 'Superadmin', desc: 'Akun, role, parameter sistem' },
+  { role: 'hr_admin',      email: 'andi.pratama@manava.id',   label: 'HR Admin',      desc: 'ATS, departemen, peringatan' },
+  { role: 'admin_manager', email: 'muhammad.rizki@manava.id', label: 'Admin Manager', desc: 'Tim, KPI, persetujuan cuti' },
+  { role: 'editor',        email: 'rudi.hartono@manava.id',   label: 'Editor',        desc: 'Kerjakan proyek & ESS' },
   { role: 'client',        email: 'citra@client.com', label: 'Klien',        desc: 'Pesan & lacak layanan' },
   { role: 'mediator',      email: 'dewi@manava.id',  label: 'Mediator',      desc: 'Selesaikan sengketa' },
   { role: 'finance',       email: 'fani@manava.id',  label: 'Keuangan',      desc: 'Escrow & penggajian' },
@@ -23,7 +23,7 @@ interface LoginPageProps { onLogin: (identifier: string, password: string) => Pr
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
   const [showPassword, setShowPassword] = useState(false)
-  const [identifier, setIdentifier] = useState('hasna@manava.id')
+  const [identifier, setIdentifier] = useState('andi.pratama@manava.id')
   const [password, setPassword] = useState(DEMO_PASSWORD)
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)

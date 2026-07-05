@@ -39,6 +39,16 @@ departmentsRouter.get(
   }),
 )
 
+// GET /api/v1/departments/managers — Admin Manager directory for the picker
+departmentsRouter.get(
+  '/managers',
+  authenticate,
+  asyncHandler(async (_req, res) => {
+    const managers = await prisma.adminManager.findMany({ orderBy: { full_name: 'asc' } })
+    res.json(ok(managers, { total: managers.length }))
+  }),
+)
+
 // POST /api/v1/departments — create with name + manager only; members added later
 departmentsRouter.post(
   '/',

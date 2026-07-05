@@ -3,7 +3,7 @@ import { UserX, CheckCircle2, Clock, AlertTriangle, ChevronDown, ChevronUp, Brie
 import { Modal } from '../../components/ui/Modal'
 import { StatusBadge } from '../../components/ui/Badge'
 import { formatDate } from '../../lib/utils'
-import { mockEditors } from '../../data/mockData'
+import { useEditors } from '../../hooks/queries/useEditors'
 
 interface OffboardingCase {
   id: string
@@ -29,24 +29,27 @@ const REASON_LABELS: Record<string, string> = {
   contract_end: 'Kontrak Berakhir',
 }
 
-const mockCases: OffboardingCase[] = [
-  { id: 'ob1', editor_id: 'e5', editor_name: 'Rizky Hakim', department: 'Video Editing', reason: 'termination', effective_date: '2026-07-15', initiated_at: '2026-06-20', phase: 2 },
-]
+// Kasus offboarding belum punya backend — daftar dimulai kosong dan kasus
+// yang dimulai dari form hanya hidup selama sesi (state lokal).
+const initialCases: OffboardingCase[] = []
 
 export default function OffboardingPage() {
+  const [cases] = useState<OffboardingCase[]>(initialCases)
   const [showForm, setShowForm] = useState(false)
   const [confirmModal, setConfirmModal] = useState(false)
-  const [expandedCase, setExpandedCase] = useState<string | null>('ob1')
+  const [expandedCase, setExpandedCase] = useState<string | null>(null)
   const [form, setForm] = useState({ editor_id: '', reason: 'resignation', effective_date: '' })
 
-  const selectedEditor = mockEditors.find(e => e.editor_id === form.editor_id)
+  const editorsQuery = useEditors()
+  const editors = (editorsQuery.data ?? []).filter(e => e.status === 'active')
+  const selectedEditor = editors.find(e => e.editor_id === form.editor_id)
 
   return (
     <div className="space-y-6">
       {/* Summary stats */}
       <div className="grid sm:grid-cols-3 gap-4">
         <div className="card text-center py-4">
-          <p className="text-2xl font-bold text-amber-600">{mockCases.filter(c => c.phase < 4).length}</p>
+          <p className="text-2xl font-bold text-amber-600">{cases.filter(c => c.phase < 4).length}</p>
           <p className="text-xs text-navy/60 mt-0.5">Pengakhiran Aktif</p>
         </div>
         <div className="card text-center py-4">
@@ -54,7 +57,7 @@ export default function OffboardingPage() {
           <p className="text-xs text-navy/60 mt-0.5">Selesai Bulan Ini</p>
         </div>
         <div className="card text-center py-4">
-          <p className="text-2xl font-bold text-navy">1</p>
+          <p className="text-2xl font-bold text-navy">{cases.filter(c => c.phase === 4).length}</p>
           <p className="text-xs text-navy/60 mt-0.5">Menunggu Anonimisasi</p>
         </div>
       </div>
@@ -89,7 +92,7 @@ export default function OffboardingPage() {
                     className="input"
                   >
                     <option value="">Pilih editor…</option>
-                    {mockEditors.map(e => (
+                    {editors.map(e => (
                       <option key={e.editor_id} value={e.editor_id}>{e.full_name} — {e.department}</option>
                     ))}
                   </select>
@@ -161,13 +164,13 @@ export default function OffboardingPage() {
         {/* Active cases */}
         <div className="lg:col-span-3 space-y-4">
           <p className="text-xs font-semibold text-navy/50 uppercase tracking-wider">Kasus Aktif</p>
-          {mockCases.length === 0 && (
+          {cases.length === 0 && (
             <div className="card text-center py-12 text-navy/30">
               <Shield className="w-8 h-8 mx-auto mb-2 opacity-40" />
               <p className="text-sm">Tidak ada pengakhiran aktif</p>
             </div>
           )}
-          {mockCases.map(c => {
+          {cases.map(c => {
             const isExpanded = expandedCase === c.id
             return (
               <div key={c.id} className="card p-0 overflow-hidden">

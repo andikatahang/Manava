@@ -13,6 +13,7 @@ editorsRouter.get(
   authenticate,
   asyncHandler(async (_req, res) => {
     const editors = await prisma.editor.findMany({
+      include: { metrics: true },
       orderBy: [{ status: 'asc' }, { full_name: 'asc' }],
     })
     res.json(ok(editors, { total: editors.length }))

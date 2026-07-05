@@ -1,11 +1,17 @@
-import { useState } from 'react'
+// Proyek — halaman untuk Editor (proyek miliknya) & Admin Manajer (proyek
+// tim). Datanya dari /projects; modul proyek belum menerima input, sehingga
+// hasilnya biasanya kosong sampai fitur booking diaktifkan.
+
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Briefcase, User, Building2, Calendar, ChevronRight } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
 import { formatCurrency, formatDate } from '../../lib/utils'
-import { mockProjects } from '../../data/mockData'
+import { useProjects } from '../../hooks/queries/useProjects'
+import { useMe } from '../../hooks/queries/useMe'
+import { useEditors } from '../../hooks/queries/useEditors'
+import { useDepartments } from '../../hooks/queries/useDepartments'
 import type { Project, ProjectStatus, UserRole } from '../../types'
-import { ClientProjectCard } from './ClientProjectCard'
 
 const STATUS_LABELS: Record<ProjectStatus, string> = {
   draft: 'Draf',
@@ -22,112 +28,97 @@ const ALL_STATUSES: ProjectStatus[] = [
   'draft', 'in_progress', 'in_review', 'revision', 'disputed', 'awaiting_dp', 'completed', 'cancelled',
 ]
 
-// ─── Client / Editor Grid View ───────────────────────────────────────────────
+export default function ProjectsPage({ role }: { role: UserRole }) {
+  const [filter, setFilter] = useState<ProjectStatus | 'all'>('all')
+  const meQuery = useMe()
+  const projectsQuery = useProjects()
+  const editorsQuery = useEditors(role === 'editor' || role === 'admin_manager')
+  const departmentsQuery = useDepartments()
 
-function ProjectsHubView({
-  role,
-  filtered,
-  filter,
-  setFilter,
-}: {
-  role: UserRole
+  // Scope by role:
+  //   editor        → proyek dengan editor_id = editor row milik akun ini
+  //   admin_manager → proyek editor di departemen yang ia kelola
+  //   lainnya       → semua
+  const scoped = useMemo<Project[]>(() => {
+    const projects = projectsQuery.data ?? []
+    if (role === 'editor') {
+      const myEditor = (editorsQuery.data ?? []).find(e => e.user_id === meQuery.data?.user_id)
+      if (!myEditor) return []
+      return projects.filter(p => p.editor_id === myEditor.editor_id)
+    }
+    if (role === 'admin_manager') {
+      const myDeptEditorIds = new Set(
+        (departmentsQuery.data ?? [])
+          .filter(d => d.manager.user_id === meQuery.data?.user_id)
+          .flatMap(d => d.member_ids),
+      )
+      return projects.filter(p => myDeptEditorIds.has(p.editor_id))
+    }
+    return projects
+  }, [projectsQuery.data, editorsQuery.data, departmentsQuery.data, meQuery.data, role])
+
+  const filtered = filter === 'all' ? scoped : scoped.filter(p => p.status === filter)
+
+  if (projectsQuery.isLoading) return <p className="text-sm text-navy/50">Memuat proyek…</p>
+  if (projectsQuery.isError) {
+    return (
+      <p className="text-sm text-red-600">
+        Gagal memuat proyek — pastikan backend berjalan. ({(projectsQuery.error as Error).message})
+      </p>
+    )
+  }
+
+  return role === 'editor'
+    ? <EditorGridView projects={scoped} filtered={filtered} filter={filter} setFilter={setFilter} />
+    : <ManagerListView projects={scoped} filter={filter} setFilter={setFilter} />
+}
+
+function EditorGridView({ projects, filtered, filter, setFilter }: {
+  projects: Project[]
   filtered: Project[]
   filter: ProjectStatus | 'all'
   setFilter: (v: ProjectStatus | 'all') => void
 }) {
   const navigate = useNavigate()
-  const isEditor = role === 'editor'
-
-  const total = mockProjects.length
-  const cancelled = mockProjects.filter(p => p.status === 'cancelled').length
-  const completed = mockProjects.filter(p => p.status === 'completed').length
-  const ongoing = total - completed - cancelled
-  const needAction = mockProjects.filter(p =>
-    ['awaiting_dp', 'in_review', 'disputed'].includes(p.status)
-  ).length
-
-  // Status distribution for the portfolio bar (clean data-viz)
-  const SEGMENTS: { status: ProjectStatus; color: string }[] = [
-    { status: 'draft', color: '#9ca3af' },
-    { status: 'in_progress', color: '#2563eb' },
-    { status: 'in_review', color: '#021526' },
-    { status: 'revision', color: '#d97706' },
-    { status: 'awaiting_dp', color: '#f59e0b' },
-    { status: 'disputed', color: '#dc2626' },
-    { status: 'completed', color: '#16a34a' },
-  ]
-  const segData = SEGMENTS
-    .map(s => ({ ...s, count: mockProjects.filter(p => p.status === s.status).length }))
-    .filter(s => s.count > 0)
+  const total = projects.length
+  const ongoing = projects.filter(p => ['in_progress', 'in_review', 'revision', 'awaiting_dp'].includes(p.status)).length
+  const completed = projects.filter(p => p.status === 'completed').length
+  const needAction = projects.filter(p => ['awaiting_dp', 'in_review', 'disputed'].includes(p.status)).length
 
   return (
     <div className="space-y-6 max-w-6xl">
-      {/* Portfolio summary */}
       <div className="card no-hover">
-        <div className="grid gap-6 sm:grid-cols-[auto_1fr] sm:items-center">
-          <div className="flex gap-7 sm:pr-7 sm:border-r border-border">
-            <SummaryStat value={needAction} label="Perlu tindakan" accent="text-amber-600" />
-            <SummaryStat value={ongoing} label="Berjalan" accent="text-blue-600" />
-            <SummaryStat value={completed} label="Selesai" accent="text-emerald-600" />
-          </div>
-          <div>
-            <div className="flex justify-between items-baseline mb-2">
-              <span className="text-xs font-semibold text-navy/45 uppercase tracking-wider">Portofolio proyek</span>
-              <span className="text-xs text-navy/45">{total} total</span>
-            </div>
-            <div className="flex h-2.5 rounded-full overflow-hidden bg-navy/5">
-              {segData.map(s => (
-                <div
-                  key={s.status}
-                  style={{ width: `${(s.count / total) * 100}%`, background: s.color }}
-                  title={`${STATUS_LABELS[s.status]}: ${s.count}`}
-                />
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
-              {segData.map(s => (
-                <span key={s.status} className="inline-flex items-center gap-1.5 text-xs text-navy/60">
-                  <span className="w-2 h-2 rounded-full" style={{ background: s.color }} />
-                  {STATUS_LABELS[s.status]} <span className="font-semibold text-navy">{s.count}</span>
-                </span>
-              ))}
-            </div>
-          </div>
+        <div className="flex gap-7">
+          <SummaryStat value={needAction} label="Perlu tindakan" accent="text-amber-600" />
+          <SummaryStat value={ongoing} label="Berjalan" accent="text-blue-600" />
+          <SummaryStat value={completed} label="Selesai" accent="text-emerald-600" />
+          <SummaryStat value={total} label="Total" accent="text-navy" />
         </div>
       </div>
 
-      {/* Filter chips */}
-      <div className="flex gap-2 flex-wrap">
-        <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>
-          Semua ({mockProjects.length})
-        </FilterChip>
-        {ALL_STATUSES.map(s => {
-          const count = mockProjects.filter(p => p.status === s).length
-          if (!count) return null
-          return (
-            <FilterChip key={s} active={filter === s} onClick={() => setFilter(s)}>
-              {STATUS_LABELS[s]} ({count})
-            </FilterChip>
-          )
-        })}
-      </div>
+      <FilterRow filter={filter} setFilter={setFilter} projects={projects} />
 
-      {/* Project grid */}
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 text-navy/35">
-          <Briefcase className="w-12 h-12 mb-3 opacity-30" />
-          <p className="text-sm font-medium">Tidak ada proyek</p>
-        </div>
+        <EmptyState />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(p => (
-            <ClientProjectCard
+            <button
               key={p.project_id}
-              project={p}
-              personName={isEditor ? p.client_name : p.editor_name}
-              personLabel={isEditor ? 'Klien' : 'Editor'}
-              onDetail={pr => navigate(`/projects/${pr.project_id}`)}
-            />
+              onClick={() => navigate(`/projects/${p.project_id}`)}
+              className="card text-left flex flex-col hover:border-navy/30 transition-colors"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <StatusBadge status={p.status} />
+                <span className="text-xs text-navy/40">{formatDate(p.created_at)}</span>
+              </div>
+              <h3 className="mt-3 font-semibold text-navy text-sm leading-snug line-clamp-2">{p.title}</h3>
+              <p className="text-xs text-navy/50 mt-1.5 line-clamp-2">{p.description}</p>
+              <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+                <span className="text-xs text-navy/50 truncate">{p.client_name}</span>
+                <span className="text-sm font-bold text-navy">{formatCurrency(p.project_value)}</span>
+              </div>
+            </button>
           ))}
         </div>
       )}
@@ -135,31 +126,60 @@ function ProjectsHubView({
   )
 }
 
-function SummaryStat({ value, label, accent }: { value: number; label: string; accent: string }) {
+function ManagerListView({ projects, filter, setFilter }: {
+  projects: Project[]
+  filter: ProjectStatus | 'all'
+  setFilter: (v: ProjectStatus | 'all') => void
+}) {
+  const navigate = useNavigate()
+  const counts = {
+    active: projects.filter(p => p.status === 'in_progress').length,
+    review: projects.filter(p => p.status === 'in_review').length,
+    disputed: projects.filter(p => p.status === 'disputed').length,
+    completed: projects.filter(p => p.status === 'completed').length,
+  }
+  const groups = ALL_STATUSES
+    .filter(s => filter === 'all' || s === filter)
+    .map(status => ({ status, items: projects.filter(p => p.status === status) }))
+    .filter(g => g.items.length > 0)
+
   return (
-    <div>
-      <p className={`text-2xl font-bold ${accent}`}>{value}</p>
-      <p className="text-xs text-navy/50 mt-0.5">{label}</p>
+    <div className="space-y-6 max-w-3xl">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <StatCell label="Berjalan" value={counts.active} tone="text-blue-600" />
+        <StatCell label="Ditinjau" value={counts.review} tone="text-navy" />
+        <StatCell label="Disengketakan" value={counts.disputed} tone="text-red-600" />
+        <StatCell label="Selesai" value={counts.completed} tone="text-emerald-600" />
+      </div>
+
+      <FilterRow filter={filter} setFilter={setFilter} projects={projects} />
+
+      {groups.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <div className="space-y-8">
+          {groups.map(group => (
+            <section key={group.status}>
+              <div className="flex items-center gap-2 mb-3">
+                <h2 className="text-sm font-semibold text-navy">{STATUS_LABELS[group.status]}</h2>
+                <span className="text-xs font-medium text-navy/45 bg-navy/5 rounded-full px-2 py-0.5">
+                  {group.items.length}
+                </span>
+              </div>
+              <div className="space-y-3">
+                {group.items.map(p => (
+                  <ProjectRow key={p.project_id} project={p} onDetail={() => navigate(`/projects/${p.project_id}`)} />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
-function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${active ? 'bg-navy text-white shadow-sm hover:bg-navy/90' : 'bg-white text-navy/60 border border-border hover:border-navy/30'}`}
-    >
-      {children}
-    </button>
-  )
-}
-
-// ─── Manager Grouped List ─────────────────────────────────────────────────────
-// One-column list grouped by status. Each row surfaces the team member (editor)
-// responsible and a "Lihat Detail" button into the full project detail page.
-
-function TeamProjectRow({ project, onDetail }: { project: Project; onDetail: () => void }) {
+function ProjectRow({ project, onDetail }: { project: Project; onDetail: () => void }) {
   return (
     <div className="card flex flex-col sm:flex-row sm:items-center gap-4">
       <div className="min-w-0 flex-1">
@@ -183,124 +203,71 @@ function TeamProjectRow({ project, onDetail }: { project: Project; onDetail: () 
           <span className="font-semibold text-navy">{formatCurrency(project.project_value)}</span>
         </div>
       </div>
-      <button
-        onClick={onDetail}
-        className="btn-secondary text-sm shrink-0 w-full sm:w-auto justify-center"
-      >
+      <button onClick={onDetail} className="btn-secondary text-sm shrink-0 w-full sm:w-auto justify-center">
         Lihat Detail <ChevronRight className="w-4 h-4" />
       </button>
     </div>
   )
 }
 
-function ManagerListView({
-  filter,
-  setFilter,
-}: {
+function FilterRow({ filter, setFilter, projects }: {
   filter: ProjectStatus | 'all'
   setFilter: (v: ProjectStatus | 'all') => void
+  projects: Project[]
 }) {
-  const navigate = useNavigate()
-
-  const statCounts = {
-    active: mockProjects.filter(p => p.status === 'in_progress').length,
-    review: mockProjects.filter(p => p.status === 'in_review').length,
-    disputed: mockProjects.filter(p => p.status === 'disputed').length,
-    completed: mockProjects.filter(p => p.status === 'completed').length,
-  }
-
-  // Ordered, non-empty groups honoring the active filter.
-  const groups = ALL_STATUSES
-    .filter(s => filter === 'all' || s === filter)
-    .map(status => ({ status, items: mockProjects.filter(p => p.status === status) }))
-    .filter(g => g.items.length > 0)
-
   return (
-    <div className="space-y-6 max-w-3xl">
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="card text-center py-4">
-          <p className="text-2xl font-bold text-blue-600">{statCounts.active}</p>
-          <p className="text-xs text-navy/60 mt-0.5">Berjalan</p>
-        </div>
-        <div className="card text-center py-4">
-          <p className="text-2xl font-bold text-navy">{statCounts.review}</p>
-          <p className="text-xs text-navy/60 mt-0.5">Ditinjau</p>
-        </div>
-        <div className="card text-center py-4">
-          <p className="text-2xl font-bold text-red-600">{statCounts.disputed}</p>
-          <p className="text-xs text-navy/60 mt-0.5">Disengketakan</p>
-        </div>
-        <div className="card text-center py-4">
-          <p className="text-2xl font-bold text-emerald-600">{statCounts.completed}</p>
-          <p className="text-xs text-navy/60 mt-0.5">Selesai</p>
-        </div>
-      </div>
-
-      {/* Filter chips */}
-      <div className="flex gap-2 flex-wrap">
-        <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>
-          Semua ({mockProjects.length})
-        </FilterChip>
-        {ALL_STATUSES.map(s => {
-          const count = mockProjects.filter(p => p.status === s).length
-          if (!count) return null
-          return (
-            <FilterChip key={s} active={filter === s} onClick={() => setFilter(s)}>
-              {STATUS_LABELS[s]} ({count})
-            </FilterChip>
-          )
-        })}
-      </div>
-
-      {/* Grouped list */}
-      {groups.length === 0 ? (
-        <div className="card text-center py-16 text-navy/35">
-          <Briefcase className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm font-medium">Tidak ada proyek</p>
-        </div>
-      ) : (
-        <div className="space-y-8">
-          {groups.map(group => (
-            <section key={group.status}>
-              <div className="flex items-center gap-2 mb-3">
-                <h2 className="text-sm font-semibold text-navy">{STATUS_LABELS[group.status]}</h2>
-                <span className="text-xs font-medium text-navy/45 bg-navy/5 rounded-full px-2 py-0.5">
-                  {group.items.length}
-                </span>
-              </div>
-              <div className="space-y-3">
-                {group.items.map(p => (
-                  <TeamProjectRow
-                    key={p.project_id}
-                    project={p}
-                    onDetail={() => navigate(`/projects/${p.project_id}`)}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
+    <div className="flex gap-2 flex-wrap">
+      <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>
+        Semua ({projects.length})
+      </FilterChip>
+      {ALL_STATUSES.map(s => {
+        const count = projects.filter(p => p.status === s).length
+        if (!count) return null
+        return (
+          <FilterChip key={s} active={filter === s} onClick={() => setFilter(s)}>
+            {STATUS_LABELS[s]} ({count})
+          </FilterChip>
+        )
+      })}
     </div>
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${active ? 'bg-navy text-white shadow-sm hover:bg-navy/90' : 'bg-white text-navy/60 border border-border hover:border-navy/30'}`}
+    >
+      {children}
+    </button>
+  )
+}
 
-export default function ProjectsPage({ role }: { role: UserRole }) {
-  const [filter, setFilter] = useState<ProjectStatus | 'all'>('all')
+function SummaryStat({ value, label, accent }: { value: number; label: string; accent: string }) {
+  return (
+    <div>
+      <p className={`text-2xl font-bold ${accent}`}>{value}</p>
+      <p className="text-xs text-navy/50 mt-0.5">{label}</p>
+    </div>
+  )
+}
 
-  const isClient = role === 'client'
-  const isEditor = role === 'editor'
+function StatCell({ label, value, tone }: { label: string; value: number; tone: string }) {
+  return (
+    <div className="card text-center py-4">
+      <p className={`text-2xl font-bold ${tone}`}>{value}</p>
+      <p className="text-xs text-navy/60 mt-0.5">{label}</p>
+    </div>
+  )
+}
 
-  const filtered = filter === 'all' ? mockProjects : mockProjects.filter(p => p.status === filter)
-
-  // Client and editor get the card-grid hub → per-project detail page.
-  if (isClient || isEditor) {
-    return <ProjectsHubView role={role} filtered={filtered} filter={filter} setFilter={setFilter} />
-  }
-
-  // Manager / superadmin: grouped single-column team roster of projects.
-  return <ManagerListView filter={filter} setFilter={setFilter} />
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 text-navy/35">
+      <Briefcase className="w-12 h-12 mb-3 opacity-30" />
+      <p className="text-sm font-medium">Belum ada proyek</p>
+      <p className="text-xs mt-1 text-navy/45">Modul proyek belum diaktifkan.</p>
+    </div>
+  )
 }

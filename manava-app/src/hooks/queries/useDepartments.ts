@@ -1,25 +1,51 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
-import type { Department } from '../../types'
+import type { Department, Editor } from '../../types'
 
-// Server shape: department with manager + members (join rows) included.
+export interface DepartmentManager {
+  id: string
+  user_id: string | null
+  full_name: string
+  department: string
+  avatar: string | null
+}
+
+// Server shape: department with manager + members (editor incl. metrics).
 interface ApiDepartment {
   id: string
   name: string
   manager_id: string
-  members: { editor_id: string }[]
+  manager: DepartmentManager
+  members: { editor_id: string; editor: Editor }[]
 }
 
-function toDepartment(d: ApiDepartment): Department {
+// Department enriched with the joined manager + editor rows so pages never
+// need fixture lookups.
+export interface DepartmentDetail extends Department {
+  manager: DepartmentManager
+  editors: Editor[]
+}
+
+function toDepartment(d: ApiDepartment): DepartmentDetail {
   return {
     id: d.id,
     name: d.name,
     manager_id: d.manager_id,
     member_ids: d.members.map(m => m.editor_id),
+    manager: d.manager,
+    editors: d.members.map(m => m.editor),
   }
 }
 
 const KEY = ['departments']
+
+// Admin Manager directory for the department form's manager picker.
+export function useDepartmentManagers() {
+  return useQuery({
+    queryKey: ['department-managers'],
+    queryFn: () => api<DepartmentManager[]>('/departments/managers'),
+  })
+}
 
 export function useDepartments() {
   return useQuery({

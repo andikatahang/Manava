@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { KeyRound, Settings2, RotateCw, ShieldCheck, Database, AlertTriangle } from 'lucide-react'
-import { PageHeader, StatPillsRow } from '../../components/page/PageHeader'
+import { StatPillsRow } from '../../components/page/PageHeader'
 
 interface SysParam {
   key: string
@@ -31,8 +31,15 @@ const ENC_KEYS: EncKey[] = [
   { alias: 'deliverable_original_v1', scope: 'Deliverable.original_file_path', age: '12 hari', rotateDue: '11 bulan' },
 ]
 
+type SysTab = 'params' | 'keys' | 'health'
+const SYS_TABS: readonly SysTab[] = ['params', 'keys', 'health']
+
 export default function SystemPage() {
-  const [tab, setTab] = useState<'params' | 'keys' | 'health'>('params')
+  // Tab lives in the URL (?tab=) so the sidebar sub-navigation can deep-link.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const tab: SysTab = SYS_TABS.includes(tabParam as SysTab) ? (tabParam as SysTab) : 'params'
+  const setTab = (id: SysTab) => setSearchParams({ tab: id })
 
   const healthStats = [
     { label: 'Sistem',              value: '✓',  tone: 'emerald' as const, hint: 'Semua subsistem online' },
@@ -43,14 +50,7 @@ export default function SystemPage() {
 
   return (
     <div className="space-y-6 max-w-[1140px]">
-      <PageHeader
-        eyebrow="Konfigurasi sistem"
-        title="Parameter, Enkripsi & Kesehatan"
-        description="Atur parameter global, kelola kunci enkripsi data sensitif, dan pantau kesehatan subsistem. SUPERADMIN bertanggung jawab atas konfigurasi sistem — bukan eksekusi proses bisnis."
-        role="superadmin"
-      >
-        <StatPillsRow items={healthStats} />
-      </PageHeader>
+      <StatPillsRow items={healthStats} />
 
       {/* Tab nav */}
       <div className="flex items-center gap-1 bg-[#021526]/[0.04] p-1 rounded-full w-fit" style={{ fontFamily: "'Inter Display', 'Open Runde', sans-serif" }}>

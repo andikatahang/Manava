@@ -41,6 +41,8 @@ export interface Editor {
   active_projects: number
   performance_band: 'excellent' | 'good' | 'needs_improvement'
   avatar?: string
+  // Included by GET /editors and GET /departments (list endpoints join metrics).
+  metrics?: EditorMetrics | null
 }
 
 export interface Applicant {

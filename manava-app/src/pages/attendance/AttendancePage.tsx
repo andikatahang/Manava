@@ -7,7 +7,6 @@ import { Modal } from '../../components/ui/Modal'
 import { Drawer } from '../../components/ui/Drawer'
 import { formatDate } from '../../lib/utils'
 import type { UserRole, LeaveRequest } from '../../types'
-import { PageHeader } from '../../components/page/PageHeader'
 // Leave data is DB-backed; the approval hierarchy maps are shared with the
 // header notification badge. Requests travel one level up the org chart:
 // Editor → Admin Manager → HR Admin.
@@ -23,22 +22,13 @@ import { useLeaveRequests, useLeaveRequestMutations } from '../../hooks/queries/
 // clock-outs live in AttendanceTab.
 import { AttendanceTab } from './AttendanceTab'
 
-const HEADER_BY_ROLE: Record<UserRole, { eyebrow: string; title: string; description: string }> = {
-  superadmin:    { eyebrow: 'Operasi HR', title: 'Presensi & Cuti', description: 'Pantau siklus kehadiran dan permohonan cuti lintas departemen.' },
-  hr_admin:      { eyebrow: 'Operasi HR', title: 'Presensi & Cuti', description: 'Buka presensi masuk/keluar, pantau riwayat semua pengguna, tinjau clock-out yang terlupa, dan setujui permohonan cuti dari Admin Manager.' },
-  admin_manager: { eyebrow: 'Operasi tim', title: 'Presensi Tim', description: 'Catat presensi Anda, setujui cuti editor departemen Anda, dan ajukan cuti Anda sendiri ke HR Admin.' },
-  editor:        { eyebrow: 'Layanan mandiri', title: 'Presensi Saya', description: 'Catat clock-in/out hari ini dan kelola permohonan cuti Anda.' },
-  client:        { eyebrow: 'Operasi', title: 'Presensi', description: '' },
-  mediator:      { eyebrow: 'Operasi', title: 'Presensi', description: '' },
-  finance:       { eyebrow: 'Operasi HR', title: 'Presensi & Cuti', description: 'Lihat rekap kehadiran sebagai input rekonsiliasi payroll.' },
-}
 
 // ── page ─────────────────────────────────────────────────────────────────────
 type Tab = 'attendance' | 'leave'
 type LeaveType = 'cuti' | 'izin'
 type LeaveForm = { type: LeaveType; start: string; end: string; reason: string }
 
-export default function AttendancePage({ role, embedded = false, forcedView }: { role: UserRole; embedded?: boolean; forcedView?: Tab }) {
+export default function AttendancePage({ role, forcedView }: { role: UserRole; embedded?: boolean; forcedView?: Tab }) {
   const [tab, setTab] = useState<Tab>(forcedView ?? 'attendance')
   const leaveQuery = useLeaveRequests()
   const leaves = useMemo(() => leaveQuery.data ?? [], [leaveQuery.data])
@@ -113,11 +103,9 @@ export default function AttendancePage({ role, embedded = false, forcedView }: {
     )
   }
 
-  const h = HEADER_BY_ROLE[role] ?? HEADER_BY_ROLE.editor
 
   return (
     <div className="space-y-6">
-      {!embedded && <PageHeader eyebrow={h.eyebrow} title={h.title} description={h.description} role={role} />}
 
       {toast && (
         <div className="fixed bottom-6 right-6 z-[60] bg-navy text-white px-4 py-3 rounded-xl shadow-lg text-sm flex items-center gap-2">

@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Star, TrendingUp, ClipboardCheck, BarChart2 } from 'lucide-react'
-import { mockEditorMetrics } from '../../data/mockData'
 import { useWarningMutations, type WarningSeverity } from '../../hooks/queries/useWarnings'
 import type { Editor } from '../../types'
 
@@ -103,7 +102,7 @@ export function IssueWarningForEditor({ editor, onDone }: { editor: Editor; onDo
 }
 
 export function EditorDetailInfo({ editor }: { editor: Editor }) {
-  const metric = mockEditorMetrics.find(m => m.editor_id === editor.editor_id)
+  const metric = editor.metrics
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">

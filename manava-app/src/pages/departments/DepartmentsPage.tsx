@@ -1,16 +1,19 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Building2, Plus, Check, Pencil, BarChart2,
-  Clock, CalendarCheck, AlertOctagon, UserX, Award, ArrowLeft, UserMinus,
+  Clock, AlertOctagon, UserX, Award, ArrowLeft, UserMinus,
 } from 'lucide-react'
 import { Modal } from '../../components/ui/Modal'
-import { PageHeader, StatPillsRow } from '../../components/page/PageHeader'
-import { mockAdminManagers, mockEditors, mockEditorMetrics } from '../../data/mockData'
-import { useDepartments, useDepartmentMutations } from '../../hooks/queries/useDepartments'
-import type { Department, UserRole } from '../../types'
+import {
+  useDepartments, useDepartmentMutations, useDepartmentManagers,
+  type DepartmentDetail, type DepartmentManager,
+} from '../../hooks/queries/useDepartments'
+import { useEditors } from '../../hooks/queries/useEditors'
+import type { Department, Editor, UserRole } from '../../types'
 import { ManagerDepartmentView } from './ManagerDepartmentView'
 import { IssueWarningForEditor, EditorDetailInfo, EditorAvatar } from './EditorActionModals'
-import AttendancePage from '../attendance/AttendancePage'
+import { TeamPresensiTab } from '../attendance/TeamPresensiTab'
 import WarningPage from '../warning/WarningPage'
 import OffboardingPage from '../offboarding/OffboardingPage'
 
@@ -25,43 +28,43 @@ const SPEC_LABELS: Record<string, string> = {
   motion_graphics: 'Motion Graphics',
 }
 
-const ACTIVE_EDITORS = mockEditors.filter(e => e.status === 'active')
-
-type HrTab = 'departemen' | 'presensi' | 'cuti' | 'peringatan' | 'offboarding'
+type HrTab = 'departemen' | 'presensi' | 'peringatan' | 'offboarding'
 
 const HR_TABS: { id: HrTab; label: string; icon: typeof Building2 }[] = [
   { id: 'departemen', label: 'Departemen', icon: Building2 },
   { id: 'presensi', label: 'Presensi', icon: Clock },
-  { id: 'cuti', label: 'Permohonan Cuti', icon: CalendarCheck },
   { id: 'peringatan', label: 'Peringatan', icon: AlertOctagon },
   { id: 'offboarding', label: 'Offboarding', icon: UserX },
 ]
 
 export default function DepartmentsPage({ role, embedded = false }: { role: UserRole; embedded?: boolean }) {
   if (role === 'admin_manager') return <ManagerDepartmentView role={role} embedded={embedded} />
-  return <HrDepartmentDashboard role={role} />
+  return <HrDepartmentDashboard />
 }
 
-function HrDepartmentDashboard({ role }: { role: UserRole }) {
-  const [tab, setTab] = useState<HrTab>('departemen')
+function HrDepartmentDashboard() {
+  // Tab lives in the URL (?tab=) so the sidebar sub-navigation can deep-link.
+  const [searchParams, setSearchParams] = useSearchParams()
+  // Legacy deep-links: the old "cuti" tab merged into "presensi".
+  const tabParam = searchParams.get('tab') === 'cuti' ? 'presensi' : searchParams.get('tab')
+  const tab: HrTab = HR_TABS.some(t => t.id === tabParam) ? (tabParam as HrTab) : 'departemen'
+  const setTab = (id: HrTab) => setSearchParams({ tab: id })
   const [showAdd, setShowAdd] = useState(false)
-  const [editing, setEditing] = useState<Department | null>(null)
+  const [editing, setEditing] = useState<DepartmentDetail | null>(null)
   const [managingId, setManagingId] = useState<string | null>(null)
   // A department is a "draft" between creation and its first save — HR must add
   // at least one editor before it can be kept.
   const [draftId, setDraftId] = useState<string | null>(null)
 
-  // Departments come from the API; editor/manager detail lookups still use
-  // the fixture tables (seeded into Postgres with identical ids).
+  // Departments arrive with manager + editor rows joined, so no fixture
+  // lookups are needed; the editors list feeds the "Tambah Editor" picker.
   const departmentsQuery = useDepartments()
+  const editorsQuery = useEditors()
   const mutations = useDepartmentMutations()
   const departments = departmentsQuery.data ?? []
+  const allEditors = (editorsQuery.data ?? []).filter(e => e.status === 'active')
 
   const managing = managingId ? departments.find(d => d.id === managingId) ?? null : null
-
-  const totalEditors = ACTIVE_EDITORS.length
-  const allKpi = mockEditorMetrics.map(m => m.kpi_average)
-  const avgKpi = allKpi.length ? allKpi.reduce((a, b) => a + b, 0) / allKpi.length : 0
 
   function switchTab(id: HrTab) {
     setTab(id)
@@ -94,23 +97,8 @@ function HrDepartmentDashboard({ role }: { role: UserRole }) {
     setDraftId(null)
   }
 
-  const stats = [
-    { label: 'Departemen', value: departments.length, tone: 'navy' as const },
-    { label: 'Total Editor', value: totalEditors, tone: 'blue' as const },
-    { label: 'Rata-rata KPI', value: avgKpi.toFixed(1), tone: 'emerald' as const },
-  ]
-
   return (
     <div className="space-y-6">
-      <PageHeader
-        eyebrow="Pusat HR"
-        title="Dashboard Departemen"
-        description="Kelola departemen, pantau KPI tim, presensi, peringatan kerja, dan offboarding dalam satu tempat."
-        role={role}
-      >
-        <StatPillsRow items={stats} cols={3} />
-      </PageHeader>
-
       {/* Tab bar */}
       <div className="flex gap-1 bg-white border border-border rounded-xl p-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {HR_TABS.map(({ id, label, icon: Icon }) => (
@@ -138,6 +126,7 @@ function HrDepartmentDashboard({ role }: { role: UserRole }) {
         managing ? (
           <DepartmentManageView
             department={managing}
+            allEditors={allEditors}
             isNew={managing.id === draftId}
             onDone={finishManage}
             onDiscard={() => discardDraft(managing.id)}
@@ -154,8 +143,7 @@ function HrDepartmentDashboard({ role }: { role: UserRole }) {
         )
       )}
 
-      {tab === 'presensi' && <AttendancePage role="hr_admin" embedded forcedView="attendance" />}
-      {tab === 'cuti' && <AttendancePage role="hr_admin" embedded forcedView="leave" />}
+      {tab === 'presensi' && <TeamPresensiTab role="hr_admin" />}
       {tab === 'peringatan' && <WarningPage role="hr_admin" />}
       {tab === 'offboarding' && <OffboardingPage />}
 
@@ -185,9 +173,9 @@ function HrDepartmentDashboard({ role }: { role: UserRole }) {
 function DepartemenTab({
   departments, onAdd, onManage,
 }: {
-  departments: Department[]
+  departments: DepartmentDetail[]
   onAdd: () => void
-  onManage: (d: Department) => void
+  onManage: (d: DepartmentDetail) => void
 }) {
   return (
     <div className="space-y-4 max-w-[1140px]">
@@ -219,10 +207,10 @@ function DepartemenTab({
   )
 }
 
-function DepartmentRow({ department, onManage }: { department: Department; onManage: () => void }) {
-  const manager = mockAdminManagers.find(m => m.id === department.manager_id)
-  const memberCount = ACTIVE_EDITORS.filter(e => department.member_ids.includes(e.editor_id)).length
-  const metrics = mockEditorMetrics.filter(m => department.member_ids.includes(m.editor_id))
+function DepartmentRow({ department, onManage }: { department: DepartmentDetail; onManage: () => void }) {
+  const manager = department.manager
+  const memberCount = department.editors.filter(e => e.status === 'active').length
+  const metrics = department.editors.map(e => e.metrics).filter((m): m is NonNullable<typeof m> => !!m)
   const avgKpi = metrics.length ? metrics.reduce((s, m) => s + m.kpi_average, 0) / metrics.length : 0
 
   return (
@@ -234,8 +222,8 @@ function DepartmentRow({ department, onManage }: { department: Department; onMan
         <span className="text-sm font-semibold text-navy truncate">{department.name}</span>
       </span>
       <span className="flex items-center gap-2 min-w-0">
-        <Avatar name={manager?.full_name ?? '—'} avatar={manager?.avatar} />
-        <span className="text-sm text-navy/70 truncate">{manager?.full_name ?? 'Belum ditunjuk'}</span>
+        <Avatar name={manager.full_name} avatar={manager.avatar ?? undefined} />
+        <span className="text-sm text-navy/70 truncate">{manager.full_name}</span>
       </span>
       <span className="sm:text-right text-sm font-semibold text-navy tabular-nums">
         {metrics.length > 0 ? avgKpi.toFixed(1) : '—'}
@@ -253,9 +241,10 @@ function DepartmentRow({ department, onManage }: { department: Department; onMan
 // Per-department management page. Department + manager info at the top; simple
 // table roster below. New departments require ≥1 editor before Save enables.
 function DepartmentManageView({
-  department, isNew, onDone, onDiscard, onEdit, onAddMembers, onRemoveMember,
+  department, allEditors, isNew, onDone, onDiscard, onEdit, onAddMembers, onRemoveMember,
 }: {
-  department: Department
+  department: DepartmentDetail
+  allEditors: Editor[]
   isNew: boolean
   onDone: () => void
   onDiscard: () => void
@@ -264,14 +253,14 @@ function DepartmentManageView({
   onRemoveMember: (editorId: string) => void
 }) {
   const [showPicker, setShowPicker] = useState(false)
-  const [warningTarget, setWarningTarget] = useState<(typeof ACTIVE_EDITORS)[number] | null>(null)
-  const [detailTarget, setDetailTarget] = useState<(typeof ACTIVE_EDITORS)[number] | null>(null)
-  const [removeTarget, setRemoveTarget] = useState<(typeof ACTIVE_EDITORS)[number] | null>(null)
+  const [warningTarget, setWarningTarget] = useState<Editor | null>(null)
+  const [detailTarget, setDetailTarget] = useState<Editor | null>(null)
+  const [removeTarget, setRemoveTarget] = useState<Editor | null>(null)
 
-  const manager = mockAdminManagers.find(m => m.id === department.manager_id)
-  const members = ACTIVE_EDITORS.filter(e => department.member_ids.includes(e.editor_id))
-  const available = ACTIVE_EDITORS.filter(e => !department.member_ids.includes(e.editor_id))
-  const memberMetrics = mockEditorMetrics.filter(m => department.member_ids.includes(m.editor_id))
+  const manager = department.manager
+  const members = department.editors.filter(e => e.status === 'active')
+  const available = allEditors.filter(e => !department.member_ids.includes(e.editor_id))
+  const memberMetrics = members.map(e => e.metrics).filter((m): m is NonNullable<typeof m> => !!m)
   const deptKpi = memberMetrics.length
     ? memberMetrics.reduce((s, m) => s + m.kpi_average, 0) / memberMetrics.length
     : 0
@@ -307,11 +296,11 @@ function DepartmentManageView({
 
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="sm:col-span-2 flex items-center gap-3 rounded-xl border border-navy/10 bg-navy/[0.03] p-3">
-            <Avatar name={manager?.full_name ?? '—'} avatar={manager?.avatar} />
+            <Avatar name={manager.full_name} avatar={manager.avatar ?? undefined} />
             <div className="min-w-0">
               <p className="text-[11px] uppercase tracking-wider text-navy/40">Manajer Departemen</p>
-              <p className="text-sm font-semibold text-navy truncate">{manager?.full_name ?? 'Belum ditunjuk'}</p>
-              {manager && <p className="text-xs text-navy/50 truncate">{manager.department}</p>}
+              <p className="text-sm font-semibold text-navy truncate">{manager.full_name}</p>
+              <p className="text-xs text-navy/50 truncate">{manager.department}</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -348,7 +337,7 @@ function DepartmentManageView({
             </div>
             <ul className="divide-y divide-black/[0.05]">
               {members.map(e => {
-                const metric = mockEditorMetrics.find(m => m.editor_id === e.editor_id)
+                const metric = e.metrics
                 return (
                   <li key={e.editor_id} className="grid grid-cols-1 sm:grid-cols-[1.5fr_0.5fr_360px] items-center gap-2 sm:gap-3 px-4 py-3">
                     <span className="flex items-center gap-3 min-w-0">
@@ -447,7 +436,7 @@ function AddEditorModal({
   open, available, onClose, onConfirm,
 }: {
   open: boolean
-  available: typeof ACTIVE_EDITORS
+  available: Editor[]
   onClose: () => void
   onConfirm: (editorIds: string[]) => void
 }) {
@@ -523,13 +512,18 @@ function DepartmentBasicForm({
   onSubmit: (name: string, managerId: string) => void
   onCancel: () => void
 }) {
+  const managersQuery = useDepartmentManagers()
+  const managers: DepartmentManager[] = managersQuery.data ?? []
   const [name, setName] = useState(initial?.name ?? '')
-  const [managerId, setManagerId] = useState(initial?.manager_id ?? mockAdminManagers[0]?.id ?? '')
+  const [managerId, setManagerId] = useState(initial?.manager_id ?? '')
+  // Default the picker to the first manager once the list arrives.
+  const effectiveManagerId = managerId || managers[0]?.id || ''
   const [error, setError] = useState('')
 
   function submit() {
     if (!name.trim()) { setError('Nama departemen wajib diisi'); return }
-    onSubmit(name.trim(), managerId)
+    if (!effectiveManagerId) { setError('Pilih manajer terlebih dahulu'); return }
+    onSubmit(name.trim(), effectiveManagerId)
   }
 
   return (
@@ -548,8 +542,8 @@ function DepartmentBasicForm({
 
       <div>
         <label className="label">Manajer</label>
-        <select className="input" value={managerId} onChange={e => setManagerId(e.target.value)}>
-          {mockAdminManagers.map(m => (
+        <select className="input" value={effectiveManagerId} onChange={e => setManagerId(e.target.value)}>
+          {managers.map(m => (
             <option key={m.id} value={m.id}>{m.full_name} — {m.department}</option>
           ))}
         </select>

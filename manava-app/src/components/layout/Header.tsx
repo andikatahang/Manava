@@ -9,13 +9,15 @@ import { useAttendancePending, useAttendanceToday, useReviewQueue } from '../../
 import { fmtTimeWIB } from '../../lib/attendance'
 import { formatDate } from '../../lib/utils'
 
+// Single source of the page name shown in the top bar — pages no longer
+// render their own big in-page header block.
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/recruitment': 'Rekrutmen & Onboarding',
   '/projects': 'Proyek',
   '/contracts': 'Kontrak & Brief',
   '/payments': 'Escrow & Pembayaran',
-  '/attendance': 'Presensi, Cuti & Penggajian',
+  '/attendance': 'Presensi & Cuti',
   '/performance': 'KPI Kinerja',
   '/disputes': 'Penyelesaian Sengketa',
   '/chat': 'Chat Aplikasi',
@@ -24,6 +26,20 @@ const pageTitles: Record<string, string> = {
   '/deliverables': 'Integritas Hasil Kerja',
   '/audit': 'Jejak Audit',
   '/settings': 'Pengaturan',
+  '/departments': 'Dashboard Departemen',
+  '/team-dashboard': 'Dashboard Departemen',
+  '/users': 'Pengguna & Role',
+  '/system': 'Sistem & Enkripsi',
+  '/warning': 'Peringatan Kerja',
+  '/browse-editors': 'Cari Editor',
+  '/profile': 'Profil',
+  '/escrow': 'Escrow',
+  '/emergency-release': 'Emergency Escrow Release',
+  '/refund': 'Refund',
+  '/bonus-accrual': 'Bonus Accrual',
+  '/reconciliation': 'Rekonsiliasi',
+  '/revenue-report': 'Laporan Pendapatan',
+  '/payroll-disbursement': 'Payroll Disbursement',
 }
 
 type NotifIcon = 'alert' | 'contract' | 'payment' | 'user' | 'clock' | 'package'
@@ -107,6 +123,8 @@ interface HeaderProps {
 export function Header({ pathname, role, onMenuClick }: HeaderProps) {
   const title = pathname.startsWith('/projects/')
     ? 'Detail Proyek'
+    : pathname.startsWith('/recruitment/')
+    ? 'Detail Pelamar'
     : pathname === '/projects' && (role === 'client' || role === 'editor')
       ? 'Proyek Saya'
       : pathname === '/dashboard' && (role === 'client' || role === 'editor')

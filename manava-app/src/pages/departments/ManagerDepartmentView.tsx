@@ -1,13 +1,14 @@
+import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Building2, Star, TrendingUp, Award, ChevronRight } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
-import { PageHeader } from '../../components/page/PageHeader'
 import { formatCurrency } from '../../lib/utils'
-import { mockDepartments, mockEditors, mockProjects, mockLeaveRequests, mockUsers } from '../../data/mockData'
-import type { Department, Editor, UserRole } from '../../types'
-
-const TODAY = '2026-06-26'
-const CLOCK_INS = ['08:00', '08:05', '07:58', '08:12', '08:03']
+import { useMe } from '../../hooks/queries/useMe'
+import { useDepartments, type DepartmentDetail } from '../../hooks/queries/useDepartments'
+import { useProjects } from '../../hooks/queries/useProjects'
+import { useTeamAttendance } from '../../hooks/queries/useAttendance'
+import { fmtTimeWIB, type TeamAttendanceMember } from '../../lib/attendance'
+import type { Editor, Project, UserRole } from '../../types'
 
 const SPEC_LABELS: Record<string, string> = {
   product_retouch: 'Product Retouch',
@@ -26,47 +27,62 @@ const BAND_LABELS: Record<Editor['performance_band'], string> = {
   needs_improvement: 'Perlu Peningkatan',
 }
 
-type Presence = { label: string; time?: string; tone: 'emerald' | 'blue' }
-
-// Presensi today: on leave (from real leave data) → Cuti/Izin, otherwise present
-// with a deterministic clock-in (no per-editor attendance feed in this build).
-function presenceFor(editor: Editor, idx: number): Presence {
-  const leave = mockLeaveRequests.find(l =>
-    l.requester_name === editor.full_name && l.requester_role === 'editor' &&
-    l.status !== 'rejected' && l.start_date <= TODAY && TODAY <= l.end_date,
-  )
-  if (leave) return { label: leave.leave_type === 'cuti' ? 'Cuti' : 'Izin', tone: 'blue' }
-  return { label: 'Hadir', time: CLOCK_INS[idx % CLOCK_INS.length], tone: 'emerald' }
-}
-
-// The Admin Manager's own department hub — editors + their presensi, KPI, projects.
-export function ManagerDepartmentView({ role, embedded = false }: { role: UserRole; embedded?: boolean }) {
+// The Admin Manager's own department hub — real data end to end: departments
+// are filtered to the signed-in manager, presensi comes from /attendance/team,
+// and projects from /projects.
+export function ManagerDepartmentView(_props: { role: UserRole; embedded?: boolean }) {
   const navigate = useNavigate()
-  const managerId = mockUsers.admin_manager.user_id
-  const mine = mockDepartments.filter(d => d.manager_id === managerId)
-  const departments = mine.length ? mine : mockDepartments.slice(0, 1)
+  const meQuery = useMe()
+  const departmentsQuery = useDepartments()
+  const projectsQuery = useProjects()
+  const teamQuery = useTeamAttendance()
+
+  const me = meQuery.data
+  const departments = useMemo(
+    () => (departmentsQuery.data ?? []).filter(d => d.manager.user_id === me?.user_id),
+    [departmentsQuery.data, me],
+  )
+  const attendanceByUser = useMemo(
+    () => new Map((teamQuery.data ?? []).map(m => [m.user_id, m])),
+    [teamQuery.data],
+  )
+
+  if (meQuery.isLoading || departmentsQuery.isLoading) {
+    return <p className="text-sm text-navy/50">Memuat departemen…</p>
+  }
+  if (departmentsQuery.isError) {
+    return (
+      <p className="text-sm text-red-600">
+        Gagal memuat departemen — pastikan backend berjalan. ({(departmentsQuery.error as Error).message})
+      </p>
+    )
+  }
+  if (departments.length === 0) {
+    return <div className="card text-center py-10 text-navy/40 text-sm">Anda belum ditunjuk sebagai manajer departemen.</div>
+  }
 
   return (
     <div className="space-y-6 max-w-3xl">
-      {!embedded && (
-        <PageHeader
-          eyebrow="Departemen Saya"
-          title="Departemen"
-          description="Editor di departemen Anda beserta presensi, KPI, dan proyeknya — dalam satu tempat."
-          role={role}
-        />
-      )}
       {departments.map(dep => (
-        <DepartmentBlock key={dep.id} department={dep} onOpenProject={id => navigate(`/projects/${id}`)} />
+        <DepartmentBlock
+          key={dep.id}
+          department={dep}
+          projects={projectsQuery.data ?? []}
+          attendanceByUser={attendanceByUser}
+          onOpenProject={id => navigate(`/projects/${id}`)}
+        />
       ))}
     </div>
   )
 }
 
-function DepartmentBlock({ department, onOpenProject }: { department: Department; onOpenProject: (id: string) => void }) {
-  const editors = department.member_ids
-    .map(id => mockEditors.find(e => e.editor_id === id))
-    .filter((e): e is Editor => Boolean(e))
+function DepartmentBlock({ department, projects, attendanceByUser, onOpenProject }: {
+  department: DepartmentDetail
+  projects: Project[]
+  attendanceByUser: Map<string, TeamAttendanceMember>
+  onOpenProject: (id: string) => void
+}) {
+  const editors = department.editors.filter(e => e.status === 'active')
 
   return (
     <section className="space-y-4">
@@ -83,18 +99,44 @@ function DepartmentBlock({ department, onOpenProject }: { department: Department
       {editors.length === 0 ? (
         <div className="card text-center py-10 text-navy/40 text-sm">Belum ada editor di departemen ini.</div>
       ) : (
-        editors.map((e, i) => <EditorHubCard key={e.editor_id} editor={e} idx={i} onOpenProject={onOpenProject} />)
+        editors.map(e => (
+          <EditorHubCard
+            key={e.editor_id}
+            editor={e}
+            attendance={attendanceByUser.get(e.user_id)}
+            projects={projects.filter(p => p.editor_id === e.editor_id)}
+            onOpenProject={onOpenProject}
+          />
+        ))
       )}
     </section>
   )
 }
 
-function EditorHubCard({ editor, idx, onOpenProject }: { editor: Editor; idx: number; onOpenProject: (id: string) => void }) {
-  const projects = mockProjects.filter(p => p.editor_id === editor.editor_id)
-  const presence = presenceFor(editor, idx)
-  const presenceTone = presence.tone === 'emerald'
-    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-    : 'text-blue-700 bg-blue-50 border-blue-200'
+// Today's presensi chip, driven by the same /attendance/team data as the
+// Presensi tab: clocked in → Hadir/Terlambat + time; otherwise Belum Presensi.
+function presenceChip(attendance: TeamAttendanceMember | undefined) {
+  const rec = attendance?.today
+  if (rec?.clock_in) {
+    const late = rec.status === 'late'
+    return {
+      label: `${late ? 'Terlambat' : 'Hadir'} · ${fmtTimeWIB(rec.clock_in)}`,
+      tone: late
+        ? 'text-amber-700 bg-amber-50 border-amber-200'
+        : 'text-emerald-700 bg-emerald-50 border-emerald-200',
+    }
+  }
+  return { label: 'Belum Presensi', tone: 'text-navy/50 bg-white border-border' }
+}
+
+function EditorHubCard({ editor, attendance, projects, onOpenProject }: {
+  editor: Editor
+  attendance: TeamAttendanceMember | undefined
+  projects: Project[]
+  onOpenProject: (id: string) => void
+}) {
+  const presence = presenceChip(attendance)
+  const kpi = editor.metrics
 
   return (
     <div className="card space-y-4">
@@ -107,15 +149,15 @@ function EditorHubCard({ editor, idx, onOpenProject }: { editor: Editor; idx: nu
             {editor.specialization.map(s => SPEC_LABELS[s] ?? s).join(' · ')}
           </p>
         </div>
-        <span className={`text-xs font-medium px-2.5 py-1 rounded-full border shrink-0 ${presenceTone}`}>
-          {presence.label}{presence.time ? ` · ${presence.time}` : ''}
+        <span className={`text-xs font-medium px-2.5 py-1 rounded-full border shrink-0 ${presence.tone}`}>
+          {presence.label}
         </span>
       </div>
 
       {/* KPI strip */}
       <div className="grid grid-cols-3 gap-2">
         <Kpi icon={Star} label="Rating" value={editor.rating.toFixed(1)} />
-        <Kpi icon={TrendingUp} label="Selesai" value={`${editor.completion_rate}%`} />
+        <Kpi icon={TrendingUp} label="KPI" value={kpi ? kpi.kpi_average.toFixed(1) : '—'} />
         <Kpi icon={Award} label="Kinerja" value={BAND_LABELS[editor.performance_band]} />
       </div>
 
