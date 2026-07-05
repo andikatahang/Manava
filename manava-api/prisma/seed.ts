@@ -115,7 +115,7 @@ async function main() {
   await prisma.warning.deleteMany()
   await prisma.leaveRequest.deleteMany()
   await prisma.attendanceRecord.deleteMany()
-  await prisma.attendanceCode.deleteMany()
+  await prisma.attendanceSession.deleteMany()
   await prisma.editorMetrics.deleteMany()
   await prisma.departmentMember.deleteMany()
   await prisma.department.deleteMany()

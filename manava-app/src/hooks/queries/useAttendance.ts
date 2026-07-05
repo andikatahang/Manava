@@ -6,7 +6,7 @@ import {
   fetchAttendance,
   fetchAttendanceToday,
   fetchReviewQueue,
-  regenerateAttendanceCode,
+  openAttendanceSession,
   rejectAttendance,
   submitExplanation,
   updateAttendanceSettings,
@@ -14,6 +14,7 @@ import {
   type AttendanceSettings,
   type ApproveInput,
   type ExplanationInput,
+  type OpenSessionInput,
 } from '../../lib/attendance'
 
 export const ATTENDANCE_KEY = ['attendance']
@@ -59,7 +60,7 @@ export function useAttendanceMutations() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ATTENDANCE_KEY })
 
   const doClockIn = useMutation({ mutationFn: (code: string) => clockIn(code), onSuccess: invalidate })
-  const doClockOut = useMutation({ mutationFn: () => clockOut(), onSuccess: invalidate })
+  const doClockOut = useMutation({ mutationFn: (code: string) => clockOut(code), onSuccess: invalidate })
   const explain = useMutation({
     mutationFn: ({ id, input }: { id: string; input: ExplanationInput }) => submitExplanation(id, input),
     onSuccess: invalidate,
@@ -76,7 +77,10 @@ export function useAttendanceMutations() {
     mutationFn: (input: AttendanceSettings) => updateAttendanceSettings(input),
     onSuccess: invalidate,
   })
-  const regenerateCode = useMutation({ mutationFn: regenerateAttendanceCode, onSuccess: invalidate })
+  const openSession = useMutation({
+    mutationFn: (input: OpenSessionInput) => openAttendanceSession(input),
+    onSuccess: invalidate,
+  })
 
-  return { clockIn: doClockIn, clockOut: doClockOut, explain, approve, reject, saveSettings, regenerateCode }
+  return { clockIn: doClockIn, clockOut: doClockOut, explain, approve, reject, saveSettings, openSession }
 }

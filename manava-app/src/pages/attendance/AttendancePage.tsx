@@ -18,13 +18,14 @@ import {
   type RequesterRole,
 } from '../../lib/leaveRequests'
 import { useLeaveRequests, useLeaveRequestMutations } from '../../hooks/queries/useLeaveRequests'
-// Attendance is DB-backed too: rotating daily code, clock-in/out, and the HR
-// review flow for forgotten clock-outs live in AttendanceTab.
+// Attendance is DB-backed too: HR-opened presensi sessions (masuk/keluar),
+// clock-in/out with the session code, and the HR review flow for forgotten
+// clock-outs live in AttendanceTab.
 import { AttendanceTab } from './AttendanceTab'
 
 const HEADER_BY_ROLE: Record<UserRole, { eyebrow: string; title: string; description: string }> = {
   superadmin:    { eyebrow: 'Operasi HR', title: 'Presensi & Cuti', description: 'Pantau siklus kehadiran dan permohonan cuti lintas departemen.' },
-  hr_admin:      { eyebrow: 'Operasi HR', title: 'Presensi & Cuti', description: 'Bagikan kode presensi harian, tinjau clock-out yang terlupa, dan setujui permohonan cuti dari Admin Manager.' },
+  hr_admin:      { eyebrow: 'Operasi HR', title: 'Presensi & Cuti', description: 'Buka presensi masuk/keluar, pantau riwayat semua pengguna, tinjau clock-out yang terlupa, dan setujui permohonan cuti dari Admin Manager.' },
   admin_manager: { eyebrow: 'Operasi tim', title: 'Presensi Tim', description: 'Catat presensi Anda, setujui cuti editor departemen Anda, dan ajukan cuti Anda sendiri ke HR Admin.' },
   editor:        { eyebrow: 'Layanan mandiri', title: 'Presensi Saya', description: 'Catat clock-in/out hari ini dan kelola permohonan cuti Anda.' },
   client:        { eyebrow: 'Operasi', title: 'Presensi', description: '' },

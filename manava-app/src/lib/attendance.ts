@@ -1,7 +1,9 @@
-// Attendance API client. Clock-in requires the rotating daily code; clock-out
-// does not. A forgotten clock-out becomes status "incomplete" + review
-// "pending" and must be decided by HR (approve → fill clock-out, reject →
-// counted absent). Originals are immutable; HR repairs land in adjusted_*.
+// Attendance API client. HR opens presensi sessions (masuk / keluar) with a
+// duration ("Buka Presensi"); users clock in/out only while a session of that
+// type is active, typing its code. A forgotten clock-out becomes status
+// "incomplete" + review "pending" and must be decided by HR (approve → fill
+// clock-out, reject → counted absent). Originals are immutable; HR repairs
+// land in adjusted_*.
 
 import { api } from './api'
 
@@ -26,25 +28,28 @@ export interface Attendance {
 }
 
 export interface AttendanceSettings {
-  clock_in_time: string // HH:MM WIB
-  clock_out_time: string
-  // Doubles as the lateness allowance: clock-in past clock_in_time is late,
-  // clock_in_time + duration is the hard cutoff (no clock-in after it).
-  code_duration_minutes: number
+  clock_in_time: string // HH:MM WIB — lateness reference (masuk lewat jam ini = terlambat)
+  clock_out_time: string // caps HR clock-out repairs
+  code_duration_minutes: number // default duration offered in the Buka Presensi popup
 }
 
-/** End of the clock-in window ("batas keterlambatan"), e.g. 08:00+15 → "08:15". */
-export function clockInDeadline(s: AttendanceSettings): string {
-  const [h, m] = s.clock_in_time.split(':').map(Number)
-  const total = (h ?? 0) * 60 + (m ?? 0) + s.code_duration_minutes
-  const clamped = Math.min(total, 23 * 60 + 59)
-  return `${String(Math.floor(clamped / 60)).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`
+export type AttendanceSessionType = 'masuk' | 'keluar'
+
+// A presensi window opened by HR. The code is delivered to Admin Managers and
+// Editors via the in-app notification; they type it back to clock in/out.
+export interface AttendanceSession {
+  id: string
+  type: AttendanceSessionType
+  code: string
+  duration_minutes: number
+  opened_at: string // ISO datetime
+  expires_at: string
 }
 
 export interface AttendanceToday {
   record: Attendance | null
   settings: AttendanceSettings
-  code: string | null // only present for HR roles
+  sessions: { masuk: AttendanceSession | null; keluar: AttendanceSession | null }
   server_date: string
   me: string // caller's user id — for scoping shared lists client-side
 }
@@ -95,8 +100,8 @@ export async function clockIn(code: string): Promise<Attendance> {
   return normalize(await api<Attendance>('/attendance/clock-in', { method: 'POST', body: { code } }))
 }
 
-export async function clockOut(): Promise<Attendance> {
-  return normalize(await api<Attendance>('/attendance/clock-out', { method: 'POST' }))
+export async function clockOut(code: string): Promise<Attendance> {
+  return normalize(await api<Attendance>('/attendance/clock-out', { method: 'POST', body: { code } }))
 }
 
 export interface ExplanationInput {
@@ -125,6 +130,12 @@ export async function updateAttendanceSettings(input: AttendanceSettings): Promi
   return api<AttendanceSettings>('/attendance/settings', { method: 'PATCH', body: input })
 }
 
-export async function regenerateAttendanceCode(): Promise<{ code: string }> {
-  return api<{ code: string }>('/attendance/code/regenerate', { method: 'POST' })
+export interface OpenSessionInput {
+  type: AttendanceSessionType
+  duration_minutes: number
+}
+
+/** HR "Buka Presensi" — opens a masuk/keluar window; replaces any open one. */
+export async function openAttendanceSession(input: OpenSessionInput): Promise<AttendanceSession> {
+  return api<AttendanceSession>('/attendance/sessions', { method: 'POST', body: input })
 }

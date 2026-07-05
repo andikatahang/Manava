@@ -1,11 +1,33 @@
-// DB-backed quick clock-in/out card. Clock-in needs the rotating daily code
-// (typed by everyone, visible only on HR's attendance page); clock-out is one
-// tap. Timestamps come from the server — this card never sends a time.
+// DB-backed quick clock-in/out card. Presensi is possible only while HR has
+// opened a session (masuk / keluar); the code arrives via the in-app
+// notification and must be typed for both directions. Timestamps come from
+// the server — this card never sends a time.
 
 import { useEffect, useState } from 'react'
 import { Clock, KeyRound, LogIn, LogOut, Sparkles, CheckCircle2 } from 'lucide-react'
 import { useAttendanceToday, useAttendanceMutations } from '../../hooks/queries/useAttendance'
-import { clockInDeadline, fmtTimeWIB } from '../../lib/attendance'
+import { fmtTimeWIB } from '../../lib/attendance'
+
+function CodeField({ code, onChange, onEnter }: {
+  code: string
+  onChange: (v: string) => void
+  onEnter: () => void
+}) {
+  return (
+    <div className="relative">
+      <KeyRound className="w-3.5 h-3.5 text-white/40 absolute left-3 top-1/2 -translate-y-1/2" />
+      <input
+        value={code}
+        onChange={e => onChange(e.target.value.toUpperCase())}
+        onKeyDown={e => { if (e.key === 'Enter') onEnter() }}
+        placeholder="Kode"
+        maxLength={6}
+        aria-label="Kode presensi"
+        className="w-28 bg-white/10 border border-white/15 rounded-full pl-9 pr-3 py-3 text-[13.5px] font-semibold tracking-[0.2em] uppercase placeholder:tracking-normal placeholder:font-normal placeholder:text-white/35 focus:outline-none focus:border-[#D0F100]/60"
+      />
+    </div>
+  )
+}
 
 function fmtElapsed(ms: number): string {
   const totalSec = Math.max(0, Math.floor(ms / 1000))
@@ -23,9 +45,11 @@ export function QuickAttendance() {
   const [now, setNow] = useState<Date>(new Date())
 
   const record = todayQuery.data?.record ?? null
-  const settings = todayQuery.data?.settings
+  const sessions = todayQuery.data?.sessions
   const isIn = !!record?.clock_in && !record?.clock_out
   const isDone = !!record?.clock_in && !!record?.clock_out
+  const masuk = sessions?.masuk ?? null
+  const keluar = sessions?.keluar ?? null
 
   useEffect(() => {
     if (!isIn) return
@@ -37,7 +61,7 @@ export function QuickAttendance() {
 
   function handleClockIn() {
     if (!code.trim()) {
-      setError('Masukkan kode presensi hari ini.')
+      setError('Masukkan kode presensi dari notifikasi.')
       return
     }
     setError(null)
@@ -48,8 +72,13 @@ export function QuickAttendance() {
   }
 
   function handleClockOut() {
+    if (!code.trim()) {
+      setError('Masukkan kode presensi dari notifikasi.')
+      return
+    }
     setError(null)
-    clockOut.mutate(undefined, {
+    clockOut.mutate(code.trim().toUpperCase(), {
+      onSuccess: () => setCode(''),
       onError: e => setError(e instanceof Error ? e.message : 'Gagal clock-out.'),
     })
   }
@@ -57,10 +86,12 @@ export function QuickAttendance() {
   const subtitle = isDone
     ? `Selesai — masuk ${fmtTimeWIB(record?.clock_in)} · pulang ${fmtTimeWIB(record?.clock_out)} WIB.`
     : isIn
-      ? `Clock-in pada ${fmtTimeWIB(record?.clock_in)} WIB${record?.status === 'late' ? ' (terlambat)' : ''} · jangan lupa clock-out sebelum ${settings?.clock_out_time ?? '17:00'}.`
-      : settings
-        ? `Masuk sebelum ${settings.clock_in_time} WIB · batas akhir clock-in ${clockInDeadline(settings)} (tercatat terlambat). Minta kode harian dari HR.`
-        : 'Catat kehadiran dengan kode presensi harian dari HR.'
+      ? keluar
+        ? `Presensi keluar dibuka — isi kode dari notifikasi sebelum ${fmtTimeWIB(keluar.expires_at)} WIB.`
+        : `Clock-in pada ${fmtTimeWIB(record?.clock_in)} WIB${record?.status === 'late' ? ' (terlambat)' : ''} · tunggu HR membuka presensi keluar.`
+      : masuk
+        ? `Presensi masuk dibuka — isi kode dari notifikasi sebelum ${fmtTimeWIB(masuk.expires_at)} WIB.`
+        : 'Presensi masuk belum dibuka HR Admin — kode akan dikirim lewat notifikasi aplikasi.'
 
   return (
     <section
@@ -111,29 +142,28 @@ export function QuickAttendance() {
               Tercatat
             </span>
           ) : isIn ? (
-            <button
-              type="button"
-              onClick={handleClockOut}
-              disabled={clockOut.isPending}
-              className="group inline-flex items-center gap-2 bg-white hover:brightness-95 text-[#021526] font-semibold px-5 py-3 rounded-full text-[13.5px] transition-all duration-150 shadow-[0_10px_30px_-10px_rgba(255,255,255,0.4)] disabled:opacity-60"
-            >
-              <LogOut className="w-4 h-4" />
-              {clockOut.isPending ? 'Menyimpan…' : 'Clock-out'}
-            </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <KeyRound className="w-3.5 h-3.5 text-white/40 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  value={code}
-                  onChange={e => setCode(e.target.value.toUpperCase())}
-                  onKeyDown={e => { if (e.key === 'Enter') handleClockIn() }}
-                  placeholder="Kode"
-                  maxLength={6}
-                  aria-label="Kode presensi hari ini"
-                  className="w-28 bg-white/10 border border-white/15 rounded-full pl-9 pr-3 py-3 text-[13.5px] font-semibold tracking-[0.2em] uppercase placeholder:tracking-normal placeholder:font-normal placeholder:text-white/35 focus:outline-none focus:border-[#D0F100]/60"
-                />
+            keluar ? (
+              <div className="flex items-center gap-2">
+                <CodeField code={code} onChange={setCode} onEnter={handleClockOut} />
+                <button
+                  type="button"
+                  onClick={handleClockOut}
+                  disabled={clockOut.isPending}
+                  className="group inline-flex items-center gap-2 bg-white hover:brightness-95 text-[#021526] font-semibold px-5 py-3 rounded-full text-[13.5px] transition-all duration-150 shadow-[0_10px_30px_-10px_rgba(255,255,255,0.4)] disabled:opacity-60"
+                >
+                  <LogOut className="w-4 h-4" />
+                  {clockOut.isPending ? 'Menyimpan…' : 'Clock-out'}
+                </button>
               </div>
+            ) : (
+              <span className="inline-flex items-center gap-2 bg-white/10 text-white/60 font-semibold px-5 py-3 rounded-full text-[13.5px]">
+                <Clock className="w-4 h-4" />
+                Menunggu presensi keluar
+              </span>
+            )
+          ) : masuk ? (
+            <div className="flex items-center gap-2">
+              <CodeField code={code} onChange={setCode} onEnter={handleClockIn} />
               <button
                 type="button"
                 onClick={handleClockIn}
@@ -144,6 +174,11 @@ export function QuickAttendance() {
                 {clockIn.isPending ? 'Memeriksa…' : 'Clock-in'}
               </button>
             </div>
+          ) : (
+            <span className="inline-flex items-center gap-2 bg-white/10 text-white/60 font-semibold px-5 py-3 rounded-full text-[13.5px]">
+              <Clock className="w-4 h-4" />
+              Presensi belum dibuka
+            </span>
           )}
         </div>
       </div>

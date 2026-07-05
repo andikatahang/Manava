@@ -5,7 +5,7 @@ import type { UserRole } from '../../types'
 import { APPROVES_REQUESTS_FROM } from '../../lib/leaveRequests'
 import { useLeaveRequests } from '../../hooks/queries/useLeaveRequests'
 import { useWarnings } from '../../hooks/queries/useWarnings'
-import { useAttendancePending, useReviewQueue } from '../../hooks/queries/useAttendance'
+import { useAttendancePending, useAttendanceToday, useReviewQueue } from '../../hooks/queries/useAttendance'
 import { fmtTimeWIB } from '../../lib/attendance'
 import { formatDate } from '../../lib/utils'
 
@@ -165,6 +165,26 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
   // single aggregated "N presensi perlu tinjauan" from the review queue.
   const isHRRole = role === 'hr_admin' || role === 'superadmin'
   const clocksIn = role === 'editor' || role === 'admin_manager'
+
+  // Presensi session codes: when HR opens presensi (masuk/keluar), Admin
+  // Managers and Editors receive the code here and type it back to clock
+  // in/out. The notification lives as long as the session is active.
+  const sessionsQuery = useAttendanceToday(clocksIn)
+  const [readSessionIds, setReadSessionIds] = useState<ReadonlySet<string>>(new Set())
+  const sessionNotifs: Notification[] = useMemo(() => {
+    const s = sessionsQuery.data?.sessions
+    if (!clocksIn || !s) return []
+    return [s.masuk, s.keluar]
+      .filter((x): x is NonNullable<typeof x> => !!x)
+      .map(x => ({
+        id: `session-${x.id}`,
+        icon: 'clock' as const,
+        title: `${x.type === 'masuk' ? 'Presensi masuk' : 'Presensi keluar'} dibuka — kode ${x.code}`,
+        body: `Isi kode ${x.code} di halaman Presensi untuk mencatat ${x.type === 'masuk' ? 'clock-in' : 'clock-out'} Anda.`,
+        time: `Berlaku s.d. ${fmtTimeWIB(x.expires_at)} WIB`,
+        read: readSessionIds.has(x.id),
+      }))
+  }, [clocksIn, sessionsQuery.data?.sessions, readSessionIds])
   const myPendingQuery = useAttendancePending(clocksIn)
   const reviewQueueQuery = useReviewQueue(isHRRole)
   const [readAttendanceIds, setReadAttendanceIds] = useState<ReadonlySet<string>>(new Set())
@@ -191,7 +211,7 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
     }]
   }, [clocksIn, isHRRole, myPendingQuery.data, reviewQueueQuery.data, readAttendanceIds])
 
-  const allNotifs = [...warningNotifs, ...attendanceNotifs, ...leaveNotifs, ...notifs]
+  const allNotifs = [...sessionNotifs, ...warningNotifs, ...attendanceNotifs, ...leaveNotifs, ...notifs]
   const unread = allNotifs.filter(n => !n.read).length
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -212,6 +232,13 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
     if (n.id.startsWith('leave-')) {
       const leaveId = n.id.slice('leave-'.length)
       setReadLeaveIds(prev => new Set(prev).add(leaveId))
+      setOpen(false)
+      navigate('/attendance')
+      return
+    }
+    if (n.id.startsWith('session-')) {
+      const sessionId = n.id.slice('session-'.length)
+      setReadSessionIds(prev => new Set(prev).add(sessionId))
       setOpen(false)
       navigate('/attendance')
       return
@@ -238,6 +265,7 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
     setReadLeaveIds(new Set(leaveNotifs.map(n => n.id.slice('leave-'.length))))
     setReadWarningIds(new Set(warningNotifs.map(n => n.id.slice('warning-'.length))))
     setReadAttendanceIds(new Set(attendanceNotifs.map(n => (n.id === 'attendance-queue' ? 'queue' : n.id.slice('attendance-'.length)))))
+    setReadSessionIds(new Set(sessionNotifs.map(n => n.id.slice('session-'.length))))
   }
 
   return (

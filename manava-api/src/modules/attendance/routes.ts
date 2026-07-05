@@ -7,19 +7,16 @@ import { asyncHandler } from '../../utils/asyncHandler.js'
 import { prisma } from '../../lib/prisma.js'
 import { ok, fail } from '../../lib/response.js'
 import {
-  CODE_OPENS_BEFORE_MINUTES,
   RECORD_INCLUDE,
-  allowClockInAttempt,
+  allowCodeAttempt,
   atTimeWIB,
   dateKeyOf,
   deriveClockInStatus,
   finalizeOverdueRecords,
-  getOrCreateTodayCode,
+  getActiveSession,
   getSettings,
-  hmOf,
-  minutesOfDay,
+  openSession,
   parseHM,
-  regenerateTodayCode,
   todayKey,
 } from './service.js'
 
@@ -32,7 +29,12 @@ const HR_ROLES: readonly string[] = ['hr_admin', 'superadmin']
 
 const HM = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Format jam HH:MM')
 
-const clockInSchema = z.object({ code: z.string().min(1, 'Kode presensi wajib diisi') })
+const codeSchema = z.object({ code: z.string().min(1, 'Kode presensi wajib diisi') })
+
+const openSessionSchema = z.object({
+  type: z.enum(['masuk', 'keluar']),
+  duration_minutes: z.number().int().min(5).max(720),
+})
 
 const explanationSchema = z.object({
   explanation: z.string().min(1, 'Penjelasan wajib diisi'),
@@ -63,7 +65,22 @@ const listQuerySchema = z.object({
   review: z.enum(['pending', 'approved', 'rejected']).optional(),
 })
 
-// ── Today bootstrap (QuickAttendance card) ──────────────────────────────────
+// ── Today bootstrap (QuickAttendance card + notifications) ──────────────────
+
+// Public shape of a session. The code is included for every authenticated
+// user: Admin Managers and Editors receive it via the in-app notification and
+// type it back to confirm presence.
+function sessionPayload(s: Awaited<ReturnType<typeof getActiveSession>>) {
+  if (!s) return null
+  return {
+    id: s.id,
+    type: s.type,
+    code: s.code,
+    duration_minutes: s.duration_minutes,
+    opened_at: s.opened_at,
+    expires_at: s.expires_at,
+  }
+}
 
 attendanceRouter.get(
   '/today',
@@ -71,14 +88,22 @@ attendanceRouter.get(
   asyncHandler(async (req, res) => {
     await finalizeOverdueRecords()
     const settings = await getSettings()
-    const record = await prisma.attendanceRecord.findUnique({
-      where: { user_id_date: { user_id: req.user!.sub, date: new Date(todayKey()) } },
-      include: RECORD_INCLUDE,
-    })
-    // The code itself is only revealed to HR — everyone else types it in.
-    const code = HR_ROLES.includes(req.user!.role) ? (await getOrCreateTodayCode()).code : null
+    const [record, masuk, keluar] = await Promise.all([
+      prisma.attendanceRecord.findUnique({
+        where: { user_id_date: { user_id: req.user!.sub, date: new Date(todayKey()) } },
+        include: RECORD_INCLUDE,
+      }),
+      getActiveSession('masuk'),
+      getActiveSession('keluar'),
+    ])
     // `me` lets the client scope shared lists (e.g. leave overlays) to itself.
-    res.json(ok({ record, settings, code, server_date: todayKey(), me: req.user!.sub }))
+    res.json(ok({
+      record,
+      settings,
+      sessions: { masuk: sessionPayload(masuk), keluar: sessionPayload(keluar) },
+      server_date: todayKey(),
+      me: req.user!.sub,
+    }))
   }),
 )
 
@@ -88,30 +113,25 @@ attendanceRouter.post(
   '/clock-in',
   authenticate,
   requireRole(...CLOCKING_ROLES),
-  validateBody(clockInSchema),
+  validateBody(codeSchema),
   asyncHandler(async (req, res) => {
     const userId = req.user!.sub
-    if (!allowClockInAttempt(userId)) {
+    if (!allowCodeAttempt(userId)) {
       return res.status(429).json(fail('Terlalu banyak percobaan. Coba lagi dalam satu menit.'))
+    }
+
+    // Clock-in is possible only while HR has a "masuk" session open.
+    const session = await getActiveSession('masuk')
+    if (!session) {
+      return res.status(422).json(fail('Presensi masuk belum dibuka oleh HR Admin.'))
+    }
+    const { code } = req.body as z.infer<typeof codeSchema>
+    if (code.trim().toUpperCase() !== session.code) {
+      return res.status(422).json(fail('Kode presensi salah.'))
     }
 
     const settings = await getSettings()
     const now = new Date()
-    const nowMin = minutesOfDay(now)
-    const openMin = parseHM(settings.clock_in_time) - CODE_OPENS_BEFORE_MINUTES
-    const closeMin = parseHM(settings.clock_in_time) + settings.code_duration_minutes
-    if (nowMin < openMin || nowMin > closeMin) {
-      return res.status(422).json(fail(
-        `Clock-in hanya bisa dilakukan pukul ${hmOf(openMin)}–${hmOf(closeMin)} WIB (setelah ${settings.clock_in_time} tercatat terlambat).`,
-      ))
-    }
-
-    const { code } = req.body as z.infer<typeof clockInSchema>
-    const todayCode = await getOrCreateTodayCode()
-    if (code.trim().toUpperCase() !== todayCode.code) {
-      return res.status(422).json(fail('Kode presensi salah.'))
-    }
-
     const date = new Date(todayKey(now))
     const existing = await prisma.attendanceRecord.findUnique({
       where: { user_id_date: { user_id: userId, date } },
@@ -131,12 +151,27 @@ attendanceRouter.post(
   }),
 )
 
-// Clock-out needs no code: faking it early only shortens your own day.
+// Clock-out mirrors clock-in: only while HR has a "keluar" session open, and
+// the session code is required.
 attendanceRouter.post(
   '/clock-out',
   authenticate,
   requireRole(...CLOCKING_ROLES),
+  validateBody(codeSchema),
   asyncHandler(async (req, res) => {
+    if (!allowCodeAttempt(req.user!.sub)) {
+      return res.status(429).json(fail('Terlalu banyak percobaan. Coba lagi dalam satu menit.'))
+    }
+
+    const session = await getActiveSession('keluar')
+    if (!session) {
+      return res.status(422).json(fail('Presensi keluar belum dibuka oleh HR Admin.'))
+    }
+    const { code } = req.body as z.infer<typeof codeSchema>
+    if (code.trim().toUpperCase() !== session.code) {
+      return res.status(422).json(fail('Kode presensi salah.'))
+    }
+
     const record = await prisma.attendanceRecord.findUnique({
       where: { user_id_date: { user_id: req.user!.sub, date: new Date(todayKey()) } },
     })
@@ -334,13 +369,17 @@ attendanceRouter.patch(
   }),
 )
 
+// "Buka Presensi": HR opens a masuk/keluar window with an explicit duration.
+// Everyone with an account can then confirm presence with the session code.
 attendanceRouter.post(
-  '/code/regenerate',
+  '/sessions',
   authenticate,
   requireRole('hr_admin', 'superadmin'),
+  validateBody(openSessionSchema),
   asyncHandler(async (req, res) => {
-    const row = await regenerateTodayCode(req.user!.sub)
-    res.json(ok(row))
+    const body = req.body as z.infer<typeof openSessionSchema>
+    const session = await openSession(body.type, body.duration_minutes, req.user!.sub)
+    res.status(201).json(ok(sessionPayload(session)))
   }),
 )
 

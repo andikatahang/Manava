@@ -348,28 +348,40 @@ model AttendanceRecord {
   @@index([review])
 }
 
-// Standing schedule configuration (single row, id "default"). Replaces the
-// old "HR sets times daily" chore — HR edits this once; the daily code
-// rotates automatically within the configured window.
-// The code duration doubles as the lateness allowance: clock-in after
-// clock_in_time is 'late', and clock_in_time + code_duration_minutes is the
-// hard cutoff (no clock-in past it). No separate grace period.
+// Standing schedule configuration (single row, id "default").
+// clock_in_time is the lateness reference (clock-in past it → 'late');
+// clock_out_time caps HR clock-out repairs; code_duration_minutes is the
+// default duration offered when HR opens a presensi session.
 model AttendanceSetting {
   id                    String   @id @default("default")
   clock_in_time         String   @default("08:00") // HH:MM WIB
   clock_out_time        String   @default("17:00") // HH:MM WIB
-  code_duration_minutes Int      @default(120) // late window; hard clock-in cutoff past clock_in_time
+  code_duration_minutes Int      @default(120) // default session duration
   updated_at            DateTime @updatedAt
 }
 
-// One attendance code per calendar day. Auto-created on first use; HR can
-// regenerate, which invalidates the old code immediately.
-model AttendanceCode {
-  date            DateTime @id @db.Date
-  code            String
-  generated_by_id String? // null = auto-generated
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
+enum AttendanceSessionType {
+  masuk
+  keluar
+}
+
+// A presensi window opened manually by HR ("Buka Presensi"): users can only
+// clock in (masuk) or clock out (keluar) while a session of that type is
+// active, and must type its code. Opening a new session of the same type
+// closes the previous one immediately.
+model AttendanceSession {
+  id               String                @id @default(cuid())
+  date             DateTime              @db.Date
+  type             AttendanceSessionType
+  code             String
+  duration_minutes Int
+  opened_by_id     String?
+  opened_at        DateTime              @default(now())
+  expires_at       DateTime
+  closed_at        DateTime?
+
+  @@index([date])
+  @@index([type, expires_at])
 }
 
 model LeaveRequest {

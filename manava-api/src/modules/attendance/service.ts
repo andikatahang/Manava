@@ -1,5 +1,6 @@
-// Attendance domain helpers: WIB time math, schedule settings, the daily
-// code, and the lazy "day close" that flags forgotten clock-outs for HR.
+// Attendance domain helpers: WIB time math, schedule settings, HR-opened
+// presensi sessions, and the lazy "day close" that flags forgotten
+// clock-outs for HR.
 
 import { randomInt } from 'node:crypto'
 import { prisma } from '../../lib/prisma.js'
@@ -7,10 +8,6 @@ import { prisma } from '../../lib/prisma.js'
 // Company clock runs on WIB. UTC+7 has no DST, so fixed-offset math is safe.
 export const TIMEZONE = 'Asia/Jakarta'
 const UTC_OFFSET = '+07:00'
-
-// The code becomes usable a bit before the official clock-in time so early
-// arrivals are not rejected.
-export const CODE_OPENS_BEFORE_MINUTES = 30
 
 const dateFmt = new Intl.DateTimeFormat('en-CA', {
   timeZone: TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit',
@@ -57,7 +54,7 @@ export async function getSettings() {
   })
 }
 
-// ── Daily code ───────────────────────────────────────────────────────────────
+// ── Presensi sessions ────────────────────────────────────────────────────────
 
 // No ambiguous characters (0/O, 1/I/L) — the code is read aloud or copied.
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
@@ -69,21 +66,35 @@ export function generateCode(): string {
   return code
 }
 
-export async function getOrCreateTodayCode(generatedById?: string) {
-  const date = new Date(todayKey())
-  const existing = await prisma.attendanceCode.findUnique({ where: { date } })
-  if (existing) return existing
-  return prisma.attendanceCode.create({
-    data: { date, code: generateCode(), generated_by_id: generatedById ?? null },
+export type SessionType = 'masuk' | 'keluar'
+
+/** The currently open session of a type, if any (not closed, not expired). */
+export async function getActiveSession(type: SessionType) {
+  return prisma.attendanceSession.findFirst({
+    where: { type, closed_at: null, expires_at: { gt: new Date() } },
+    orderBy: { opened_at: 'desc' },
   })
 }
 
-export async function regenerateTodayCode(generatedById: string) {
-  const date = new Date(todayKey())
-  return prisma.attendanceCode.upsert({
-    where: { date },
-    update: { code: generateCode(), generated_by_id: generatedById },
-    create: { date, code: generateCode(), generated_by_id: generatedById },
+// "Buka Presensi": closes any still-open session of the same type (its code
+// stops working immediately) and opens a fresh one with a new code.
+export async function openSession(type: SessionType, durationMinutes: number, openedById: string) {
+  const now = new Date()
+  return prisma.$transaction(async tx => {
+    await tx.attendanceSession.updateMany({
+      where: { type, closed_at: null, expires_at: { gt: now } },
+      data: { closed_at: now },
+    })
+    return tx.attendanceSession.create({
+      data: {
+        date: new Date(todayKey(now)),
+        type,
+        code: generateCode(),
+        duration_minutes: durationMinutes,
+        opened_by_id: openedById,
+        expires_at: new Date(now.getTime() + durationMinutes * 60_000),
+      },
+    })
   })
 }
 
@@ -104,15 +115,15 @@ export async function finalizeOverdueRecords(): Promise<void> {
   })
 }
 
-// ── Clock-in rate limit ──────────────────────────────────────────────────────
+// ── Code attempt rate limit ──────────────────────────────────────────────────
 
-// In-memory guard so the daily code cannot be brute-forced. Per-user, resets
+// In-memory guard so session codes cannot be brute-forced. Per-user, resets
 // on process restart — good enough for MVP scale.
 const RATE_WINDOW_MS = 60_000
 const RATE_MAX_ATTEMPTS = 5
 const attemptLog = new Map<string, number[]>()
 
-export function allowClockInAttempt(userId: string): boolean {
+export function allowCodeAttempt(userId: string): boolean {
   const now = Date.now()
   const recent = (attemptLog.get(userId) ?? []).filter(t => now - t < RATE_WINDOW_MS)
   if (recent.length >= RATE_MAX_ATTEMPTS) {
@@ -125,19 +136,13 @@ export function allowClockInAttempt(userId: string): boolean {
 
 // ── Status derivation ────────────────────────────────────────────────────────
 
-// No separate grace period: anything past the official clock-in time is
-// late, and the code window end is the hard cutoff (handled at clock-in).
+// The schedule's clock_in_time stays the lateness reference even though the
+// clock-in window itself is whatever session HR opened.
 export function deriveClockInStatus(
   clockIn: Date,
   settings: { clock_in_time: string },
 ): 'present' | 'late' {
   return minutesOfDay(clockIn) > parseHM(settings.clock_in_time) ? 'late' : 'present'
-}
-
-/** Minutes since midnight → "HH:MM" (for window boundaries in messages/UI). */
-export function hmOf(minutes: number): string {
-  const clamped = Math.max(0, Math.min(minutes, 23 * 60 + 59))
-  return `${String(Math.floor(clamped / 60)).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`
 }
 
 // Shared shape for every record the API returns: the owner's name/role plus
