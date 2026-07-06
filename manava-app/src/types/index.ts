@@ -33,7 +33,8 @@ export interface Editor {
   email: string
   department: string
   specialization: string[]
-  base_salary: number
+  // Confidential — the API only includes it for HR roles or the record owner.
+  base_salary?: number
   status: 'active' | 'suspended'
   onboarded_at: string
   rating: number
