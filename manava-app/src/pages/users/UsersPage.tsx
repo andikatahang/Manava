@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { Shield, UserPlus, Search, MoreHorizontal, KeyRound, CircleSlash2, CheckCircle2 } from 'lucide-react'
+import { Shield, UserPlus, Search, CircleSlash2, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { StatPillsRow } from '../../components/page/PageHeader'
-import { useUsers } from '../../hooks/queries/useUsers'
+import { Modal } from '../../components/ui/Modal'
+import { useUsers, useUserMutations, type ApiUser } from '../../hooks/queries/useUsers'
 import { isRoleDisabled } from '../../lib/roles'
+import { ApiError } from '../../lib/api'
 import type { UserRole } from '../../types'
 
 const ROLE_LABEL: Record<UserRole, string> = {
@@ -29,6 +31,9 @@ const ROLE_TONE: Record<UserRole, string> = {
 export default function UsersPage() {
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all')
+  const [confirmTarget, setConfirmTarget] = useState<ApiUser | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const { setActive } = useUserMutations()
 
   // Akun ber-role nonaktif (client/mediator/finance) disembunyikan dari
   // manajemen akun selama role tersebut dinonaktifkan — meskipun API
@@ -147,23 +152,19 @@ export default function UsersPage() {
                     )}
                   </td>
                   <td className="px-5 py-3.5 text-right">
-                    <div className="inline-flex items-center gap-1">
-                      <button
-                        type="button"
-                        className="p-1.5 rounded-full text-[#596074] hover:text-[#021526] hover:bg-[#021526]/[0.06] transition-colors"
-                        aria-label="Rotasi credential"
-                        title="Rotasi credential"
-                      >
-                        <KeyRound className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        className="p-1.5 rounded-full text-[#596074] hover:text-[#021526] hover:bg-[#021526]/[0.06] transition-colors"
-                        aria-label="More"
-                      >
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setActionError(null); setConfirmTarget(u) }}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-semibold transition-colors ${
+                        u.is_active
+                          ? 'text-[#B91C1C] bg-[#FEE2E2]/60 hover:bg-[#FEE2E2]'
+                          : 'text-[#047857] bg-[#DCFCE7]/60 hover:bg-[#DCFCE7]'
+                      }`}
+                    >
+                      {u.is_active
+                        ? <><CircleSlash2 className="w-3.5 h-3.5" /> Nonaktifkan</>
+                        : <><CheckCircle2 className="w-3.5 h-3.5" /> Aktifkan</>}
+                    </button>
                   </td>
                 </tr>
               )
@@ -181,6 +182,58 @@ export default function UsersPage() {
         SUPERADMIN hanya mengelola data akun dan role assignment. Proses bisnis (rekrutmen, payroll, sengketa, escrow)
         ditangani oleh role bisnis terkait — superadmin tidak terlibat dalam eskalasi operasional.
       </p>
+
+      {/* Confirm activate / deactivate */}
+      <Modal
+        open={!!confirmTarget}
+        onClose={() => setConfirmTarget(null)}
+        title={confirmTarget?.is_active ? 'Nonaktifkan Akun' : 'Aktifkan Akun'}
+      >
+        {confirmTarget && (
+          <div className="space-y-4">
+            {confirmTarget.is_active ? (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-red-800">
+                    {confirmTarget.full_name} tidak akan bisa login
+                  </p>
+                  <p className="text-xs text-red-700 mt-1">
+                    Semua sesi aktifnya dicabut — akses berakhir maksimal 15 menit setelah dinonaktifkan.
+                    Akun dapat diaktifkan kembali kapan saja; tidak ada data yang dihapus.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-navy/70">
+                {confirmTarget.full_name} ({ROLE_LABEL[confirmTarget.role]}) akan dapat login kembali.
+              </p>
+            )}
+            {actionError && <p className="text-xs font-medium text-red-600">{actionError}</p>}
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setConfirmTarget(null)} className="btn-secondary">Batal</button>
+              <button
+                disabled={setActive.isPending}
+                onClick={() => {
+                  setActive.mutate(
+                    { userId: confirmTarget.user_id, isActive: !confirmTarget.is_active },
+                    {
+                      onSuccess: () => setConfirmTarget(null),
+                      onError: err =>
+                        setActionError(err instanceof ApiError ? err.message : 'Gagal mengubah status akun'),
+                    },
+                  )
+                }}
+                className={`${confirmTarget.is_active ? 'btn-danger' : 'btn-primary'} disabled:opacity-40 disabled:cursor-not-allowed`}
+              >
+                {setActive.isPending
+                  ? 'Memproses…'
+                  : confirmTarget.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
