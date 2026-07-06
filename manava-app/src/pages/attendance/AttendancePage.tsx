@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
-  Calendar, CheckCircle2, XCircle, ChevronRight, Plus, ArrowRight,
+  Calendar, CheckCircle2, XCircle, ChevronRight, Plus, ArrowRight, User, Clock,
 } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
@@ -68,37 +68,64 @@ export default function AttendancePage({ role, forcedView }: { role: UserRole; e
     setToast(msg)
     setTimeout(() => setToast(null), 2500)
   }
+  const [decisionNote, setDecisionNote] = useState('')
+
   function approveLeave(id: string) {
-    approve.mutate(id, {
-      onSuccess: () => {
-        setLeaveDetail(d => (d ? { ...d, status: 'approved' } : null))
-        flash('Permohonan disetujui.')
+    approve.mutate(
+      { id, input: decisionNote.trim() ? { decision_note: decisionNote.trim() } : undefined },
+      {
+        onSuccess: () => {
+          setLeaveDetail(d => (d ? { ...d, status: 'approved' } : null))
+          setDecisionNote('')
+          flash('Permohonan disetujui.')
+        },
+        onError: e => flash(e instanceof Error ? e.message : 'Gagal menyetujui permohonan.'),
       },
-      onError: e => flash(e instanceof Error ? e.message : 'Gagal menyetujui permohonan.'),
-    })
+    )
   }
   function rejectLeave(id: string) {
-    reject.mutate(id, {
-      onSuccess: () => {
-        setLeaveDetail(d => (d ? { ...d, status: 'rejected' } : null))
-        flash('Permohonan ditolak.')
+    reject.mutate(
+      { id, input: decisionNote.trim() ? { decision_note: decisionNote.trim() } : undefined },
+      {
+        onSuccess: () => {
+          setLeaveDetail(d => (d ? { ...d, status: 'rejected' } : null))
+          setDecisionNote('')
+          flash('Permohonan ditolak.')
+        },
+        onError: e => flash(e instanceof Error ? e.message : 'Gagal menolak permohonan.'),
       },
-      onError: e => flash(e instanceof Error ? e.message : 'Gagal menolak permohonan.'),
-    })
+    )
   }
   function submitLeave() {
     if (!leaveForm.start || !leaveForm.end) return
+    if (leaveForm.reason.length > 500) {
+      flash('Alasan melebihi batas 500 karakter.')
+      return
+    }
     // Requester identity is derived server-side from the session; the request
     // is routed one level up automatically.
     submit.mutate(
-      { leave_type: leaveForm.type, start_date: leaveForm.start, end_date: leaveForm.end },
+      {
+        leave_type: leaveForm.type,
+        start_date: leaveForm.start,
+        end_date: leaveForm.end,
+        ...(leaveForm.reason.trim() ? { reason: leaveForm.reason.trim() } : {}),
+      },
       {
         onSuccess: () => {
           setLeaveModal(false)
           setLeaveForm({ type: 'cuti', start: '', end: '', reason: '' })
           flash(`Permohonan cuti terkirim ke ${ROUTES_TO_LABEL[myRequesterRole]}.`)
         },
-        onError: e => flash(e instanceof Error ? e.message : 'Gagal mengirim permohonan.'),
+        onError: e => {
+          // Handle 409 conflict for overlapping dates.
+          const msg = e instanceof Error ? e.message : 'Gagal mengirim permohonan.'
+          if (msg.toLowerCase().includes('overlap') || msg.toLowerCase().includes('conflict') || msg.includes('409')) {
+            flash('Tanggal cuti bertumpang tindih dengan permohonan yang sudah ada.')
+          } else {
+            flash(msg)
+          }
+        },
       },
     )
   }
@@ -142,23 +169,35 @@ export default function AttendancePage({ role, forcedView }: { role: UserRole; e
       {/* Leave detail drawer */}
       <Drawer
         open={!!leaveDetail}
-        onClose={() => setLeaveDetail(null)}
+        onClose={() => { setLeaveDetail(null); setDecisionNote('') }}
         title={leaveDetail?.requester_name ?? ''}
         subtitle={leaveDetail ? `${leaveDetail.leave_type === 'cuti' ? 'Cuti Tahunan' : 'Izin / Sakit'} · ${formatDate(leaveDetail.start_date)} – ${formatDate(leaveDetail.end_date)}` : ''}
         footer={leaveDetail && canActOnDetail(leaveDetail) ? (
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors"
-              onClick={() => rejectLeave(leaveDetail.leave_id)}
-            >
-              <XCircle className="w-4 h-4" /> Tolak
-            </button>
-            <button
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
-              onClick={() => approveLeave(leaveDetail.leave_id)}
-            >
-              <CheckCircle2 className="w-4 h-4" /> Setujui
-            </button>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-medium text-navy/60 mb-1 block">Catatan keputusan (opsional)</label>
+              <textarea
+                value={decisionNote}
+                onChange={e => setDecisionNote(e.target.value)}
+                rows={2}
+                className="input resize-none text-sm"
+                placeholder="Alasan menyetujui atau menolak..."
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors"
+                onClick={() => rejectLeave(leaveDetail.leave_id)}
+              >
+                <XCircle className="w-4 h-4" /> Tolak
+              </button>
+              <button
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                onClick={() => approveLeave(leaveDetail.leave_id)}
+              >
+                <CheckCircle2 className="w-4 h-4" /> Setujui
+              </button>
+            </div>
           </div>
         ) : undefined}
       >
@@ -196,11 +235,15 @@ export default function AttendancePage({ role, forcedView }: { role: UserRole; e
             <label className="label">Alasan (opsional)</label>
             <textarea
               value={leaveForm.reason}
-              onChange={e => setLeaveForm(f => ({ ...f, reason: e.target.value }))}
+              onChange={e => setLeaveForm(f => ({ ...f, reason: e.target.value.slice(0, 500) }))}
               rows={3}
+              maxLength={500}
               className="input resize-none"
               placeholder={`Cantumkan konteks untuk ${ROUTES_TO_LABEL[myRequesterRole]} Anda.`}
             />
+            <p className={`text-xs mt-1 ${leaveForm.reason.length > 450 ? 'text-amber-600' : 'text-navy/40'}`}>
+              {leaveForm.reason.length}/500 karakter
+            </p>
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <button onClick={() => setLeaveModal(false)} className="btn-secondary">Batal</button>
@@ -335,6 +378,13 @@ function LeaveDetailBody({ leave }: { leave: LeaveRequest }) {
         <Stat label="Jenis"   value={leave.leave_type === 'cuti' ? 'Cuti Tahunan' : 'Izin'} />
       </div>
 
+      {leave.reason && (
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-navy/40 mb-1.5">Alasan pengajuan</p>
+          <p className="text-sm text-navy bg-navy/5 rounded-xl px-3 py-2.5 border border-navy/10">{leave.reason}</p>
+        </div>
+      )}
+
       <div>
         <p className="text-[11px] uppercase tracking-wider text-navy/40 mb-1.5">Alur persetujuan</p>
         <div className="flex items-center gap-2 rounded-xl border border-navy/10 bg-navy/5 px-3 py-2.5 text-xs">
@@ -353,6 +403,29 @@ function LeaveDetailBody({ leave }: { leave: LeaveRequest }) {
         <p className="text-[11px] uppercase tracking-wider text-navy/40 mb-1.5">Status saat ini</p>
         <StatusBadge status={leave.status} />
       </div>
+
+      {/* Audit trail: decision info for approved/rejected requests */}
+      {leave.status !== 'pending' && leave.decided_by_name && (
+        <div className={`rounded-xl border p-4 ${leave.status === 'approved' ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}>
+          <div className="flex items-center gap-2 mb-2">
+            <User className={`w-4 h-4 ${leave.status === 'approved' ? 'text-emerald-600' : 'text-red-600'}`} />
+            <p className={`text-sm font-semibold ${leave.status === 'approved' ? 'text-emerald-900' : 'text-red-900'}`}>
+              {leave.status === 'approved' ? 'Disetujui' : 'Ditolak'} oleh {leave.decided_by_name}
+            </p>
+          </div>
+          {leave.decided_at && (
+            <p className={`text-xs flex items-center gap-1.5 ${leave.status === 'approved' ? 'text-emerald-700' : 'text-red-700'}`}>
+              <Clock className="w-3.5 h-3.5" />
+              {formatDate(leave.decided_at)}
+            </p>
+          )}
+          {leave.decision_note && (
+            <p className={`text-xs mt-2 italic ${leave.status === 'approved' ? 'text-emerald-800' : 'text-red-800'}`}>
+              "{leave.decision_note}"
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

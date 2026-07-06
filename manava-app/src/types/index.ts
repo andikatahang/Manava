@@ -155,7 +155,13 @@ export interface LeaveRequest {
   leave_type: 'cuti' | 'izin'
   start_date: string
   end_date: string
+  reason?: string // optional context from requester (max 500 chars)
   status: 'pending' | 'approved' | 'rejected'
+  // Audit trail: who decided and when (populated on approve/reject).
+  decided_by_id?: string
+  decided_by_name?: string
+  decided_at?: string
+  decision_note?: string
   created_at: string
 }
 

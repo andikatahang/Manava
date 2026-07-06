@@ -4,6 +4,7 @@ import {
   fetchLeaveRequests,
   rejectLeaveRequest,
   submitLeaveRequest,
+  type DecisionInput,
   type SubmitLeaveInput,
 } from '../../lib/leaveRequests'
 
@@ -24,11 +25,11 @@ export function useLeaveRequestMutations() {
     onSuccess: invalidate,
   })
   const approve = useMutation({
-    mutationFn: (id: string) => approveLeaveRequest(id),
+    mutationFn: (args: { id: string; input?: DecisionInput }) => approveLeaveRequest(args.id, args.input),
     onSuccess: invalidate,
   })
   const reject = useMutation({
-    mutationFn: (id: string) => rejectLeaveRequest(id),
+    mutationFn: (args: { id: string; input?: DecisionInput }) => rejectLeaveRequest(args.id, args.input),
     onSuccess: invalidate,
   })
 
