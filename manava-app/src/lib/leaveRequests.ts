@@ -31,6 +31,11 @@ export interface SubmitLeaveInput {
   leave_type: 'cuti' | 'izin'
   start_date: string // YYYY-MM-DD
   end_date: string   // YYYY-MM-DD
+  reason?: string    // optional context (max 500 chars)
+}
+
+export interface DecisionInput {
+  decision_note?: string
 }
 
 // API dates arrive as ISO datetimes; the UI works with plain YYYY-MM-DD
@@ -53,10 +58,14 @@ export async function submitLeaveRequest(input: SubmitLeaveInput): Promise<Leave
   return normalize(await api<LeaveRequest>('/leave-requests', { method: 'POST', body: input }))
 }
 
-export async function approveLeaveRequest(id: string): Promise<LeaveRequest> {
-  return normalize(await api<LeaveRequest>(`/leave-requests/${id}/approve`, { method: 'PATCH' }))
+export async function approveLeaveRequest(id: string, input?: DecisionInput): Promise<LeaveRequest> {
+  return normalize(await api<LeaveRequest>(`/leave-requests/${id}/approve`, { method: 'PATCH', body: input }))
 }
 
-export async function rejectLeaveRequest(id: string): Promise<LeaveRequest> {
-  return normalize(await api<LeaveRequest>(`/leave-requests/${id}/reject`, { method: 'PATCH' }))
+export async function rejectLeaveRequest(id: string, input?: DecisionInput): Promise<LeaveRequest> {
+  return normalize(await api<LeaveRequest>(`/leave-requests/${id}/reject`, { method: 'PATCH', body: input }))
+}
+
+export async function changePassword(input: { current_password: string; new_password: string }): Promise<void> {
+  await api<void>('/auth/password', { method: 'PATCH', body: input })
 }
