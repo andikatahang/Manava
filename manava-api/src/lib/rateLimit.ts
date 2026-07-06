@@ -6,14 +6,17 @@ import { fail } from './response.js'
 
 const MINUTE = 60 * 1000
 
-// Brute-force guard for credential endpoints: 10 attempts / 15 min / IP.
+// Brute-force guard for credential endpoints. Successful logins are NOT
+// counted — the demo flow switches accounts repeatedly and must never lock
+// out; only failed attempts (wrong password guesses) consume the budget.
 export const authLimiter = rateLimit({
-  windowMs: 15 * MINUTE,
-  limit: 10,
+  windowMs: 5 * MINUTE,
+  limit: 30,
+  skipSuccessfulRequests: true,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   handler: (_req, res) => {
-    res.status(429).json(fail('Terlalu banyak percobaan. Coba lagi dalam 15 menit.'))
+    res.status(429).json(fail('Terlalu banyak percobaan gagal. Coba lagi dalam beberapa menit.'))
   },
 })
 
