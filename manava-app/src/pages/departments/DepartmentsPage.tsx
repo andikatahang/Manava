@@ -16,6 +16,9 @@ import { IssueWarningForEditor, EditorDetailInfo, EditorAvatar } from './EditorA
 import { TeamPresensiTab } from '../attendance/TeamPresensiTab'
 import WarningPage from '../warning/WarningPage'
 import OffboardingPage from '../offboarding/OffboardingPage'
+import { useMonthlyKpi } from '../../hooks/queries/useKpi'
+import { KpiTrendChart } from '../performance/KpiTrendChart'
+import { KpiRecommendationCard } from './KpiRecommendationCard'
 
 const SPEC_LABELS: Record<string, string> = {
   product_retouch: 'Product Retouch',
@@ -61,6 +64,7 @@ function HrDepartmentDashboard() {
   const departmentsQuery = useDepartments()
   const editorsQuery = useEditors()
   const mutations = useDepartmentMutations()
+  const kpiTrendQuery = useMonthlyKpi()
   const departments = departmentsQuery.data ?? []
   const allEditors = (editorsQuery.data ?? []).filter(e => e.status === 'active')
 
@@ -122,6 +126,13 @@ function HrDepartmentDashboard() {
           Gagal memuat departemen — pastikan backend berjalan. ({(departmentsQuery.error as Error).message})
         </p>
       )}
+      {tab === 'departemen' && !managing && kpiTrendQuery.data && kpiTrendQuery.data.length > 0 && (
+        <div className="space-y-4 mb-6">
+          <KpiTrendChart points={kpiTrendQuery.data} />
+          <KpiRecommendationCard />
+        </div>
+      )}
+
       {tab === 'departemen' && !departmentsQuery.isLoading && !departmentsQuery.isError && (
         managing ? (
           <DepartmentManageView

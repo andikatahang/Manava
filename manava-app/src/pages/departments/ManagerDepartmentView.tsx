@@ -8,6 +8,9 @@ import { useDepartments, type DepartmentDetail } from '../../hooks/queries/useDe
 import { useProjects } from '../../hooks/queries/useProjects'
 import { useTeamAttendance } from '../../hooks/queries/useAttendance'
 import { fmtTimeWIB, type TeamAttendanceMember } from '../../lib/attendance'
+import { useMonthlyKpi, useEditorMonthlyKpi } from '../../hooks/queries/useKpi'
+import { KpiTrendChart } from '../performance/KpiTrendChart'
+import { EditorKpiTrendChart } from '../performance/EditorKpiTrendChart'
 import type { Editor, Project, UserRole } from '../../types'
 
 const SPEC_LABELS: Record<string, string> = {
@@ -36,6 +39,8 @@ export function ManagerDepartmentView(_props: { role: UserRole; embedded?: boole
   const departmentsQuery = useDepartments()
   const projectsQuery = useProjects()
   const teamQuery = useTeamAttendance()
+  const deptTrendQuery = useMonthlyKpi()
+  const editorTrendQuery = useEditorMonthlyKpi()
 
   const me = meQuery.data
   const departments = useMemo(
@@ -63,15 +68,31 @@ export function ManagerDepartmentView(_props: { role: UserRole; embedded?: boole
 
   return (
     <div className="space-y-6 max-w-3xl">
-      {departments.map(dep => (
-        <DepartmentBlock
-          key={dep.id}
-          department={dep}
-          projects={projectsQuery.data ?? []}
-          attendanceByUser={attendanceByUser}
-          onOpenProject={id => navigate(`/projects/${id}`)}
-        />
-      ))}
+      {departments.map(dep => {
+        const deptDeptPoints = (deptTrendQuery.data ?? []).filter(p => p.department === dep.name)
+        const deptEditorPoints = (editorTrendQuery.data ?? []).filter(p => p.department === dep.name)
+        return (
+          <div key={dep.id} className="space-y-4">
+            {deptDeptPoints.length > 0 && (
+              <KpiTrendChart points={deptDeptPoints} />
+            )}
+            {deptEditorPoints.length > 0 && (
+              <EditorKpiTrendChart
+                points={deptEditorPoints}
+                department={dep.name}
+                title={`Perkembangan Anggota — ${dep.name}`}
+                subtitle="Tren KPI setiap editor di departemen Anda selama 6 bulan terakhir."
+              />
+            )}
+            <DepartmentBlock
+              department={dep}
+              projects={projectsQuery.data ?? []}
+              attendanceByUser={attendanceByUser}
+              onOpenProject={id => navigate(`/projects/${id}`)}
+            />
+          </div>
+        )
+      })}
     </div>
   )
 }
