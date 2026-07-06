@@ -76,13 +76,15 @@ export async function getActiveSession(type: SessionType) {
   })
 }
 
-// "Buka Presensi": closes any still-open session of the same type (its code
-// stops working immediately) and opens a fresh one with a new code.
+// "Buka Presensi": only one code may be active at a time. Opening a session
+// closes EVERY still-open session of both types — otherwise a lingering
+// "masuk" code stays valid into the "keluar" window and someone who never
+// clocked in can register a clock-in at going-home time.
 export async function openSession(type: SessionType, durationMinutes: number, openedById: string) {
   const now = new Date()
   return prisma.$transaction(async tx => {
     await tx.attendanceSession.updateMany({
-      where: { type, closed_at: null, expires_at: { gt: now } },
+      where: { closed_at: null, expires_at: { gt: now } },
       data: { closed_at: now },
     })
     return tx.attendanceSession.create({

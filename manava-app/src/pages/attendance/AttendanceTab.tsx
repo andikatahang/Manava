@@ -494,7 +494,7 @@ export function OpenPresensiModal({ open, defaultDuration, onClose, onSubmit, is
             className="input"
           />
           <div className="flex gap-1.5 mt-2">
-            {[15, 30, 60, 120].map(m => (
+            {[5, 15, 30, 60].map(m => (
               <button
                 key={m}
                 type="button"
@@ -510,7 +510,8 @@ export function OpenPresensiModal({ open, defaultDuration, onClose, onSubmit, is
         <p className="text-xs text-navy/50">
           Kode dibuat otomatis dan dikirim ke semua Admin Manajer &amp; Editor melalui notifikasi aplikasi.
           Setiap pengguna wajib mengisi kode ini sebelum presensi {type === 'masuk' ? 'masuk' : 'keluar'}.
-          Membuka ulang jenis yang sama akan mengganti kode lama.
+          Hanya satu kode berlaku pada satu waktu — membuka presensi baru menutup kode yang masih aktif,
+          termasuk kode {type === 'masuk' ? 'keluar' : 'masuk'} yang belum kedaluwarsa.
         </p>
 
         <div className="flex justify-end gap-2 pt-1">
