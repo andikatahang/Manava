@@ -7,7 +7,7 @@ import type { UserRole } from '../../types'
 
 // Demo accounts seeded by manava-api (prisma/seed.ts). Selecting one
 // pre-fills the form; authentication still goes through the real backend.
-// Hanya role aktif — client, mediator, dan finance dinonaktifkan sementara.
+// Mediator & finance dihilangkan sementara — hanya role aktif di database.
 // Password TIDAK di-hardcode (temuan GitGuardian): prefill hanya aktif jika
 // VITE_DEMO_PASSWORD diset di .env lokal (nilai = SEED_PASSWORD manava-api).
 const DEMO_PASSWORD: string = import.meta.env.VITE_DEMO_PASSWORD ?? ''
@@ -16,9 +16,6 @@ const demoAccounts: { role: UserRole; email: string; label: string; desc: string
   { role: 'hr_admin',      email: 'andi.pratama@manava.id',   label: 'HR Admin',      desc: 'ATS, departemen, peringatan' },
   { role: 'admin_manager', email: 'muhammad.rizki@manava.id', label: 'Admin Manager', desc: 'Tim, KPI, persetujuan cuti' },
   { role: 'editor',        email: 'rudi.hartono@manava.id',   label: 'Editor',        desc: 'Kerjakan proyek & ESS' },
-  { role: 'client',        email: 'citra@client.com', label: 'Klien',        desc: 'Pesan & lacak layanan' },
-  { role: 'mediator',      email: 'dewi@manava.id',  label: 'Mediator',      desc: 'Selesaikan sengketa' },
-  { role: 'finance',       email: 'fani@manava.id',  label: 'Keuangan',      desc: 'Escrow & penggajian' },
 ]
 
 interface LoginPageProps { onLogin: (identifier: string, password: string) => Promise<unknown> }

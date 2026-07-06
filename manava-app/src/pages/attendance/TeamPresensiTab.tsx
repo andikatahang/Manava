@@ -66,7 +66,7 @@ export function TeamPresensiTab({ role }: { role: UserRole }) {
   }
   function decideLeave(l: LeaveRequest, decision: 'approve' | 'reject') {
     const mutation = decision === 'approve' ? approve : reject
-    mutation.mutate(l.leave_id, {
+    mutation.mutate({ id: l.leave_id }, {
       onSuccess: () => flash(decision === 'approve' ? 'Permohonan cuti disetujui.' : 'Permohonan cuti ditolak.'),
       onError: e => flash(e instanceof Error ? e.message : 'Gagal memproses permohonan.'),
     })
