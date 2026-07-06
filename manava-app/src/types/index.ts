@@ -22,7 +22,7 @@ export interface TeamMember {
 export interface Department {
   id: string
   name: string
-  manager_id: string   // TeamMember id from mockAdminManagers
+  manager_id: string   // User id of the Admin Manager who leads the department
   member_ids: string[] // editor_id references
 }
 

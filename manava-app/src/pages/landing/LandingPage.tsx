@@ -76,7 +76,6 @@ const faqs: Faq[] = [
     a: 'Lewat Layanan Mandiri, karyawan mencatat presensi, mengajukan cuti dan izin, mengunduh slip gaji, serta memantau KPI pribadinya — tanpa harus menunggu balasan email dari HR.' },
 ]
 
-const partners = ['Aperture', 'Frame & Co', 'Studio Nord', 'Pixelwright', 'Lumen Labs']
 
 export default function LandingPage() {
   return (
@@ -87,7 +86,6 @@ export default function LandingPage() {
       <Nav />
       <Hero />
       <Features />
-      <LogoCloud />
       <HowItWorks />
       <Roles />
       <Stats />
@@ -214,27 +212,6 @@ function Features() {
                 </div>
               }
             />
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-/* ── Logo cloud ── */
-function LogoCloud() {
-  return (
-    <section className="border-y border-[#EDEDED] bg-[#FAFAFA]">
-      <div className="max-w-[1140px] mx-auto px-6 py-12">
-        <p className="text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9aa3bd] mb-7">
-          Dipercaya oleh tim yang membangun studio lebih adil
-        </p>
-        <div className="flex items-center justify-center gap-x-12 gap-y-4 flex-wrap">
-          {partners.map(name => (
-            <span key={name} className="text-[17px] font-semibold text-[#021526] opacity-30 tracking-[-0.01em]"
-              style={{ fontFamily: "'Inter Display', sans-serif" }}>
-              {name}
-            </span>
           ))}
         </div>
       </div>
