@@ -11,7 +11,7 @@ import { sendEmail } from '../../lib/mailer.js'
 import { env } from '../../config/env.js'
 import {
   createEditorAccount,
-  generateAiSummary,
+  generateCandidateInsight,
   renderCredentialsEmail,
   renderInterviewEmail,
 } from './service.js'
@@ -50,6 +50,9 @@ const LIST_SELECT = {
   cv_name: true,
   cv_mime: true,
   ai_summary: true,
+  ai_source: true,
+  ai_confidence: true,
+  ai_department: true,
   status: true,
   invited_at: true,
   interview_email: true,
@@ -77,6 +80,9 @@ applicationsRouter.post(
     }
 
     const cv_mime = body.cv_data.slice(5, body.cv_data.indexOf(';'))
+    // gpt-4o-mini insight; falls back to the deterministic heuristic when
+    // OpenAI is unconfigured or errors — submission never blocks on it.
+    const insight = await generateCandidateInsight(body)
     const created = await prisma.jobApplication.create({
       data: {
         full_name: body.full_name,
@@ -90,7 +96,10 @@ applicationsRouter.post(
         cv_name: body.cv_name,
         cv_mime,
         cv_data: body.cv_data,
-        ai_summary: generateAiSummary(body),
+        ai_summary: insight.summary,
+        ai_source: insight.source,
+        ai_confidence: insight.confidence,
+        ai_department: insight.department,
       },
       select: LIST_SELECT,
     })

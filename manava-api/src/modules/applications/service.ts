@@ -2,11 +2,13 @@ import { randomBytes } from 'node:crypto'
 import type { JobApplication } from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
 import { hashPassword } from '../../lib/password.js'
+import { getOpenAi, isOpenAiConfigured, OPENAI_MODEL } from '../../lib/openai.js'
 import { HttpError } from '../../middleware/errorHandler.js'
 
-// ─── Mock AI summary ─────────────────────────────────────────────────────────
-// Deterministic template standing in for a real LLM call. Produces a short
-// 3–4 sentence profile plus the extracted key skills (the form's skill list).
+// ─── Candidate insight (OpenAI with deterministic fallback) ──────────────────
+// Primary path calls gpt-4o-mini for a summary + department recommendation
+// with a confidence score. Any failure (no key, timeout, malformed response)
+// falls back to the template heuristic so public submission never blocks.
 
 export interface SummaryInput {
   full_name: string
@@ -17,6 +19,79 @@ export interface SummaryInput {
   skills: string[]
 }
 
+export interface CandidateInsight {
+  summary: string
+  department: string
+  confidence: number | null
+  source: 'openai' | 'heuristic'
+}
+
+const VALID_DEPARTMENTS = ['Video Editing', 'Color Grading', 'Photo Retouching'] as const
+
+export async function generateCandidateInsight(input: SummaryInput): Promise<CandidateInsight> {
+  if (isOpenAiConfigured()) {
+    try {
+      return await openAiInsight(input)
+    } catch (err) {
+      console.error('[openai] candidate insight failed — falling back to heuristic:',
+        err instanceof Error ? err.message : err)
+    }
+  }
+  return {
+    summary: generateAiSummary(input),
+    department: deriveDepartment(input.skills),
+    confidence: null,
+    source: 'heuristic',
+  }
+}
+
+async function openAiInsight(input: SummaryInput): Promise<CandidateInsight> {
+  const completion = await getOpenAi().chat.completions.create({
+    model: OPENAI_MODEL,
+    response_format: { type: 'json_object' },
+    max_tokens: 400,
+    messages: [
+      {
+        role: 'system',
+        content:
+          'Anda adalah asisten HR untuk studio jasa visual (retouching foto, editing video, color grading). ' +
+          'Balas HANYA JSON dengan bentuk {"summary": string, "department": string, "confidence": number}. ' +
+          '"summary": ringkasan profil kandidat 3-4 kalimat dalam Bahasa Indonesia yang faktual berdasarkan data — tanpa mengarang pengalaman. ' +
+          `"department": tepat salah satu dari ${JSON.stringify(VALID_DEPARTMENTS)} yang paling cocok dengan skill kandidat. ` +
+          '"confidence": angka 0-1 untuk keyakinan rekomendasi departemen.',
+      },
+      {
+        role: 'user',
+        content: JSON.stringify({
+          nama: input.full_name,
+          usia: input.age,
+          pendidikan: input.education,
+          ipk: input.gpa,
+          tahun_lulus: input.graduation_year,
+          skills: input.skills,
+        }),
+      },
+    ],
+  })
+
+  const raw = completion.choices[0]?.message?.content
+  if (!raw) throw new Error('Empty completion')
+  const parsed = JSON.parse(raw) as { summary?: unknown; department?: unknown; confidence?: unknown }
+
+  const summary = typeof parsed.summary === 'string' ? parsed.summary.trim() : ''
+  const department = typeof parsed.department === 'string' ? parsed.department : ''
+  if (!summary || !(VALID_DEPARTMENTS as readonly string[]).includes(department)) {
+    throw new Error('Malformed insight payload')
+  }
+  const confidence =
+    typeof parsed.confidence === 'number' && parsed.confidence >= 0 && parsed.confidence <= 1
+      ? parsed.confidence
+      : null
+
+  return { summary, department, confidence, source: 'openai' }
+}
+
+// Deterministic template — fallback when OpenAI is unavailable.
 export function generateAiSummary(input: SummaryInput): string {
   const yearsSinceGrad = Math.max(0, new Date().getFullYear() - input.graduation_year)
   const experience =
@@ -152,7 +227,9 @@ export async function createEditorAccount(app: JobApplication): Promise<CreatedA
         user_id: created.user_id,
         full_name: app.full_name,
         email: app.email,
-        department: deriveDepartment(app.skills),
+        // Reuse the insight stored at submission (OpenAI or heuristic) so the
+        // department HR reviewed is the one the account is created with.
+        department: app.ai_department ?? deriveDepartment(app.skills),
         specialization: app.skills,
         base_salary: DEFAULT_BASE_SALARY,
         onboarded_at: new Date(),

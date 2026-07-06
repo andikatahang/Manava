@@ -160,10 +160,25 @@ export default function ApplicantDetailPage() {
         {/* Right column — AI summary + actions */}
         <div className="space-y-5">
           <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 space-y-3">
-            <p className="text-[13px] font-semibold text-emerald-800 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4" /> Ringkasan AI
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[13px] font-semibold text-emerald-800 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4" /> Ringkasan AI
+              </p>
+              {/* Provenance badge — explainability: HR sees whether this came
+                  from the LLM (with confidence) or the rule-based fallback. */}
+              <span className="px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-white border border-emerald-200 text-emerald-700 whitespace-nowrap">
+                {app.ai_source === 'openai'
+                  ? `AI — GPT-4o mini${app.ai_confidence != null ? ` · ${Math.round(app.ai_confidence * 100)}%` : ''}`
+                  : 'Heuristik (fallback)'}
+              </span>
+            </div>
             <p className="text-sm text-navy/75 leading-relaxed">{app.ai_summary}</p>
+            {app.ai_department && (
+              <p className="text-xs text-emerald-800">
+                Rekomendasi departemen: <span className="font-semibold">{app.ai_department}</span>
+                {' '}— HR dapat mengubahnya setelah akun dibuat.
+              </p>
+            )}
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700/70 mb-1.5">Keahlian Utama</p>
               <div className="flex flex-wrap gap-1.5">

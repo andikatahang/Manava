@@ -20,6 +20,9 @@ export interface JobApplication {
   cv_name: string
   cv_mime: string
   ai_summary: string
+  ai_source: 'openai' | 'heuristic'
+  ai_confidence: number | null
+  ai_department: string | null
   status: ApplicationStatus
   invited_at: string | null
   interview_email: string | null
