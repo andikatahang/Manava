@@ -56,6 +56,7 @@ services:
       APP_URL: ${APP_URL:-http://localhost:5173}
     ports:
       - "${API_PORT:-4000}:4000"
+      - "${PRISMA_STUDIO_PORT:-5555}:5555"
     depends_on:
       postgres:
         condition: service_healthy
