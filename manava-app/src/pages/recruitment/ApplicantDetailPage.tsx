@@ -7,7 +7,7 @@ import {
 import { formatDate, formatDateTime } from '../../lib/utils'
 import {
   fetchCvBlob, STATUS_LABELS,
-  type ApplicationStatus, type CreatedAccount, type InterviewDetails,
+  type ApplicationStatus, type CreatedAccount, type InterviewDetails, type MailResult,
 } from '../../lib/applications'
 import { useApplication, useApplicationMutations } from '../../hooks/queries/useApplications'
 import { ApiError } from '../../lib/api'
@@ -27,6 +27,7 @@ export default function ApplicantDetailPage() {
   const { data: app, isLoading, error } = useApplication(id)
   const { shortlist, approve, reject } = useApplicationMutations(id ?? '')
   const [account, setAccount] = useState<CreatedAccount | null>(null)
+  const [mailStatus, setMailStatus] = useState<MailResult | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [interviewOpen, setInterviewOpen] = useState(false)
 
@@ -37,7 +38,10 @@ export default function ApplicantDetailPage() {
     const onError = (err: unknown) =>
       setActionError(err instanceof ApiError ? err.message : 'Aksi gagal — coba lagi')
     if (action === 'approve') {
-      approve.mutate(undefined, { onSuccess: r => setAccount(r.account), onError })
+      approve.mutate(undefined, {
+        onSuccess: r => { setAccount(r.account); setMailStatus(r.email) },
+        onError,
+      })
     } else {
       reject.mutate(undefined, { onError })
     }
@@ -46,7 +50,7 @@ export default function ApplicantDetailPage() {
   function submitInterview(details: InterviewDetails) {
     setActionError(null)
     shortlist.mutate(details, {
-      onSuccess: () => setInterviewOpen(false),
+      onSuccess: r => { setInterviewOpen(false); setMailStatus(r.email) },
       onError: err => {
         setInterviewOpen(false)
         setActionError(err instanceof ApiError ? err.message : 'Aksi gagal — coba lagi')
@@ -81,6 +85,21 @@ export default function ApplicantDetailPage() {
         </span>
       </div>
 
+      {/* Delivery status of the last real SMTP send (shortlist / approve) */}
+      {mailStatus && (
+        mailStatus.delivered ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 px-5 py-3.5 text-[13px] text-emerald-800 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            Email berhasil terkirim ke {app.email}.
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-5 py-3.5 text-[13px] text-amber-800 flex items-center gap-2">
+            <XCircle className="w-4 h-4 shrink-0" />
+            Email TIDAK terkirim ({mailStatus.error ?? 'gagal'}) — sampaikan ke kandidat secara manual.
+          </div>
+        )
+      )}
+
       {/* Account created panel — shown once right after approval */}
       {account && (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5 space-y-3">
@@ -88,8 +107,9 @@ export default function ApplicantDetailPage() {
             <KeyRound className="w-4 h-4" /> Akun editor berhasil dibuat
           </p>
           <p className="text-[13px] text-navy/70">
-            Kredensial sementara di bawah hanya ditampilkan sekali — salin dan kirimkan ke kandidat.
-            Role default <span className="font-semibold">Editor</span>; data dapat diubah dari halaman Users.
+            Kredensial sementara juga dikirim ke email kandidat (lihat status di atas). Panel ini hanya
+            ditampilkan sekali sebagai cadangan. Role default <span className="font-semibold">Editor</span>;
+            data dapat diubah dari halaman Users.
           </p>
           <div className="grid sm:grid-cols-3 gap-2">
             <Credential label="Username" value={account.username} />
@@ -129,7 +149,7 @@ export default function ApplicantDetailPage() {
               <h2 className="text-sm font-semibold text-navy flex items-center gap-2">
                 <Send className="w-4 h-4" /> Undangan Interview Terkirim
               </h2>
-              <p className="text-xs text-navy/55">Dikirim otomatis ke {app.email} · {formatDateTime(app.invited_at)}</p>
+              <p className="text-xs text-navy/55">Email undangan untuk {app.email} · {formatDateTime(app.invited_at)}</p>
               <pre className="text-[12.5px] leading-relaxed text-navy/75 bg-primary-200 border border-border rounded-xl p-4 whitespace-pre-wrap font-sans">
                 {app.interview_email}
               </pre>
@@ -140,10 +160,25 @@ export default function ApplicantDetailPage() {
         {/* Right column — AI summary + actions */}
         <div className="space-y-5">
           <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 space-y-3">
-            <p className="text-[13px] font-semibold text-emerald-800 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4" /> Ringkasan AI
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[13px] font-semibold text-emerald-800 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4" /> Ringkasan AI
+              </p>
+              {/* Provenance badge — explainability: HR sees whether this came
+                  from the LLM (with confidence) or the rule-based fallback. */}
+              <span className="px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-white border border-emerald-200 text-emerald-700 whitespace-nowrap">
+                {app.ai_source === 'openai'
+                  ? `AI — GPT-4o mini${app.ai_confidence != null ? ` · ${Math.round(app.ai_confidence * 100)}%` : ''}`
+                  : 'Heuristik (fallback)'}
+              </span>
+            </div>
             <p className="text-sm text-navy/75 leading-relaxed">{app.ai_summary}</p>
+            {app.ai_department && (
+              <p className="text-xs text-emerald-800">
+                Rekomendasi departemen: <span className="font-semibold">{app.ai_department}</span>
+                {' '}— HR dapat mengubahnya setelah akun dibuat.
+              </p>
+            )}
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700/70 mb-1.5">Keahlian Utama</p>
               <div className="flex flex-wrap gap-1.5">

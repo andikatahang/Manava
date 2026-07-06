@@ -85,7 +85,10 @@ export default function ProfilePage() {
       ? ([
           ['Departemen', myEditor.department],
           ['Bergabung', formatDate(myEditor.onboarded_at)],
-          ['Gaji Pokok', formatCurrency(myEditor.base_salary)],
+          // API menyertakan base_salary hanya untuk pemilik record / HR.
+          ...(myEditor.base_salary !== undefined
+            ? [['Gaji Pokok', formatCurrency(myEditor.base_salary)] as [string, string]]
+            : []),
         ] as Array<[string, string]>)
       : []),
   ]

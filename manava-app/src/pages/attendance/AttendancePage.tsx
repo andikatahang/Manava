@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
-  Calendar, CheckCircle2, XCircle, AlertTriangle, ChevronRight, Plus, ArrowRight, User, Clock,
+  Calendar, CheckCircle2, XCircle, ChevronRight, Plus, ArrowRight, User, Clock,
 } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
@@ -369,8 +369,6 @@ function LeaveDetailBody({ leave }: { leave: LeaveRequest }) {
   const days = Math.round(
     (new Date(leave.end_date).getTime() - new Date(leave.start_date).getTime()) / 86400000,
   ) + 1
-  // Project conflict warning — heuristic from mock: editor 'e1' has active project p1.
-  const hasConflict = leave.requester_id === 'u2' && leave.status === 'pending'
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3">
@@ -400,18 +398,6 @@ function LeaveDetailBody({ leave }: { leave: LeaveRequest }) {
         <p className="text-[11px] uppercase tracking-wider text-navy/40 mb-1.5">Diajukan</p>
         <p className="text-sm text-navy">{formatDate(leave.created_at)}</p>
       </div>
-
-      {hasConflict && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 flex gap-3">
-          <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-          <div className="text-xs text-amber-900">
-            <p className="font-semibold mb-1">Konflik dengan proyek aktif</p>
-            <p className="text-amber-800">
-              Editor memiliki 1 proyek <span className="font-medium">IN_PROGRESS</span>. Persetujuan akan memicu pembatalan proyek + refund 80% DP (per PRD).
-            </p>
-          </div>
-        </div>
-      )}
 
       <div>
         <p className="text-[11px] uppercase tracking-wider text-navy/40 mb-1.5">Status saat ini</p>

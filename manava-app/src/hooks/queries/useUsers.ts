@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import type { UserRole } from '../../types'
 
@@ -20,4 +20,16 @@ export function useUsers(enabled = true) {
     queryFn: () => api<ApiUser[]>('/users'),
     enabled,
   })
+}
+
+// Activate / deactivate an account. Deactivation also revokes the target's
+// refresh tokens server-side, so their session ends at the next refresh.
+export function useUserMutations() {
+  const qc = useQueryClient()
+  const setActive = useMutation({
+    mutationFn: ({ userId, isActive }: { userId: string; isActive: boolean }) =>
+      api<ApiUser>(`/users/${userId}`, { method: 'PATCH', body: { is_active: isActive } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  })
+  return { setActive }
 }

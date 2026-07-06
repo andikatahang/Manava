@@ -6,11 +6,14 @@ import { validateBody } from '../../middleware/validate.js'
 import { asyncHandler } from '../../utils/asyncHandler.js'
 import { prisma } from '../../lib/prisma.js'
 import { ok, fail } from '../../lib/response.js'
+import { publicApplyLimiter } from '../../lib/rateLimit.js'
+import { sendEmail } from '../../lib/mailer.js'
+import { env } from '../../config/env.js'
 import {
   createEditorAccount,
-  generateAiSummary,
+  generateCandidateInsight,
+  renderCredentialsEmail,
   renderInterviewEmail,
-  sendEmailMock,
 } from './service.js'
 
 export const applicationsRouter = Router()
@@ -47,6 +50,9 @@ const LIST_SELECT = {
   cv_name: true,
   cv_mime: true,
   ai_summary: true,
+  ai_source: true,
+  ai_confidence: true,
+  ai_department: true,
   status: true,
   invited_at: true,
   interview_email: true,
@@ -60,6 +66,7 @@ const HR_ROLES = ['hr_admin', 'superadmin'] as const
 // ── 1. Public submission from the landing page /apply form ──────────────────
 applicationsRouter.post(
   '/',
+  publicApplyLimiter,
   validateBody(submitSchema),
   asyncHandler(async (req, res) => {
     const body = req.body as z.infer<typeof submitSchema>
@@ -73,6 +80,9 @@ applicationsRouter.post(
     }
 
     const cv_mime = body.cv_data.slice(5, body.cv_data.indexOf(';'))
+    // gpt-4o-mini insight; falls back to the deterministic heuristic when
+    // OpenAI is unconfigured or errors — submission never blocks on it.
+    const insight = await generateCandidateInsight(body)
     const created = await prisma.jobApplication.create({
       data: {
         full_name: body.full_name,
@@ -86,7 +96,10 @@ applicationsRouter.post(
         cv_name: body.cv_name,
         cv_mime,
         cv_data: body.cv_data,
-        ai_summary: generateAiSummary(body),
+        ai_summary: insight.summary,
+        ai_source: insight.source,
+        ai_confidence: insight.confidence,
+        ai_department: insight.department,
       },
       select: LIST_SELECT,
     })
@@ -170,15 +183,17 @@ applicationsRouter.patch(
       return res.status(409).json(fail('Hanya pelamar berstatus Baru yang dapat di-shortlist'))
     }
 
+    // Delivery failure must not block the pipeline: the transition still
+    // happens and HR sees the delivery status to follow up manually.
     const emailBody = renderInterviewEmail(app, body)
-    sendEmailMock(app.email, 'Undangan Interview — Editor Manava', emailBody)
+    const mail = await sendEmail(app.email, 'Undangan Interview — Editor Manava', emailBody)
 
     const updated = await prisma.jobApplication.update({
       where: { application_id: app.application_id },
       data: { status: 'interview', invited_at: new Date(), interview_email: emailBody },
       select: LIST_SELECT,
     })
-    return res.json(ok(updated))
+    return res.json(ok({ application: updated, email: mail }))
   }),
 )
 
@@ -195,11 +210,18 @@ applicationsRouter.patch(
     }
 
     const account = await createEditorAccount(app)
+    // Deliver the temporary password to the new editor — previously it was
+    // only shown once on the HR screen with no channel to the employee.
+    const mail = await sendEmail(
+      app.email,
+      'Selamat Bergabung di Manava — Akun Editor Anda',
+      renderCredentialsEmail(app.full_name, account, env.APP_URL),
+    )
     const updated = await prisma.jobApplication.findUnique({
       where: { application_id: app.application_id },
       select: LIST_SELECT,
     })
-    return res.json(ok({ application: updated, account }))
+    return res.json(ok({ application: updated, account, email: mail }))
   }),
 )
 

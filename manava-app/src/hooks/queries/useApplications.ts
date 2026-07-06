@@ -10,8 +10,8 @@ import {
 
 const KEY = ['applications']
 
-export function useApplications() {
-  return useQuery({ queryKey: KEY, queryFn: fetchApplications })
+export function useApplications(enabled = true) {
+  return useQuery({ queryKey: KEY, queryFn: fetchApplications, enabled })
 }
 
 export function useApplication(id: string | undefined) {

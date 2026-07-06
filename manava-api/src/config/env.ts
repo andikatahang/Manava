@@ -11,6 +11,18 @@ const envSchema = z.object({
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(10),
+
+  // ── Optional integrations — the API boots without them ─────────────────────
+  // SMTP: when unset, emails are logged to stdout and flagged email_sent:false.
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  MAIL_FROM: z.string().optional(), // e.g. "Manava HR <hr@manava.id>"
+  // OpenAI: when unset, candidate insight falls back to the deterministic heuristic.
+  OPENAI_API_KEY: z.string().optional(),
+  // Login URL embedded in the credentials email for newly approved editors.
+  APP_URL: z.string().default('http://localhost:5173'),
 })
 
 const parsed = envSchema.safeParse(process.env)

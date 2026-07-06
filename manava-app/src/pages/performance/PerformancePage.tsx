@@ -10,8 +10,9 @@ import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer, Tooltip,
 } from 'recharts'
 import { useMe } from '../../hooks/queries/useMe'
-import { useEditors } from '../../hooks/queries/useEditors'
+import { useEditors, useEditorMutations } from '../../hooks/queries/useEditors'
 import { useDepartments } from '../../hooks/queries/useDepartments'
+import { ApiError } from '../../lib/api'
 import type { EditorMetrics, UserRole } from '../../types'
 
 type Tone = 'navy' | 'emerald' | 'amber' | 'red'
@@ -259,6 +260,7 @@ export default function PerformancePage({ role }: { role: UserRole; embedded?: b
   const [draftRating, setDraftRating] = useState(3)
   const [ratingNote, setRatingNote] = useState('')
   const [toast, setToast] = useState<string | null>(null)
+  const { setManagerRating } = useEditorMutations()
 
   const flash = (msg: string) => {
     setToast(msg)
@@ -278,10 +280,24 @@ export default function PerformancePage({ role }: { role: UserRole; embedded?: b
     setRatingNote('')
   }
 
+  // Persists via PATCH /editors/:id/metrics — success feedback only after the
+  // server confirms; the drawer refreshes with the recomputed KPI + band.
   const handleSubmitRating = () => {
     if (!selected) return
-    setRatingModal(false)
-    flash(`Manager Assessment untuk ${selected.editor_name} dikirim (${draftRating.toFixed(1)}/5).`)
+    setManagerRating.mutate(
+      { editorId: selected.editor_id, rating: draftRating },
+      {
+        onSuccess: metrics => {
+          setSelected(metrics)
+          setRatingModal(false)
+          flash(`Manager Assessment ${metrics.editor_name} tersimpan — KPI ${metrics.kpi_average.toFixed(2)}/5.`)
+        },
+        onError: err => {
+          setRatingModal(false)
+          flash(err instanceof ApiError ? err.message : 'Gagal menyimpan rating — coba lagi')
+        },
+      },
+    )
   }
 
   // Editor view — focused single-subject layout, no list/drawer
@@ -435,7 +451,13 @@ export default function PerformancePage({ role }: { role: UserRole; embedded?: b
 
             <div className="flex justify-end gap-2">
               <button onClick={() => setRatingModal(false)} className="btn-secondary">Batal</button>
-              <button onClick={handleSubmitRating} className="btn-primary">Kirim Rating</button>
+              <button
+                onClick={handleSubmitRating}
+                disabled={setManagerRating.isPending}
+                className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {setManagerRating.isPending ? 'Menyimpan…' : 'Kirim Rating'}
+              </button>
             </div>
           </div>
         </Modal>
