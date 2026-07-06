@@ -23,6 +23,6 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
 COPY package.json ./
-EXPOSE 4000
-# Run migrations then start the server.
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+EXPOSE 4000 5555
+# Run migrations, start Prisma Studio in background, then start the server.
+CMD ["sh", "-c", "npx prisma migrate deploy && (npx prisma studio --hostname 0.0.0.0 --port 5555 --browser none &) && node dist/index.js"]
