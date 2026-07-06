@@ -12,6 +12,8 @@ import {
 import { useMe } from '../../hooks/queries/useMe'
 import { useEditors, useEditorMutations } from '../../hooks/queries/useEditors'
 import { useDepartments } from '../../hooks/queries/useDepartments'
+import { useMonthlyKpi } from '../../hooks/queries/useKpi'
+import { KpiTrendChart } from './KpiTrendChart'
 import { ApiError } from '../../lib/api'
 import type { EditorMetrics, UserRole } from '../../types'
 
@@ -236,6 +238,7 @@ export default function PerformancePage({ role }: { role: UserRole; embedded?: b
   const meQuery = useMe()
   const editorsQuery = useEditors()
   const departmentsQuery = useDepartments()
+  const kpiTrendQuery = useMonthlyKpi()
   const scopedEditors = useMemo(() => {
     const editors = editorsQuery.data ?? []
     if (role !== 'admin_manager') return editors
@@ -343,6 +346,11 @@ export default function PerformancePage({ role }: { role: UserRole; embedded?: b
           title="Tidak ada editor di band Perlu Peningkatan"
           hint="Tim Anda berada di band Baik atau Sangat Baik kuartal ini."
         />
+      )}
+
+      {/* Tren KPI bulanan per departemen */}
+      {kpiTrendQuery.data && kpiTrendQuery.data.length > 0 && (
+        <KpiTrendChart points={kpiTrendQuery.data} />
       )}
 
       {/* Stat strip */}

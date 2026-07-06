@@ -195,6 +195,16 @@ export interface Review {
   created_at: string
 }
 
+export interface MonthlyKpiPoint {
+  department: string
+  period: string // "YYYY-MM"
+  avg_client_rating: number
+  completion_rate: number
+  manager_rating: number
+  kpi_average: number
+  editor_count: number
+}
+
 export interface EditorMetrics {
   editor_id: string
   editor_name: string
