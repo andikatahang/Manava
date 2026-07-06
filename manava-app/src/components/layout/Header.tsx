@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Bell, MessageSquare, CheckCheck, AlertTriangle, FileText, CreditCard, User, Clock, PackageCheck, X, Menu } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Bell, CheckCheck, AlertTriangle, FileText, CreditCard, User, Clock, PackageCheck, X, Menu } from 'lucide-react'
 import type { UserRole } from '../../types'
 import { APPROVES_REQUESTS_FROM } from '../../lib/leaveRequests'
 import { useLeaveRequests } from '../../hooks/queries/useLeaveRequests'
 import { useWarnings } from '../../hooks/queries/useWarnings'
+import { useApplications } from '../../hooks/queries/useApplications'
 import { useAttendancePending, useAttendanceToday, useReviewQueue } from '../../hooks/queries/useAttendance'
 import { fmtTimeWIB } from '../../lib/attendance'
 import { formatDate } from '../../lib/utils'
@@ -71,49 +72,6 @@ const ICON_COLORS: Record<NotifIcon, string> = {
   package: 'bg-navy-50 text-navy',
 }
 
-const NOTIFS_BY_ROLE: Record<UserRole, Notification[]> = {
-  superadmin: [
-    { id: 'n1', icon: 'alert', title: 'Sengketa dieskalasi', body: 'Sengketa Proyek #PRJ-005 melewati SLA — sisa 2 jam', time: '5 mnt lalu', read: false },
-    { id: 'n2', icon: 'user', title: '3 pelamar baru', body: 'Posisi Senior Photo Retoucher menerima 3 lamaran hari ini', time: '1 jam lalu', read: false },
-    { id: 'n3', icon: 'payment', title: 'Pencairan escrow tertunda', body: 'IDR 12.500.000 siap dicairkan — proyek #PRJ-002 selesai', time: '2 jam lalu', read: false },
-    { id: 'n4', icon: 'contract', title: 'Kontrak ditandatangani', body: 'Klien Artisan Studio menandatangani Brief #BRF-009', time: '4 jam lalu', read: true },
-  ],
-  hr_admin: [
-    { id: 'n1', icon: 'user', title: '5 pelamar baru', body: 'Posisi Video Editor — E-commerce menerima 5 lamaran hari ini', time: '20 mnt lalu', read: false },
-    { id: 'n2', icon: 'clock', title: 'Cutoff absensi hari ini', body: 'Kunci rekap kehadiran Juni — 18:00 WIB', time: '2 jam lalu', read: false },
-    { id: 'n3', icon: 'payment', title: 'Batch payslip siap publish', body: '12 payslip menunggu konfirmasi Anda sebelum disbursement Keuangan', time: '4 jam lalu', read: true },
-    { id: 'n4', icon: 'user', title: 'Offer accepted', body: 'Maya Putri menerima offer — DSS menunggu konfirmasi departemen', time: '1 hr lalu', read: true },
-  ],
-  admin_manager: [
-    { id: 'n1', icon: 'user', title: '3 pelamar baru', body: 'Posisi Senior Photo Retoucher menerima 3 lamaran hari ini', time: '1 jam lalu', read: false },
-    { id: 'n3', icon: 'alert', title: 'Peringatan KPI', body: 'Tingkat penyelesaian Budi Santoso turun ke 72% bulan ini', time: '5 jam lalu', read: true },
-    { id: 'n4', icon: 'user', title: 'Pengakhiran kerja dimulai', body: 'Checklist pengakhiran kerja Diana Permata menunggu persetujuan Anda', time: '1 hr lalu', read: true },
-  ],
-  editor: [
-    { id: 'n1', icon: 'contract', title: 'Permintaan revisi baru', body: 'Klien meminta revisi major pada Campaign Pack #PRJ-003', time: '15 mnt lalu', read: false },
-    { id: 'n2', icon: 'package', title: 'Umpan balik hasil kerja', body: 'Kiriman v3 Anda mendapat rating klien 4.8 ★', time: '2 jam lalu', read: false },
-    { id: 'n3', icon: 'clock', title: 'Slip gaji siap', body: 'Slip gaji Juni 2026 Anda siap diunduh', time: '1 hr lalu', read: true },
-    { id: 'n4', icon: 'contract', title: 'Brief ditugaskan', body: 'Brief proyek baru #BRF-012 ditugaskan — tenggat 10 Jul', time: '2 hr lalu', read: true },
-  ],
-  client: [
-    { id: 'n1', icon: 'package', title: 'Hasil kerja siap', body: 'v3 untuk Campaign Pack siap ditinjau', time: '30 mnt lalu', read: false },
-    { id: 'n2', icon: 'payment', title: 'Perlu top-up escrow', body: 'Revisi major disetujui — perlu top-up IDR 350.000', time: '3 jam lalu', read: false },
-    { id: 'n3', icon: 'contract', title: 'Revisi diklasifikasi', body: 'Permintaan revisi Anda diklasifikasi sebagai MINOR — gratis', time: '1 hr lalu', read: true },
-    { id: 'n4', icon: 'payment', title: 'Pembayaran diterima', body: 'Pembayaran DP Anda sebesar IDR 6.250.000 telah dikonfirmasi', time: '3 hr lalu', read: true },
-  ],
-  mediator: [
-    { id: 'n1', icon: 'alert', title: 'Sengketa baru ditugaskan', body: 'Sengketa #DSP-003 ditugaskan ke Anda — SLA: 48 jam', time: '1 jam lalu', read: false },
-    { id: 'n2', icon: 'alert', title: 'Peringatan SLA', body: 'Sengketa #DSP-001 — sisa SLA hanya 2 jam', time: '2 jam lalu', read: false },
-    { id: 'n3', icon: 'contract', title: 'Bukti dikirim', body: 'Klien mengunggah 3 berkas baru ke Sengketa #DSP-002', time: '4 jam lalu', read: true },
-  ],
-  finance: [
-    { id: 'n1', icon: 'payment', title: 'Pencairan escrow siap', body: 'IDR 12.500.000 siap dicairkan — proyek #PRJ-002', time: '30 mnt lalu', read: false },
-    { id: 'n2', icon: 'payment', title: 'Batch penggajian jatuh tempo', body: 'Batch penggajian Juni 2026 menunggu persetujuan — 12 editor', time: '2 jam lalu', read: false },
-    { id: 'n3', icon: 'payment', title: 'DP diterima', body: 'DP Klien Artisan Studio IDR 6.250.000 dikonfirmasi', time: '1 hr lalu', read: true },
-    { id: 'n4', icon: 'clock', title: 'Rekonsiliasi bulanan', body: 'Laporan rekonsiliasi escrow ↔ penggajian Mei 2026 siap', time: '3 hr lalu', read: true },
-  ],
-}
-
 interface HeaderProps {
   pathname: string
   role: UserRole
@@ -131,9 +89,25 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
         ? 'Home'
         : pageTitles[pathname] ?? 'Manava'
   const [open, setOpen] = useState(false)
-  const showChat = role === 'editor' || role === 'superadmin'
-  const [notifs, setNotifs] = useState<Notification[]>(() => NOTIFS_BY_ROLE[role] ?? [])
   const navigate = useNavigate()
+
+  // Real recruitment notifications for HR roles: applications with status
+  // "new" in the DB become one aggregated "N lamaran baru" entry.
+  const seesApplications = role === 'hr_admin' || role === 'superadmin'
+  const applicationsQuery = useApplications(seesApplications)
+  const [readAppNotif, setReadAppNotif] = useState(false)
+  const applicationNotifs: Notification[] = useMemo(() => {
+    const fresh = (applicationsQuery.data ?? []).filter(a => a.status === 'new')
+    if (!seesApplications || fresh.length === 0) return []
+    return [{
+      id: 'applications-new',
+      icon: 'user' as const,
+      title: `${fresh.length} lamaran baru`,
+      body: 'Lamaran menunggu tinjauan Anda di pipeline rekrutmen.',
+      time: 'Pipeline ATS',
+      read: readAppNotif,
+    }]
+  }, [seesApplications, applicationsQuery.data, readAppNotif])
 
   // Real leave-request notifications for approver roles, derived from the
   // shared query cache: every pending request this role can action becomes a
@@ -229,7 +203,7 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
     }]
   }, [clocksIn, isHRRole, myPendingQuery.data, reviewQueueQuery.data, readAttendanceIds])
 
-  const allNotifs = [...sessionNotifs, ...warningNotifs, ...attendanceNotifs, ...leaveNotifs, ...notifs]
+  const allNotifs = [...sessionNotifs, ...warningNotifs, ...attendanceNotifs, ...leaveNotifs, ...applicationNotifs]
   const unread = allNotifs.filter(n => !n.read).length
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -244,8 +218,8 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
 
-  // Leave notifications navigate to the approval queue; static ones just
-  // toggle their read flag.
+  // Every notification is DB-derived; clicking marks it read (session-local)
+  // and navigates to the page where it can be actioned.
   function handleNotifClick(n: Notification) {
     if (n.id.startsWith('leave-')) {
       const leaveId = n.id.slice('leave-'.length)
@@ -275,11 +249,15 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
       navigate('/warning')
       return
     }
-    setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))
+    if (n.id === 'applications-new') {
+      setReadAppNotif(true)
+      setOpen(false)
+      navigate('/recruitment')
+    }
   }
 
   function markAllRead() {
-    setNotifs(prev => prev.map(n => ({ ...n, read: true })))
+    setReadAppNotif(true)
     setReadLeaveIds(new Set(leaveNotifs.map(n => n.id.slice('leave-'.length))))
     setReadWarningIds(new Set(warningNotifs.map(n => n.id.slice('warning-'.length))))
     setReadAttendanceIds(new Set(attendanceNotifs.map(n => (n.id === 'attendance-queue' ? 'queue' : n.id.slice('attendance-'.length)))))
@@ -375,17 +353,6 @@ export function Header({ pathname, role, onMenuClick }: HeaderProps) {
           )}
         </div>
 
-        {/* Quick chat — to the right of the bell */}
-        {showChat && (
-          <Link
-            to="/chat"
-            className="p-2 rounded-xl hover:bg-navy-50 text-navy/50 hover:text-navy transition-colors"
-            aria-label="Buka chat"
-            title="Chat"
-          >
-            <MessageSquare className="w-5 h-5" />
-          </Link>
-        )}
       </div>
     </header>
   )

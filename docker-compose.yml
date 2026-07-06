@@ -46,6 +46,14 @@ services:
       REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-7}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
       BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-10}
+      # Integrasi opsional — kosong = email dilog + AI fallback heuristik.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      APP_URL: ${APP_URL:-http://localhost:5173}
     ports:
       - "${API_PORT:-4000}:4000"
     depends_on:

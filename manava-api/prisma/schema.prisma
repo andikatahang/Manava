@@ -647,6 +647,10 @@ model JobApplication {
   cv_mime         String
   cv_data         String            // data URL: data:<mime>;base64,<...>
   ai_summary      String
+  // Provenance of the insight: 'openai' (gpt-4o-mini) or 'heuristic' fallback.
+  ai_source       String            @default("heuristic")
+  ai_confidence   Float?            // 0-1 department-recommendation confidence (openai only)
+  ai_department   String?           // recommended department, reused at account creation
   status          ApplicationStatus @default(new)
   invited_at      DateTime?         // interview invitation email sent
   interview_email String?           // rendered email body, kept for audit/display
