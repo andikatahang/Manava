@@ -49,9 +49,22 @@ export interface CreatedAccount {
   temp_password: string
 }
 
+// Delivery status of a real SMTP send — surfaced so HR knows whether the
+// candidate actually received the email or needs manual follow-up.
+export interface MailResult {
+  delivered: boolean
+  error?: string
+}
+
+export interface ShortlistResult {
+  application: JobApplication
+  email: MailResult
+}
+
 export interface ApproveResult {
   application: JobApplication
   account: CreatedAccount
+  email: MailResult
 }
 
 export function submitApplication(input: SubmitApplicationInput): Promise<JobApplication> {
@@ -76,8 +89,8 @@ export interface InterviewDetails {
   location?: string
 }
 
-export function shortlistApplication(id: string, details: InterviewDetails): Promise<JobApplication> {
-  return api<JobApplication>(`/applications/${id}/shortlist`, { method: 'PATCH', body: details })
+export function shortlistApplication(id: string, details: InterviewDetails): Promise<ShortlistResult> {
+  return api<ShortlistResult>(`/applications/${id}/shortlist`, { method: 'PATCH', body: details })
 }
 
 export function approveApplication(id: string): Promise<ApproveResult> {

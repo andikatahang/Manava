@@ -76,11 +76,6 @@ export function renderInterviewEmail(app: JobApplication, details: InterviewDeta
   ].join('\n')
 }
 
-// Mock transport — a real integration would hand off to an email provider.
-export function sendEmailMock(to: string, subject: string, body: string): void {
-  console.log(`📧 [mock email] to=${to} subject="${subject}"\n${body}\n`)
-}
-
 // ─── Account creation on approval ────────────────────────────────────────────
 
 export interface CreatedAccount {
@@ -88,6 +83,25 @@ export interface CreatedAccount {
   username: string
   email: string
   temp_password: string
+}
+
+// Credentials email for the account auto-created on approval — this is the
+// only channel that delivers the temporary password to the new editor.
+export function renderCredentialsEmail(fullName: string, account: CreatedAccount, appUrl: string): string {
+  return [
+    `Kepada ${fullName},`,
+    '',
+    'Selamat! Anda diterima sebagai Editor di Manava. Akun Anda sudah dibuat:',
+    '',
+    `  • URL login    : ${appUrl}/login`,
+    `  • Username     : ${account.username}`,
+    `  • Password     : ${account.temp_password}`,
+    '',
+    'Segera login dan ganti password Anda melalui halaman Profil.',
+    '',
+    'Salam,',
+    'Tim HR Manava',
+  ].join('\n')
 }
 
 // Username rules match self-registration: lowercase, no spaces, only "-"/"_".
