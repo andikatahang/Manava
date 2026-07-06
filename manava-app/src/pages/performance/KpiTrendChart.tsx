@@ -98,9 +98,11 @@ export function KpiTrendChart({ points }: Props) {
             />
             <Tooltip
               contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
-              formatter={(value: number) =>
-                metric === 'completion_rate' ? `${value}%` : value.toFixed(2)
-              }
+              formatter={(value) => {
+                const n = typeof value === 'number' ? value : Number(value)
+                if (!Number.isFinite(n)) return '—'
+                return metric === 'completion_rate' ? `${n}%` : n.toFixed(2)
+              }}
             />
             <Legend
               wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
