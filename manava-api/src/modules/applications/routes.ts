@@ -6,6 +6,7 @@ import { validateBody } from '../../middleware/validate.js'
 import { asyncHandler } from '../../utils/asyncHandler.js'
 import { prisma } from '../../lib/prisma.js'
 import { ok, fail } from '../../lib/response.js'
+import { publicApplyLimiter } from '../../lib/rateLimit.js'
 import {
   createEditorAccount,
   generateAiSummary,
@@ -60,6 +61,7 @@ const HR_ROLES = ['hr_admin', 'superadmin'] as const
 // ── 1. Public submission from the landing page /apply form ──────────────────
 applicationsRouter.post(
   '/',
+  publicApplyLimiter,
   validateBody(submitSchema),
   asyncHandler(async (req, res) => {
     const body = req.body as z.infer<typeof submitSchema>

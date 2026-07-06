@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { validateBody } from '../../middleware/validate.js'
 import { authenticate } from '../../middleware/authenticate.js'
 import { asyncHandler } from '../../utils/asyncHandler.js'
+import { authLimiter } from '../../lib/rateLimit.js'
 import { ok } from '../../lib/response.js'
 import { HttpError } from '../../middleware/errorHandler.js'
 import { getUserById, login, logout, refresh, register, type AuthResult } from './service.js'
@@ -20,6 +21,7 @@ const loginSchema = z.object({
 
 authRouter.post(
   '/login',
+  authLimiter,
   validateBody(loginSchema),
   asyncHandler(async (req, res) => {
     const { identifier, password } = req.body as z.infer<typeof loginSchema>
@@ -51,6 +53,7 @@ authRouter.post(
 
 authRouter.post(
   '/refresh',
+  authLimiter,
   asyncHandler(async (req, res) => {
     const raw = (req.body as { refreshToken?: unknown })?.refreshToken
     if (typeof raw !== 'string' || !raw) throw new HttpError(401, 'Refresh token missing')
