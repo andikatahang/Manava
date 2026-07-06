@@ -34,7 +34,8 @@ export async function sendEmail(to: string, subject: string, body: string): Prom
   }
   try {
     await getTransporter().sendMail({
-      from: env.MAIL_FROM ?? env.SMTP_USER,
+      // `||` (not ??): compose passes unset vars as empty strings.
+      from: env.MAIL_FROM || env.SMTP_USER,
       to,
       subject,
       text: body,
