@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, ClipboardList, FileText, Upload, X } from 'lucide-react'
 import logoDark from '../../assets/logo-dark.png'
 import {
-  fetchVacancyCriteria, hasApplied, markApplied, submitApplication,
+  fetchVacancyCriteria, submitApplication,
   type VacancyCriterion,
 } from '../../lib/applications'
 import { ApiError } from '../../lib/api'
@@ -49,7 +49,6 @@ export default function ApplyPage() {
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
-  const [alreadyApplied, setAlreadyApplied] = useState(() => hasApplied())
 
   useEffect(() => {
     fetchVacancyCriteria().then(setCriteria).catch(() => {})
@@ -103,15 +102,11 @@ export default function ApplyPage() {
         cv_name: form.cv_file!.name,
         cv_data: form.cv_data!,
       })
-      markApplied()
       setSubmitted(true)
     } catch (err: unknown) {
-      if (err instanceof ApiError && err.status === 409) {
-        markApplied()
-        setAlreadyApplied(true)
-      } else {
-        setSubmitError(err instanceof ApiError ? err.message : 'Tidak dapat mengirim lamaran — coba lagi')
-      }
+      // 409 = email yang sama masih punya lamaran aktif — tampilkan pesannya
+      // apa adanya; guard sisi-klien sengaja dihapus untuk kebutuhan demo.
+      setSubmitError(err instanceof ApiError ? err.message : 'Tidak dapat mengirim lamaran — coba lagi')
     } finally {
       setSubmitting(false)
     }
@@ -132,8 +127,6 @@ export default function ApplyPage() {
       <main className="max-w-[760px] mx-auto px-6 py-12">
         {submitted ? (
           <SuccessView email={form.email} />
-        ) : alreadyApplied ? (
-          <AlreadyAppliedView />
         ) : (
           <>
             <div className="mb-8">
@@ -273,19 +266,3 @@ function SuccessView({ email }: { email: string }) {
   )
 }
 
-function AlreadyAppliedView() {
-  return (
-    <div className="text-center py-12">
-      <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-5">
-        <CheckCircle2 className="w-8 h-8 text-amber-600" />
-      </div>
-      <h1 className="text-2xl font-bold text-[#021526]" style={{ fontFamily: "'Inter Display', sans-serif" }}>Anda Sudah Melamar</h1>
-      <p className="text-[#596074] mt-2 max-w-md mx-auto">
-        Lamaran Anda untuk lowongan ini sudah kami terima. Anda dapat melamar kembali saat ada lowongan baru dibuka.
-      </p>
-      <Link to="/" className="inline-flex items-center gap-1.5 mt-6 text-sm font-semibold text-[#021526] hover:underline">
-        <ArrowLeft className="w-4 h-4" /> Kembali ke beranda
-      </Link>
-    </div>
-  )
-}

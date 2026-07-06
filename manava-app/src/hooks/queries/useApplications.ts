@@ -34,7 +34,7 @@ export function useApplicationMutations(id: string) {
     onSuccess: invalidate,
   })
   const approve = useMutation({
-    mutationFn: () => approveApplication(id),
+    mutationFn: (department?: string) => approveApplication(id, department),
     onSuccess: invalidate,
   })
   const reject = useMutation({

@@ -10,6 +10,7 @@ import {
   type ApplicationStatus, type CreatedAccount, type InterviewDetails, type MailResult,
 } from '../../lib/applications'
 import { useApplication, useApplicationMutations } from '../../hooks/queries/useApplications'
+import { useDepartments } from '../../hooks/queries/useDepartments'
 import { ApiError } from '../../lib/api'
 import { Modal } from '../../components/ui/Modal'
 
@@ -30,21 +31,33 @@ export default function ApplicantDetailPage() {
   const [mailStatus, setMailStatus] = useState<MailResult | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [interviewOpen, setInterviewOpen] = useState(false)
+  const [placementOpen, setPlacementOpen] = useState(false)
 
   const busy = shortlist.isPending || approve.isPending || reject.isPending
 
-  function run(action: 'approve' | 'reject') {
+  function runReject() {
     setActionError(null)
-    const onError = (err: unknown) =>
-      setActionError(err instanceof ApiError ? err.message : 'Aksi gagal — coba lagi')
-    if (action === 'approve') {
-      approve.mutate(undefined, {
-        onSuccess: r => { setAccount(r.account); setMailStatus(r.email) },
-        onError,
-      })
-    } else {
-      reject.mutate(undefined, { onError })
-    }
+    reject.mutate(undefined, {
+      onSuccess: r => setMailStatus(r.email),
+      onError: err => setActionError(err instanceof ApiError ? err.message : 'Aksi gagal — coba lagi'),
+    })
+  }
+
+  // Called from the placement popup — the account is only created after HR
+  // confirms (or overrides) the department.
+  function submitApprove(department: string) {
+    setActionError(null)
+    approve.mutate(department, {
+      onSuccess: r => {
+        setPlacementOpen(false)
+        setAccount(r.account)
+        setMailStatus(r.email)
+      },
+      onError: err => {
+        setPlacementOpen(false)
+        setActionError(err instanceof ApiError ? err.message : 'Aksi gagal — coba lagi')
+      },
+    })
   }
 
   function submitInterview(details: InterviewDetails) {
@@ -222,7 +235,7 @@ export default function ApplicantDetailPage() {
                 <button className="btn-primary w-full justify-center" disabled={busy} onClick={() => setInterviewOpen(true)}>
                   <Send className="w-4 h-4" /> {shortlist.isPending ? 'Mengirim…' : 'Shortlist & Undang Interview'}
                 </button>
-                <RejectButton busy={busy} pending={reject.isPending} onClick={() => run('reject')} />
+                <RejectButton busy={busy} pending={reject.isPending} onClick={runReject} />
               </>
             )}
 
@@ -230,15 +243,16 @@ export default function ApplicantDetailPage() {
               <>
                 <p className="text-[13px] text-navy/60">
                   Setelah interview: setujui untuk membuat akun editor otomatis dari data lamaran, atau tolak kandidat.
+                  Penempatan departemen dikonfirmasi lewat popup sebelum akun dibuat.
                 </p>
                 <button
                   className="inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors"
                   disabled={busy}
-                  onClick={() => run('approve')}
+                  onClick={() => setPlacementOpen(true)}
                 >
                   <CheckCircle2 className="w-4 h-4" /> {approve.isPending ? 'Membuat akun…' : 'Approve & Buat Akun'}
                 </button>
-                <RejectButton busy={busy} pending={reject.isPending} onClick={() => run('reject')} />
+                <RejectButton busy={busy} pending={reject.isPending} onClick={runReject} />
               </>
             )}
 
@@ -264,7 +278,80 @@ export default function ApplicantDetailPage() {
           onSubmit={submitInterview}
         />
       </Modal>
+
+      {/* Department placement pop up — confirmed before the account is created */}
+      <Modal open={placementOpen} onClose={() => setPlacementOpen(false)} title="Penempatan Departemen" size="md">
+        <PlacementForm
+          applicantName={app.full_name}
+          recommended={app.ai_department}
+          submitting={approve.isPending}
+          onSubmit={submitApprove}
+          onCancel={() => setPlacementOpen(false)}
+        />
+      </Modal>
     </PageShell>
+  )
+}
+
+// Department placement form: defaults to the AI recommendation from the CV
+// screening; HR can pick any existing department instead. Confirming creates
+// the editor account placed in the chosen department.
+function PlacementForm({
+  applicantName, recommended, submitting, onSubmit, onCancel,
+}: {
+  applicantName: string
+  recommended: string | null
+  submitting: boolean
+  onSubmit: (department: string) => void
+  onCancel: () => void
+}) {
+  const departmentsQuery = useDepartments()
+  const names = (departmentsQuery.data ?? []).map(d => d.name)
+  // The AI pick stays selectable even if no department row carries that name.
+  const options = recommended && !names.includes(recommended) ? [recommended, ...names] : names
+  const [choice, setChoice] = useState('')
+  const effectiveChoice = choice || recommended || options[0] || ''
+
+  return (
+    <div className="space-y-4">
+      <p className="text-[13px] text-navy/60 leading-relaxed">
+        Tentukan departemen untuk <span className="font-semibold text-navy">{applicantName}</span>.
+        Pilihan awal mengikuti rekomendasi analisis CV oleh AI — ubah jika Anda tidak setuju.
+      </p>
+
+      <div>
+        <label className="label">Departemen</label>
+        <select className="input" value={effectiveChoice} onChange={e => setChoice(e.target.value)}>
+          {options.map(name => (
+            <option key={name} value={name}>
+              {name}{name === recommended ? ' — rekomendasi AI' : ''}
+            </option>
+          ))}
+        </select>
+        {departmentsQuery.isLoading && (
+          <p className="text-xs text-navy/40 mt-1">Memuat daftar departemen…</p>
+        )}
+      </div>
+
+      {recommended && (
+        <p className="text-xs text-navy/50 flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+          AI merekomendasikan <span className="font-semibold">{recommended}</span> berdasarkan keahlian di CV.
+        </p>
+      )}
+
+      <div className="flex justify-end gap-2 pt-1">
+        <button className="btn-secondary" onClick={onCancel} disabled={submitting}>Batal</button>
+        <button
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60 transition-colors"
+          disabled={!effectiveChoice || submitting}
+          onClick={() => onSubmit(effectiveChoice)}
+        >
+          <CheckCircle2 className="w-4 h-4" />
+          {submitting ? 'Membuat akun…' : 'Approve & Buat Akun'}
+        </button>
+      </div>
+    </div>
   )
 }
 

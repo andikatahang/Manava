@@ -14,6 +14,7 @@ import {
   deriveDepartment,
   renderCredentialsEmail,
   renderInterviewEmail,
+  renderRejectionEmail,
 } from './service.js'
 import { CRITERIA_DESCRIPTION, screenCv } from './screening.js'
 
@@ -208,18 +209,26 @@ applicationsRouter.patch(
 )
 
 // ── 5/6. Approve: Interview → Approved + auto-create editor account ─────────
+// HR confirms the department placement in a popup first; the chosen name is
+// sent here. Without it the AI recommendation from the CV screening is used.
+const approveSchema = z.object({
+  department: z.string().trim().min(1).max(80).optional(),
+})
+
 applicationsRouter.patch(
   '/:id/approve',
   authenticate,
   requireRole(...HR_ROLES),
+  validateBody(approveSchema),
   asyncHandler(async (req, res) => {
+    const body = req.body as z.infer<typeof approveSchema>
     const app = await prisma.jobApplication.findUnique({ where: { application_id: req.params.id } })
     if (!app) return res.status(404).json(fail('Lamaran tidak ditemukan'))
     if (app.status !== 'interview') {
       return res.status(409).json(fail('Hanya pelamar tahap Interview yang dapat disetujui'))
     }
 
-    const account = await createEditorAccount(app)
+    const account = await createEditorAccount(app, body.department)
     // Deliver the temporary password to the new editor — previously it was
     // only shown once on the HR screen with no channel to the employee.
     const mail = await sendEmail(
@@ -236,6 +245,8 @@ applicationsRouter.patch(
 )
 
 // Reject — allowed from New (screening) or Interview (post-interview).
+// The candidate is notified by a templated email; delivery failure must not
+// block the decision, so the status still flips and HR sees the mail status.
 applicationsRouter.patch(
   '/:id/reject',
   authenticate,
@@ -246,11 +257,17 @@ applicationsRouter.patch(
     if (app.status !== 'new' && app.status !== 'interview') {
       return res.status(409).json(fail('Lamaran sudah diputuskan'))
     }
+
+    const mail = await sendEmail(
+      app.email,
+      'Hasil Lamaran Anda — Editor Manava',
+      renderRejectionEmail(app),
+    )
     const updated = await prisma.jobApplication.update({
       where: { application_id: app.application_id },
       data: { status: 'rejected', decided_at: new Date() },
       select: LIST_SELECT,
     })
-    return res.json(ok(updated))
+    return res.json(ok({ application: updated, email: mail }))
   }),
 )
