@@ -21,6 +21,8 @@ export interface AuthUser {
   username: string
   role: UserRole
   avatar: string | null
+  // Still on the shared default password → the client shows an update prompt.
+  password_is_default: boolean
 }
 
 export interface AuthResult {
@@ -120,6 +122,7 @@ export async function getUserById(userId: string): Promise<AuthUser> {
       role: true,
       avatar: true,
       is_active: true,
+      password_is_default: true,
     },
   })
   if (!user || !user.is_active) throw new HttpError(401, 'User not found')
@@ -134,6 +137,7 @@ interface UserRecord {
   username: string
   role: UserRole
   avatar: string | null
+  password_is_default: boolean
 }
 
 function toAuthUser(user: UserRecord): AuthUser {
@@ -144,7 +148,28 @@ function toAuthUser(user: UserRecord): AuthUser {
     username: user.username,
     role: user.role,
     avatar: user.avatar,
+    password_is_default: user.password_is_default,
   }
+}
+
+// Verify the current password, store the new hash, and clear the
+// default-password flag so the update prompt stops appearing.
+export async function changePassword(
+  userId: string,
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { user_id: userId } })
+  if (!user || !user.is_active) throw new HttpError(401, 'User not found')
+
+  const valid = await verifyPassword(currentPassword, user.password_hash)
+  if (!valid) throw new HttpError(422, 'Password saat ini salah')
+
+  const password_hash = await hashPassword(newPassword)
+  await prisma.user.update({
+    where: { user_id: userId },
+    data: { password_hash, password_is_default: false },
+  })
 }
 
 async function issueTokens(user: AuthUser): Promise<AuthResult> {

@@ -11,10 +11,11 @@ import { sendEmail } from '../../lib/mailer.js'
 import { env } from '../../config/env.js'
 import {
   createEditorAccount,
-  generateCandidateInsight,
+  deriveDepartment,
   renderCredentialsEmail,
   renderInterviewEmail,
 } from './service.js'
+import { CRITERIA_DESCRIPTION, screenCv } from './screening.js'
 
 export const applicationsRouter = Router()
 
@@ -23,15 +24,12 @@ const MAX_CV_DATA_LENGTH = 7_500_000
 const CV_DATA_URL_RE =
   /^data:(application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document);base64,[A-Za-z0-9+/]+=*$/
 
+// Applicants only type name/email/phone — the profile (age, education, GPA,
+// skills) is AI-extracted from the CV server-side at submission time.
 const submitSchema = z.object({
   full_name: z.string().trim().min(2).max(100),
   email: z.string().trim().email(),
-  age: z.number().int().min(17).max(70),
   phone: z.string().trim().min(6).max(30),
-  education: z.string().trim().min(1).max(20),
-  gpa: z.number().min(0).max(4),
-  graduation_year: z.number().int().min(1980).max(2026),
-  skills: z.array(z.string().trim().min(1)).min(1).max(8),
   cv_name: z.string().trim().min(1).max(200),
   cv_data: z.string().max(MAX_CV_DATA_LENGTH).regex(CV_DATA_URL_RE, 'CV harus PDF/DOC dalam format data URL'),
 })
@@ -53,6 +51,7 @@ const LIST_SELECT = {
   ai_source: true,
   ai_confidence: true,
   ai_department: true,
+  ai_meets_criteria: true,
   status: true,
   invited_at: true,
   interview_email: true,
@@ -62,6 +61,14 @@ const LIST_SELECT = {
 } as const
 
 const HR_ROLES = ['hr_admin', 'superadmin'] as const
+
+// ── 0. Public vacancy criteria ───────────────────────────────────────────────
+
+// Criteria shown on the /apply form — same values the screening evaluates
+// server-side at submission (the form itself shows no AI result).
+applicationsRouter.get('/criteria', (_req, res) => {
+  res.json(ok(CRITERIA_DESCRIPTION))
+})
 
 // ── 1. Public submission from the landing page /apply form ──────────────────
 applicationsRouter.post(
@@ -80,26 +87,29 @@ applicationsRouter.post(
     }
 
     const cv_mime = body.cv_data.slice(5, body.cv_data.indexOf(';'))
-    // gpt-4o-mini insight; falls back to the deterministic heuristic when
-    // OpenAI is unconfigured or errors — submission never blocks on it.
-    const insight = await generateCandidateInsight(body)
+    // Authoritative screening runs server-side at submission (the /screen call
+    // on upload is only a preview) — falls back to the heuristic on any OpenAI
+    // failure, so submission never blocks.
+    const screening = await screenCv(body.cv_data)
     const created = await prisma.jobApplication.create({
       data: {
         full_name: body.full_name,
         email: body.email,
-        age: body.age,
         phone: body.phone,
-        education: body.education,
-        gpa: body.gpa,
-        graduation_year: body.graduation_year,
-        skills: body.skills,
+        age: screening.profile.age,
+        education: screening.profile.education,
+        gpa: screening.profile.gpa,
+        graduation_year: screening.profile.graduation_year,
+        skills: screening.profile.skills,
         cv_name: body.cv_name,
         cv_mime,
         cv_data: body.cv_data,
-        ai_summary: insight.summary,
-        ai_source: insight.source,
-        ai_confidence: insight.confidence,
-        ai_department: insight.department,
+        ai_summary: screening.summary,
+        ai_source: screening.source,
+        ai_meets_criteria: screening.meets_criteria,
+        ai_department: screening.profile.skills.length
+          ? deriveDepartment(screening.profile.skills)
+          : null,
       },
       select: LIST_SELECT,
     })

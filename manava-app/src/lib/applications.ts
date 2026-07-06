@@ -7,15 +7,17 @@ import { api, apiBlob } from './api'
 
 export type ApplicationStatus = 'new' | 'interview' | 'approved' | 'rejected'
 
+// Profile fields are AI-extracted from the CV (nullable — a CV may not
+// state them); the applicant only types name/email/phone.
 export interface JobApplication {
   application_id: string
   full_name: string
   email: string
-  age: number
+  age: number | null
   phone: string
-  education: string
-  gpa: number
-  graduation_year: number
+  education: string | null
+  gpa: number | null
+  graduation_year: number | null
   skills: string[]
   cv_name: string
   cv_mime: string
@@ -23,6 +25,7 @@ export interface JobApplication {
   ai_source: 'openai' | 'heuristic'
   ai_confidence: number | null
   ai_department: string | null
+  ai_meets_criteria: boolean | null
   status: ApplicationStatus
   invited_at: string | null
   interview_email: string | null
@@ -34,14 +37,20 @@ export interface JobApplication {
 export interface SubmitApplicationInput {
   full_name: string
   email: string
-  age: number
   phone: string
-  education: string
-  gpa: number
-  graduation_year: number
-  skills: string[]
   cv_name: string
   cv_data: string // data URL (PDF/DOC, max 5MB)
+}
+
+// ── Vacancy criteria shown on the /apply form ─────────────────────────────
+
+export interface VacancyCriterion {
+  label: string
+  value: string
+}
+
+export function fetchVacancyCriteria(): Promise<VacancyCriterion[]> {
+  return api<VacancyCriterion[]>('/applications/criteria')
 }
 
 // Editor account auto-created when HR approves a candidate.
@@ -124,13 +133,6 @@ export function markApplied(): void {
     // Storage unavailable — guard simply won't persist.
   }
 }
-
-export const SKILL_OPTIONS = [
-  'Product Retouch', 'Color Correction', 'Portrait Retouch', 'BG Removal',
-  'Video Edit', 'Color Grading', 'Motion Graphics', 'VFX',
-]
-
-export const EDUCATION_OPTIONS = ['SMA/SMK', 'D3', 'D4', 'S1', 'S2', 'S3']
 
 export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   new: 'Baru', interview: 'Interview', approved: 'Diterima', rejected: 'Ditolak',

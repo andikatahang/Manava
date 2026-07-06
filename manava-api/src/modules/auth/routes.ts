@@ -6,7 +6,7 @@ import { asyncHandler } from '../../utils/asyncHandler.js'
 import { authLimiter } from '../../lib/rateLimit.js'
 import { ok } from '../../lib/response.js'
 import { HttpError } from '../../middleware/errorHandler.js'
-import { getUserById, login, logout, refresh, register, type AuthResult } from './service.js'
+import { changePassword, getUserById, login, logout, refresh, register, type AuthResult } from './service.js'
 
 export const authRouter = Router()
 
@@ -68,6 +68,24 @@ authRouter.post(
     const raw = (req.body as { refreshToken?: unknown })?.refreshToken
     await logout(typeof raw === 'string' && raw ? raw : null)
     res.json(ok({ success: true }))
+  }),
+)
+
+// Change own password (used by the Profil page and the default-password
+// prompt shown to freshly approved editors).
+const passwordSchema = z.object({
+  current_password: z.string().min(1, 'Password saat ini wajib diisi'),
+  new_password: z.string().min(8, 'Password baru minimal 8 karakter'),
+})
+
+authRouter.patch(
+  '/password',
+  authenticate,
+  validateBody(passwordSchema),
+  asyncHandler(async (req, res) => {
+    const body = req.body as z.infer<typeof passwordSchema>
+    await changePassword(req.user!.sub, body.current_password, body.new_password)
+    res.json(ok({ changed: true }))
   }),
 )
 

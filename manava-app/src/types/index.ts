@@ -8,6 +8,9 @@ export interface User {
   role: UserRole
   avatar?: string
   is_active: boolean
+  // Still on the shared default password (auto-created editor accounts) —
+  // triggers the update-password prompt after login.
+  password_is_default?: boolean
 }
 
 // Lightweight roster entry used by attendance team views (editors or managers).

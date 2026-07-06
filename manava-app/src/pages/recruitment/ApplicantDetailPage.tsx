@@ -127,14 +127,17 @@ export default function ApplicantDetailPage() {
             <div className="grid sm:grid-cols-2 gap-x-5 gap-y-3 text-sm">
               <Fact icon={<Mail className="w-4 h-4" />} label="Email" value={app.email} />
               <Fact icon={<Phone className="w-4 h-4" />} label="No. Handphone" value={app.phone} />
-              <Fact icon={<User className="w-4 h-4" />} label="Usia" value={`${app.age} tahun`} />
-              <Fact icon={<GraduationCap className="w-4 h-4" />} label="Pendidikan" value={app.education} />
-              <Fact icon={<Sparkles className="w-4 h-4" />} label="IPK" value={app.gpa.toFixed(2)} />
-              <Fact icon={<CalendarClock className="w-4 h-4" />} label="Tahun Lulus" value={String(app.graduation_year)} />
+              <Fact icon={<User className="w-4 h-4" />} label="Usia" value={app.age != null ? `${app.age} tahun` : '—'} />
+              <Fact icon={<GraduationCap className="w-4 h-4" />} label="Pendidikan" value={app.education ?? '—'} />
+              <Fact icon={<Sparkles className="w-4 h-4" />} label="IPK" value={app.gpa != null ? app.gpa.toFixed(2) : '—'} />
+              <Fact icon={<CalendarClock className="w-4 h-4" />} label="Tahun Lulus" value={app.graduation_year != null ? String(app.graduation_year) : '—'} />
             </div>
             <div>
               <p className="text-[13px] font-medium text-navy mb-2">Skill</p>
               <div className="flex flex-wrap gap-2">
+                {app.skills.length === 0 && (
+                  <span className="text-xs text-navy/45">Tidak terdeteksi dari CV</span>
+                )}
                 {app.skills.map(s => (
                   <span key={s} className="px-3 py-1 rounded-full text-xs font-medium bg-navy-50 text-navy">{s}</span>
                 ))}
@@ -172,6 +175,20 @@ export default function ApplicantDetailPage() {
                   : 'Heuristik (fallback)'}
               </span>
             </div>
+            {/* Screening verdict vs vacancy criteria (null = unreadable CV) */}
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
+              app.ai_meets_criteria === true
+                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                : app.ai_meets_criteria === false
+                  ? 'bg-red-50 text-red-700 border-red-200'
+                  : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}>
+              {app.ai_meets_criteria === true
+                ? 'Memenuhi kriteria lowongan'
+                : app.ai_meets_criteria === false
+                  ? 'Belum memenuhi kriteria'
+                  : 'Perlu tinjauan manual'}
+            </span>
             <p className="text-sm text-navy/75 leading-relaxed">{app.ai_summary}</p>
             {app.ai_department && (
               <p className="text-xs text-emerald-800">

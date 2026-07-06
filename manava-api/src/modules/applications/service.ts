@@ -1,117 +1,13 @@
-import { randomBytes } from 'node:crypto'
 import type { JobApplication } from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
 import { hashPassword } from '../../lib/password.js'
-import { getOpenAi, isOpenAiConfigured, OPENAI_MODEL } from '../../lib/openai.js'
 import { HttpError } from '../../middleware/errorHandler.js'
 
-// ─── Candidate insight (OpenAI with deterministic fallback) ──────────────────
-// Primary path calls gpt-4o-mini for a summary + department recommendation
-// with a confidence score. Any failure (no key, timeout, malformed response)
-// falls back to the template heuristic so public submission never blocks.
+// Candidate insight generation moved to ./screening.ts (July 2026): the AI now
+// extracts the profile from the CV itself and evaluates the vacancy criteria.
 
-export interface SummaryInput {
-  full_name: string
-  age: number
-  education: string
-  gpa: number
-  graduation_year: number
-  skills: string[]
-}
-
-export interface CandidateInsight {
-  summary: string
-  department: string
-  confidence: number | null
-  source: 'openai' | 'heuristic'
-}
-
-const VALID_DEPARTMENTS = ['Video Editing', 'Color Grading', 'Photo Retouching'] as const
-
-export async function generateCandidateInsight(input: SummaryInput): Promise<CandidateInsight> {
-  if (isOpenAiConfigured()) {
-    try {
-      return await openAiInsight(input)
-    } catch (err) {
-      console.error('[openai] candidate insight failed — falling back to heuristic:',
-        err instanceof Error ? err.message : err)
-    }
-  }
-  return {
-    summary: generateAiSummary(input),
-    department: deriveDepartment(input.skills),
-    confidence: null,
-    source: 'heuristic',
-  }
-}
-
-async function openAiInsight(input: SummaryInput): Promise<CandidateInsight> {
-  const completion = await getOpenAi().chat.completions.create({
-    model: OPENAI_MODEL,
-    response_format: { type: 'json_object' },
-    max_tokens: 400,
-    messages: [
-      {
-        role: 'system',
-        content:
-          'Anda adalah asisten HR untuk studio jasa visual (retouching foto, editing video, color grading). ' +
-          'Balas HANYA JSON dengan bentuk {"summary": string, "department": string, "confidence": number}. ' +
-          '"summary": ringkasan profil kandidat 3-4 kalimat dalam Bahasa Indonesia yang faktual berdasarkan data — tanpa mengarang pengalaman. ' +
-          `"department": tepat salah satu dari ${JSON.stringify(VALID_DEPARTMENTS)} yang paling cocok dengan skill kandidat. ` +
-          '"confidence": angka 0-1 untuk keyakinan rekomendasi departemen.',
-      },
-      {
-        role: 'user',
-        content: JSON.stringify({
-          nama: input.full_name,
-          usia: input.age,
-          pendidikan: input.education,
-          ipk: input.gpa,
-          tahun_lulus: input.graduation_year,
-          skills: input.skills,
-        }),
-      },
-    ],
-  })
-
-  const raw = completion.choices[0]?.message?.content
-  if (!raw) throw new Error('Empty completion')
-  const parsed = JSON.parse(raw) as { summary?: unknown; department?: unknown; confidence?: unknown }
-
-  const summary = typeof parsed.summary === 'string' ? parsed.summary.trim() : ''
-  const department = typeof parsed.department === 'string' ? parsed.department : ''
-  if (!summary || !(VALID_DEPARTMENTS as readonly string[]).includes(department)) {
-    throw new Error('Malformed insight payload')
-  }
-  const confidence =
-    typeof parsed.confidence === 'number' && parsed.confidence >= 0 && parsed.confidence <= 1
-      ? parsed.confidence
-      : null
-
-  return { summary, department, confidence, source: 'openai' }
-}
-
-// Deterministic template — fallback when OpenAI is unavailable.
-export function generateAiSummary(input: SummaryInput): string {
-  const yearsSinceGrad = Math.max(0, new Date().getFullYear() - input.graduation_year)
-  const experience =
-    yearsSinceGrad === 0
-      ? 'baru lulus (fresh graduate)'
-      : `sekitar ${yearsSinceGrad} tahun sejak kelulusan`
-  const gpaNote =
-    input.gpa >= 3.5 ? 'IPK di atas rata-rata' : input.gpa >= 3.0 ? 'IPK cukup baik' : 'IPK di bawah rata-rata'
-  const primarySkills = input.skills.slice(0, 3).join(', ')
-
-  return [
-    `${input.full_name} (${input.age} tahun) adalah lulusan ${input.education} tahun ${input.graduation_year} dengan ${gpaNote} (${input.gpa.toFixed(2)}).`,
-    `Kandidat memiliki pengalaman ${experience} dan menonjol pada keahlian ${primarySkills}.`,
-    `Profil keahliannya paling cocok untuk departemen ${deriveDepartment(input.skills)}.`,
-    `Rekomendasi: lanjutkan ke tahap interview untuk memvalidasi portofolio dan kecocokan tim.`,
-  ].join(' ')
-}
-
-// Map form skills to the closest existing department. Mirrors the frontend's
-// departmentMatch heuristic so both sides agree.
+// Map skills to the closest existing department, used both when storing the
+// screening result and as fallback at account creation.
 export function deriveDepartment(skills: string[]): string {
   const has = (...names: string[]) => names.some(n => skills.includes(n))
   if (has('Video Edit', 'Motion Graphics', 'VFX')) return 'Video Editing'
@@ -153,6 +49,10 @@ export function renderInterviewEmail(app: JobApplication, details: InterviewDeta
 
 // ─── Account creation on approval ────────────────────────────────────────────
 
+// Demo requirement: every approved editor starts with this shared password;
+// password_is_default=true makes the app nag them to change it after login.
+const DEFAULT_EDITOR_PASSWORD = 'manava123'
+
 export interface CreatedAccount {
   user_id: string
   username: string
@@ -179,13 +79,18 @@ export function renderCredentialsEmail(fullName: string, account: CreatedAccount
   ].join('\n')
 }
 
-// Username rules match self-registration: lowercase, no spaces, only "-"/"_".
-function slugifyUsername(fullName: string): string {
-  return fullName
-    .toLowerCase()
+// Username = form name lowercased and concatenated, skipping abbreviations:
+// "M. Andika Tahang" → "andikatahang". A token counts as an abbreviation when
+// it contains a "." or is a single letter (initials).
+export function slugifyUsername(fullName: string): string {
+  const words = fullName
     .trim()
-    .replace(/\s+/g, '_')
-    .replace(/[^a-z0-9_-]/g, '')
+    .split(/\s+/)
+    .filter(w => !w.includes('.') && w.replace(/[^a-zA-Z0-9]/g, '').length > 1)
+  return words
+    .join('')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
     .slice(0, 24) || 'editor'
 }
 
@@ -207,7 +112,9 @@ export async function createEditorAccount(app: JobApplication): Promise<CreatedA
   }
 
   const username = await uniqueUsername(slugifyUsername(app.full_name))
-  const temp_password = randomBytes(6).toString('base64url') // ~8 chars, URL-safe
+  // Shared default password (demo requirement) — the account is flagged so the
+  // app keeps suggesting a password update after login until they change it.
+  const temp_password = DEFAULT_EDITOR_PASSWORD
   const password_hash = await hashPassword(temp_password)
 
   const DEFAULT_BASE_SALARY = 7_000_000
@@ -219,6 +126,7 @@ export async function createEditorAccount(app: JobApplication): Promise<CreatedA
         email: app.email,
         username,
         password_hash,
+        password_is_default: true,
         role: 'editor',
       },
     })

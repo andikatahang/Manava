@@ -30,16 +30,22 @@ export function ApplicantCard({ application, statusLabel, onDetail }: ApplicantC
         <div className="card-image">
           <span className="initials">{initials}</span>
           <span className="tag" style={{ background: tone }}>{statusLabel}</span>
-          <span className="gpa">IPK {application.gpa.toFixed(2)}</span>
+          <span className="gpa">IPK {application.gpa != null ? application.gpa.toFixed(2) : '—'}</span>
         </div>
 
         {/* Details */}
         <div className="content">
           <h3 className="name">{application.full_name}</h3>
           <p className="email">{application.email}</p>
-          <p className="meta">{application.education} · Lulus {application.graduation_year}</p>
+          <p className="meta">
+            {application.education ?? 'Pendidikan tidak terdeteksi'}
+            {application.graduation_year ? ` · Lulus ${application.graduation_year}` : ''}
+          </p>
 
           <div className="skills">
+            {application.skills.length === 0 && (
+              <span className="skill more">Keahlian tidak terdeteksi</span>
+            )}
             {application.skills.slice(0, 3).map(s => (
               <span key={s} className="skill">{s}</span>
             ))}

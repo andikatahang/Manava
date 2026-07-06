@@ -216,6 +216,9 @@ model User {
   email         String   @unique
   username      String   @unique
   password_hash String
+  // True for auto-created editor accounts still on the shared default
+  // password — the app nudges them to change it after login.
+  password_is_default Boolean @default(false)
   role          UserRole
   avatar        String?
   is_active     Boolean  @default(true)
@@ -637,11 +640,13 @@ model JobApplication {
   application_id  String            @id @default(cuid())
   full_name       String
   email           String
-  age             Int
+  // Profile fields are AI-extracted from the CV (not typed by the applicant)
+  // — nullable because a CV may not state them.
+  age             Int?
   phone           String
-  education       String
-  gpa             Float
-  graduation_year Int
+  education       String?
+  gpa             Float?
+  graduation_year Int?
   skills          String[]
   cv_name         String
   cv_mime         String
@@ -651,6 +656,9 @@ model JobApplication {
   ai_source       String            @default("heuristic")
   ai_confidence   Float?            // 0-1 department-recommendation confidence (openai only)
   ai_department   String?           // recommended department, reused at account creation
+  // Screening verdict vs vacancy criteria: true/false; null = CV unreadable or
+  // data insufficient — needs manual review.
+  ai_meets_criteria Boolean?
   status          ApplicationStatus @default(new)
   invited_at      DateTime?         // interview invitation email sent
   interview_email String?           // rendered email body, kept for audit/display

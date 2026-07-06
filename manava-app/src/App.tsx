@@ -3,6 +3,7 @@ import type { UserRole } from './types'
 import { isRoleDisabled } from './lib/roles'
 import { useAuth } from './hooks/useAuth'
 import { AppLayout } from './components/layout/AppLayout'
+import { DefaultPasswordPrompt } from './components/auth/DefaultPasswordPrompt'
 import LandingPage from './pages/landing/LandingPage'
 import LoginPage from './pages/auth/LoginPage'
 import ApplyPage from './pages/apply/ApplyPage'
@@ -99,6 +100,9 @@ function AppRoutes() {
 
   return (
     <AppLayout user={user} onLogout={logout}>
+      {/* Saran ganti password untuk akun editor baru yang masih memakai
+          password default — muncul lagi tiap login sampai password diganti. */}
+      <DefaultPasswordPrompt key={user.user_id} user={user} />
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<Navigate to="/dashboard" replace />} />
