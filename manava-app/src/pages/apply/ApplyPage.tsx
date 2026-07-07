@@ -256,8 +256,13 @@ function SuccessView({ email }: { email: string }) {
       </div>
       <h1 className="text-2xl font-bold text-[#021526]" style={{ fontFamily: "'Inter Display', sans-serif" }}>Lamaran Terkirim</h1>
       <p className="text-[#596074] mt-2 max-w-md mx-auto">
-        Terima kasih sudah melamar. Tim HR akan meninjau lamaran Anda dan mengirim undangan interview ke
-        {' '}<span className="font-semibold text-[#021526]">{email}</span> jika lolos seleksi awal.
+        Terima kasih atas kesediaan Anda meluangkan waktu untuk melamar dan bergabung bersama kami.
+        Lamaran Anda telah kami terima dengan baik dan akan segera ditinjau oleh tim HR Manava.
+      </p>
+      <p className="text-[#596074] mt-3 max-w-md mx-auto">
+        Mohon kesediaannya untuk menunggu; kami akan mengirimkan notifikasi melalui email ke
+        {' '}<span className="font-semibold text-[#021526]">{email}</span> apabila Anda terpilih untuk
+        mengikuti tahap interview selanjutnya.
       </p>
       <Link to="/" className="inline-flex items-center gap-1.5 mt-6 text-sm font-semibold text-[#021526] hover:underline">
         <ArrowLeft className="w-4 h-4" /> Kembali ke beranda
