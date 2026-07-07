@@ -1,11 +1,25 @@
 # Development overrides — bind-mount source, run watchers for HMR.
 # Usage: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up`
+#
+# Enables:
+# - Prisma Studio GUI (http://localhost:5555)
+# - Hot reload for API & Frontend
+# - Database port for external tools (localhost:5432)
 
 services:
+  postgres:
+    # Expose database port for external GUI tools (TablePlus, DBeaver, pgAdmin)
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
   api:
     build:
       target: build   # stop at the build stage so tsx + prisma CLI are present
-    command: sh -c "npx prisma migrate deploy && npm run dev"
+    # Start Prisma Studio in background, then run dev server
+    command: sh -c "npx prisma migrate deploy && (npx prisma studio --hostname 0.0.0.0 --port 5555 --browser none &) && npm run dev"
+    ports:
+      - "${API_PORT:-4000}:4000"
+      - "5555:5555"  # Prisma Studio GUI
     volumes:
       - ./manava-api/src:/app/src
       - ./manava-api/prisma:/app/prisma
