@@ -32,6 +32,7 @@ export interface KpiRecommendation {
   priority: 'high' | 'medium' | 'low'
   action: string
   rationale: string
+  data_evidence: string[]
 }
 export interface KpiRecommendationResult {
   source: 'openai' | 'heuristic'

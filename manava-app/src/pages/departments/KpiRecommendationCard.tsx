@@ -84,6 +84,15 @@ export function KpiRecommendationCard() {
                       <span>{r.action}</span>
                     </p>
                     <p className="text-xs text-navy/55 mt-1 pl-5">{r.rationale}</p>
+                    {r.data_evidence && r.data_evidence.length > 0 && (
+                      <div className="pl-5 mt-2 flex flex-wrap gap-1.5">
+                        {r.data_evidence.map((ev, k) => (
+                          <span key={k} className="inline-flex items-center px-2 py-0.5 rounded-full bg-navy/5 text-navy/70 text-[11px] font-medium border border-navy/10">
+                            {ev}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )

@@ -146,6 +146,15 @@ const WARNINGS: Array<{
   { target: 'ed36', role: 'editor', severity: 'ringan', status: 'diakui',      issuer: 'am4', issued: '2026-05-20', expires: '2026-07-20', reason: 'Menggunakan aset stock tanpa lisensi pada draft motion graphics.' },
   { target: 'ed42', role: 'editor', severity: 'sedang', status: 'aktif',       issuer: 'am5', issued: '2026-07-03', expires: '2026-09-03', reason: 'Revisi klien dikerjakan di luar scope tanpa approval envelope.' },
   { target: 'ed19', role: 'editor', severity: 'ringan', status: 'kedaluwarsa', issuer: 'am2', issued: '2026-03-15', expires: '2026-04-15', reason: 'Lupa update status proyek di sistem selama satu minggu.' },
+  // Skew tambahan agar distribusi peringatan cocok dengan storyline KPI —
+  // VFX & Color Grading terbebani, Photo Retouching bersih.
+  { target: 'ed22', role: 'editor', severity: 'sedang', status: 'aktif', issuer: 'am3', issued: '2026-06-30', expires: '2026-08-30', reason: 'Konsistensi grading antar shot menurun; klien meminta re-color di 3 proyek berturut-turut.' },
+  { target: 'ed25', role: 'editor', severity: 'ringan', status: 'aktif', issuer: 'am3', issued: '2026-07-02', expires: '2026-08-02', reason: 'Meninggalkan sesi tanpa clock-out 2 kali dalam 3 minggu.' },
+  { target: 'ed41', role: 'editor', severity: 'berat', status: 'aktif', issuer: 'hr1', issued: '2026-07-04', expires: '2026-10-04', reason: 'Tiga proyek beruntun melewati deadline lebih dari 5 hari, dua di antaranya berujung sengketa.' },
+  { target: 'ed45', role: 'editor', severity: 'sedang', status: 'aktif', issuer: 'am5', issued: '2026-06-27', expires: '2026-08-27', reason: 'Kualitas compositing di bawah standar review internal — memerlukan pengawasan lead.' },
+  { target: 'ed48', role: 'editor', severity: 'ringan', status: 'aktif', issuer: 'am5', issued: '2026-07-01', expires: '2026-08-01', reason: 'Absen tanpa keterangan 1 hari kerja pada minggu paling sibuk sprint.' },
+  { target: 'ed14', role: 'editor', severity: 'ringan', status: 'aktif', issuer: 'am2', issued: '2026-06-25', expires: '2026-07-25', reason: 'Progress update proyek terlambat 3 hari — mengganggu perencanaan sprint tim.' },
+  { target: 'ed34', role: 'editor', severity: 'ringan', status: 'aktif', issuer: 'am4', issued: '2026-06-29', expires: '2026-07-29', reason: 'Timeline animasi mundur 2 hari tanpa flag lebih awal ke manajer.' },
 ]
 
 const JOB_POSTINGS = [
@@ -798,40 +807,81 @@ async function main() {
   console.log(`🎯 active_projects disinkronkan untuk ${activeCount.size} editor.`)
 
   // ── KPI snapshots: 6 bulan (Jan–Jun 2026) per editor ──────────────────────
-  // Bulan Jun 2026 dikunci ke nilai KPI saat ini (dari EditorMetrics), lalu
-  // mundur ke belakang dengan drift kecil deterministik — supaya tren
-  // bulan-ke-bulan halus dan konsisten dengan snapshot Q2 yang tampil.
+  // Tiap departemen punya storyline berbeda supaya AI insight dapat data yang
+  // benar-benar bervariasi:
+  //   Photo Retouching  — unggul & stabil naik (excellent)
+  //   Video Editing     — pulih, dari lesu ke baik (good, tren naik tajam)
+  //   Color Grading     — menurun dari baik ke marginal (perlu perhatian)
+  //   Motion Graphics   — volatil / zigzag (butuh stabilisasi)
+  //   VFX & Compositing — kritis, di bawah target (needs_improvement)
+  // Trajectory adalah rata-rata departemen per bulan; tiap editor menyimpang
+  // dengan jitter kecil deterministik. EditorMetrics disinkronkan ke nilai
+  // Juni supaya ranking, band, dan chart konsisten.
+  interface DeptProfile { trajectory: number[]; volatility: number }
+  const DEPT_PROFILE: Record<string, DeptProfile> = {
+    'Photo Retouching':  { trajectory: [4.30, 4.38, 4.44, 4.52, 4.58, 4.65], volatility: 0.18 },
+    'Video Editing':     { trajectory: [3.40, 3.60, 3.75, 3.88, 4.00, 4.12], volatility: 0.22 },
+    'Color Grading':     { trajectory: [4.30, 4.15, 3.95, 3.80, 3.65, 3.48], volatility: 0.20 },
+    'Motion Graphics':   { trajectory: [3.85, 4.10, 3.65, 4.00, 3.70, 3.92], volatility: 0.30 },
+    'VFX & Compositing': { trajectory: [3.30, 3.20, 3.15, 3.20, 3.25, 3.32], volatility: 0.22 },
+  }
   const PERIODS_KPI = ['2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06']
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
   const snapshots: Prisma.KpiSnapshotCreateManyInput[] = []
+  const juneByEditor = new Map<string, { rating: number; completion: number; mgr: number; kpi: number }>()
+
   for (const [ei, e] of editors.entries()) {
-    const metrics = await prisma.editorMetrics.findUnique({ where: { editor_id: e.editor_id } })
-    if (!metrics) continue
+    const profile = DEPT_PROFILE[e.department] ?? { trajectory: [3.8, 3.85, 3.9, 3.95, 4.0, 4.05], volatility: 0.2 }
+    // Bias per editor: sebagian editor lebih kuat/lemah dari rata-rata tim.
+    const bias = (rnd(ei * 31 + 7) - 0.5) * 2 * profile.volatility
     for (const [pi, period] of PERIODS_KPI.entries()) {
-      // pi=5 (Juni) → snapshot = nilai sekarang. Bulan sebelumnya = nilai
-      // sekarang ± drift kecil, diarahkan naik agar tren terlihat berkembang.
-      const monthsBack = PERIODS_KPI.length - 1 - pi
-      const trendPush = monthsBack * 0.04  // penurunan ke belakang
-      const jitter = (rnd(ei * 17 + pi * 3) - 0.5) * 0.25
-      const rating = pi === PERIODS_KPI.length - 1
-        ? metrics.avg_client_rating
-        : clamp(round1(metrics.avg_client_rating - trendPush + jitter), 2.5, 5.0)
-      const completion = pi === PERIODS_KPI.length - 1
-        ? metrics.completion_rate
-        : clamp(Math.round(metrics.completion_rate - monthsBack * 1.4 + (rnd(ei * 11 + pi) - 0.5) * 6), 60, 100)
-      const mgr = pi === PERIODS_KPI.length - 1
-        ? metrics.manager_rating
-        : clamp(round1(metrics.manager_rating - trendPush + (rnd(ei * 23 + pi * 5) - 0.5) * 0.3), 2.5, 5.0)
-      const kpi = round1((rating + (completion / 100) * 5 + mgr) / 3)
+      const jitter = (rnd(ei * 17 + pi * 13) - 0.5) * profile.volatility * 0.6
+      const kpi = round1(clamp(profile.trajectory[pi]! + bias + jitter, 2.4, 5.0))
+      // Rating klien & rating manajer bergerak dekat KPI tapi tidak identik.
+      const rating = round1(clamp(kpi + (rnd(ei * 41 + pi * 5) - 0.5) * 0.35, 2.3, 5.0))
+      const mgr = round1(clamp(kpi + (rnd(ei * 59 + pi * 11) - 0.5) * 0.4, 2.3, 5.0))
+      // Completion rate berkorelasi dengan KPI (bagus → cepat selesai).
+      const completion = Math.round(clamp(kpi * 19 + 5 + (rnd(ei * 73 + pi * 3) - 0.5) * 8, 55, 100))
       snapshots.push({
         editor_id: e.editor_id, department: e.department, period,
         avg_client_rating: rating, completion_rate: completion,
         manager_rating: mgr, kpi_average: kpi,
       })
+      if (pi === PERIODS_KPI.length - 1) {
+        juneByEditor.set(e.editor_id, { rating, completion, mgr, kpi })
+      }
     }
   }
   await prisma.kpiSnapshot.createMany({ data: snapshots })
-  console.log(`📈 ${snapshots.length} KPI snapshot (${PERIODS_KPI.length} bulan × ${editors.length} editor).`)
+  console.log(`📈 ${snapshots.length} KPI snapshot dengan storyline per departemen (${PERIODS_KPI.length} bulan × ${editors.length} editor).`)
+
+  // ── Sinkronkan EditorMetrics & Editor.rating ke nilai Juni ────────────────
+  // Ranking di halaman Performance dan chart harus sepakat — kalau tidak,
+  // KPI card di sebelah tren akan terlihat kontradiktif.
+  for (const [editorId, m] of juneByEditor) {
+    const band = (m.kpi >= 4.5 ? 'excellent' : m.kpi >= 3.5 ? 'good' : 'needs_improvement') as 'excellent' | 'good' | 'needs_improvement'
+    const editorRow = editors.find(e => e.editor_id === editorId)
+    if (!editorRow) continue
+    await prisma.editorMetrics.upsert({
+      where: { editor_id: editorId },
+      update: {
+        avg_client_rating: m.rating, completion_rate: m.completion,
+        manager_rating: m.mgr, kpi_average: m.kpi, performance_band: band,
+      },
+      create: {
+        editor_id: editorId, editor_name: editorRow.full_name,
+        avg_client_rating: m.rating, completion_rate: m.completion,
+        manager_rating: m.mgr, kpi_average: m.kpi, performance_band: band,
+      },
+    })
+    await prisma.editor.update({
+      where: { editor_id: editorId },
+      data: {
+        rating: m.rating, completion_rate: m.completion, performance_band: band,
+      },
+    })
+  }
+  console.log(`🔄 EditorMetrics disinkronkan ke KPI Juni untuk ${juneByEditor.size} editor.`)
 
   console.log('\n✅ Demo seed selesai — semua tabel terisi data bervariasi dengan riwayat.')
 }
