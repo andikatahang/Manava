@@ -64,6 +64,7 @@ function RoleGuard({ role, children }: { role: UserRole; children: React.ReactNo
 }
 
 function AppRoutes() {
+  const location = useLocation()
   const { user, login, logout, isAuthenticated, isHydrating } = useAuth()
 
   // Wait for the silent refresh before deciding login vs app — avoids a
@@ -72,10 +73,17 @@ function AppRoutes() {
     return <div className="min-h-screen bg-primary" aria-busy="true" />
   }
 
+  // Root selalu menampilkan landing page publik dulu, terlepas dari sesi yang
+  // tersimpan — sesi aktif tidak boleh melompat otomatis ke dashboard tanpa
+  // melewati landing page. Landing page dirender di luar AppLayout supaya
+  // tidak ikut terbungkus chrome sidebar/header aplikasi.
+  if (location.pathname === '/') {
+    return <LandingPage />
+  }
+
   if (!isAuthenticated || !user) {
     return (
       <Routes>
-        <Route path="/" element={<LandingPage />} />
         <Route path="/apply" element={<ApplyPage />} />
         <Route path="/login" element={<LoginPage onLogin={login} />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
@@ -107,7 +115,6 @@ function AppRoutes() {
           password default — muncul lagi tiap login sampai password diganti. */}
       <DefaultPasswordPrompt key={user.user_id} user={user} />
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<RoleHomePage user={user} />} />
         <Route path="/recruitment" element={<RoleGuard role={role}><RecruitmentPage role={role} /></RoleGuard>} />
