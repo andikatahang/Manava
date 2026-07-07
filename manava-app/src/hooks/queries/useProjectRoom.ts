@@ -85,7 +85,11 @@ export function useProjectRoomMutations(projectId: string | undefined) {
   })
 
   const sendDeliverable = useMutation({
-    mutationFn: (input: { note: string; attachment?: string }) =>
+    mutationFn: (input: {
+      note: string
+      attachment_url?: string
+      image?: { data_url: string; width: number; height: number }
+    }) =>
       api<Message>(`/projects/${projectId}/deliverable`, { method: 'POST', body: input }),
     onSuccess: refresh,
   })

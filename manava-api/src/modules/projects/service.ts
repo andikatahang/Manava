@@ -9,6 +9,7 @@ import type { Prisma, Project, UserRole } from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
 import { HttpError } from '../../middleware/errorHandler.js'
 import { classifyRevision, type RevisionClassification } from './classifier.js'
+import { watermarkImageDataUrl } from '../../lib/watermark.js'
 
 export interface Viewer {
   sub: string
@@ -332,11 +333,16 @@ export async function respondBrief(projectId: string, viewer: Viewer, approve: b
 
 // ── Preview / hasil kerja dari editor ────────────────────────────────────────
 
+export interface DeliverableInput {
+  note: string
+  attachment_url?: string
+  image?: { data_url: string; width: number; height: number }
+}
+
 export async function sendDeliverable(
   projectId: string,
   viewer: Viewer,
-  note: string,
-  attachment?: string,
+  input: DeliverableInput,
 ) {
   const project = await loadProject(projectId)
   const access = await resolveAccess(project, viewer)
@@ -346,6 +352,22 @@ export async function sendDeliverable(
   }
 
   const editorName = await fullNameOf(viewer.sub)
+  // Gambar dari editor selalu dibungkus watermark server-side sebelum disimpan
+  // — klien tidak akan menerima file mentah.
+  let attachment: string | null = null
+  if (input.image) {
+    const label = `${editorName.toUpperCase()} · MANAVA`
+    const sub = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+    attachment = watermarkImageDataUrl({
+      imageDataUrl: input.image.data_url,
+      width: input.image.width,
+      height: input.image.height,
+      label, sublabel: `${project.title} · ${sub}`,
+    })
+  } else if (input.attachment_url) {
+    attachment = input.attachment_url
+  }
+
   return prisma.$transaction(async tx => {
     const message = await tx.message.create({
       data: {
@@ -354,8 +376,8 @@ export async function sendDeliverable(
         sender_name: editorName,
         sender_role: viewer.role,
         message_type: 'deliverable',
-        body: note,
-        attachment: attachment ?? null,
+        body: input.note,
+        attachment,
       },
     })
     // Revisi yang sedang berjalan dianggap sudah dikerjakan ulang.

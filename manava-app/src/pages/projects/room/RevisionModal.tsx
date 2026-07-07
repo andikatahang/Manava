@@ -1,9 +1,10 @@
-// Modal permintaan revisi klien. Alur wajib: tulis deskripsi perubahan →
-// "Analisis dengan AI" → ringkasan kategori (minor/major) muncul → barulah
-// tombol "Kirim Revisi ke Editor" aktif. Mengubah teks membatalkan hasil
-// analisis sehingga teks yang dikirim selalu sama dengan yang dianalisis.
+// Modal permintaan revisi klien. Alur: tulis deskripsi perubahan → 1 detik
+// setelah user berhenti mengetik, analisis AI otomatis berjalan → ringkasan
+// kategori (minor/major) muncul → tombol "Kirim Revisi ke Editor" aktif.
+// Mengubah teks membatalkan hasil analisis (dan memicu debounce baru) supaya
+// teks yang dikirim selalu sama dengan yang dianalisis.
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { UseMutationResult } from '@tanstack/react-query'
 import { Loader2, RefreshCw, Sparkles } from 'lucide-react'
 import { Modal } from '../../../components/ui/Modal'
@@ -11,6 +12,7 @@ import { StatusBadge } from '../../../components/ui/Badge'
 import type { RevisionClassification, RevisionEnvelope, RevisionRequest } from '../../../types'
 
 const MIN_TEXT = 10
+const ANALYSIS_DEBOUNCE_MS = 1000
 
 export function RevisionModal({ open, onClose, envelope, classify, submit }: {
   open: boolean
@@ -26,10 +28,13 @@ export function RevisionModal({ open, onClose, envelope, classify, submit }: {
 }) {
   const [text, setText] = useState('')
   const [analysis, setAnalysis] = useState<RevisionClassification | null>(null)
+  // Ref supaya efek debounce membaca mutation terbaru tanpa masuk deps
+  // (menghindari cancel bertumpuk saat React Query mengganti identitas).
+  const classifyRef = useRef(classify)
+  classifyRef.current = classify
 
   const remaining = envelope ? envelope.allowance_count - envelope.allowance_consumed : 0
   const minorBlocked = analysis?.label === 'minor' && remaining <= 0
-  const canAnalyze = text.trim().length >= MIN_TEXT && !classify.isPending
   const canSubmit = !!analysis && !minorBlocked && !submit.isPending
 
   function handleTextChange(value: string) {
@@ -38,10 +43,21 @@ export function RevisionModal({ open, onClose, envelope, classify, submit }: {
     if (analysis) setAnalysis(null)
   }
 
-  function runAnalysis() {
-    if (!canAnalyze) return
-    classify.mutate(text.trim(), { onSuccess: setAnalysis })
-  }
+  // Debounce 1 detik: jalankan analisis otomatis setelah user berhenti
+  // mengetik dan panjang teks sudah cukup. Analisis dibatalkan bila user
+  // mengetik lagi sebelum timer selesai.
+  useEffect(() => {
+    if (!open) return
+    if (analysis) return
+    const trimmed = text.trim()
+    if (trimmed.length < MIN_TEXT) return
+    const handle = window.setTimeout(() => {
+      classifyRef.current.mutate(trimmed, {
+        onSuccess: result => setAnalysis(result),
+      })
+    }, ANALYSIS_DEBOUNCE_MS)
+    return () => window.clearTimeout(handle)
+  }, [text, analysis, open])
 
   function handleSubmit() {
     if (!analysis || !canSubmit) return
@@ -86,20 +102,18 @@ export function RevisionModal({ open, onClose, envelope, classify, submit }: {
             placeholder="mis. Warna langit di foto 3 dan 7 terlalu jenuh, tolong diturunkan sedikit agar natural…"
             maxLength={2000}
           />
-          <p className="text-[11px] text-navy/40 mt-1">Minimal {MIN_TEXT} karakter.</p>
+          <p className="text-[11px] text-navy/40 mt-1">
+            Minimal {MIN_TEXT} karakter. Analisis AI berjalan otomatis 1 detik setelah Anda berhenti mengetik.
+          </p>
         </div>
 
-        {/* Langkah 1: analisis AI */}
-        {!analysis && (
-          <button
-            onClick={runAnalysis}
-            disabled={!canAnalyze}
-            className="btn-secondary w-full justify-center text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-          >
+        {/* Status analisis otomatis */}
+        {!analysis && text.trim().length >= MIN_TEXT && (
+          <div className="rounded-2xl border border-violet-200 bg-violet-50/60 px-4 py-3 flex items-center gap-2 text-xs text-violet-700">
             {classify.isPending
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Menganalisis permintaan…</>
-              : <><Sparkles className="w-4 h-4" /> Analisis dengan AI</>}
-          </button>
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Menganalisis permintaan Anda…</>
+              : <><Sparkles className="w-4 h-4" /> Menunggu Anda berhenti mengetik…</>}
+          </div>
         )}
         {classify.isError && !analysis && (
           <p className="text-xs text-red-600">{classify.error.message}</p>
@@ -156,7 +170,7 @@ export function RevisionModal({ open, onClose, envelope, classify, submit }: {
             onClick={handleSubmit}
             disabled={!canSubmit}
             className="btn-primary text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-            title={!analysis ? 'Jalankan analisis AI terlebih dahulu' : undefined}
+            title={!analysis ? 'Tunggu analisis AI selesai' : undefined}
           >
             {submit.isPending
               ? <><Loader2 className="w-4 h-4 animate-spin" /> Mengirim…</>

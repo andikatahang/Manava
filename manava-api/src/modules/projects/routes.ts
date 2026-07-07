@@ -123,9 +123,20 @@ projectsRouter.post(
 
 // ── Preview hasil kerja ──────────────────────────────────────────────────────
 
+// Preview boleh dikirim sebagai file gambar (data URL, akan di-watermark
+// server-side) ATAU sebagai tautan eksternal. Salah satu, keduanya opsional
+// selain catatan.
 const deliverableSchema = z.object({
   note: z.string().trim().min(1).max(2000),
-  attachment: z.string().trim().url().max(500).optional(),
+  attachment_url: z.string().trim().url().max(500).optional(),
+  image: z.object({
+    data_url: z.string()
+      .startsWith('data:image/')
+      // ~8 MB base64 (data URL string dapat ~10.7 MB) — batas request body 12mb.
+      .max(11_000_000),
+    width: z.number().int().min(50).max(8000),
+    height: z.number().int().min(50).max(8000),
+  }).optional(),
 })
 projectsRouter.post(
   '/:id/deliverable',
@@ -134,7 +145,7 @@ projectsRouter.post(
   validateBody(deliverableSchema),
   asyncHandler(async (req, res) => {
     const body = req.body as z.infer<typeof deliverableSchema>
-    const message = await service.sendDeliverable(req.params.id, viewerOf(req), body.note, body.attachment)
+    const message = await service.sendDeliverable(req.params.id, viewerOf(req), body)
     res.status(201).json(ok(message))
   }),
 )

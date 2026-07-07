@@ -102,13 +102,28 @@ function MessageBody({ message, mine }: { message: Message; mine: boolean }) {
         </SpecialCard>
       )
     }
-    case 'deliverable':
+    case 'deliverable': {
+      const attach = message.attachment ?? ''
+      // Server men-watermark gambar sebagai SVG data URL; PNG/JPEG data URL
+      // legacy tetap tampil sebagai gambar. Tautan http(s) → link biasa.
+      const isImageInline = attach.startsWith('data:image/')
       return (
         <SpecialCard icon={PackageCheck} label="Preview Hasil Kerja" tone="emerald">
           <p className="text-xs text-navy/75 leading-relaxed whitespace-pre-wrap">{message.body}</p>
-          {message.attachment && (
+          {isImageInline && (
+            <div className="mt-2 rounded-xl overflow-hidden border border-emerald-200/70 bg-navy/5">
+              <img
+                src={attach}
+                alt="Preview bertampilan watermark"
+                className="w-full max-h-96 object-contain"
+                draggable={false}
+                onContextMenu={e => e.preventDefault()}
+              />
+            </div>
+          )}
+          {attach && !isImageInline && (
             <a
-              href={message.attachment}
+              href={attach}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700 hover:underline mt-2"
@@ -118,6 +133,7 @@ function MessageBody({ message, mine }: { message: Message; mine: boolean }) {
           )}
         </SpecialCard>
       )
+    }
     case 'revision_request':
       return (
         <SpecialCard icon={RefreshCw} label="Permintaan Revisi" tone="amber">
