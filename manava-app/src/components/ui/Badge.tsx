@@ -74,6 +74,8 @@ export function StatusBadge({ status }: { status: string }) {
     uncertain:          { label: 'Tidak Pasti', variant: 'yellow' },
     awaiting_topup:     { label: 'Menunggu Top-up', variant: 'yellow' },
     accepted:           { label: 'Diterima', variant: 'green' },
+    submitted:          { label: 'Perlu Tinjauan', variant: 'yellow' },
+    resubmitted:        { label: 'Dikerjakan Ulang', variant: 'blue' },
   }
   const c = config[status] ?? { label: status, variant: 'gray' as Variant }
   return <Badge variant={c.variant}>{c.label}</Badge>

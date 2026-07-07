@@ -13,7 +13,8 @@ import PaymentsPage from './pages/payments/PaymentsPage'
 import AttendancePage from './pages/attendance/AttendancePage'
 import PerformancePage from './pages/performance/PerformancePage'
 import ProjectsPage from './pages/projects/ProjectsPage'
-import ProjectDetailPage from './pages/projects/ProjectDetailPage'
+import ProjectRoomPage from './pages/projects/ProjectRoomPage'
+import BrowseEditorsPage from './pages/browse/BrowseEditorsPage'
 import DepartmentsPage from './pages/departments/DepartmentsPage'
 import TeamDashboardPage from './pages/team-dashboard/TeamDashboardPage'
 import ESSPage from './pages/ess/ESSPage'
@@ -26,9 +27,9 @@ import OffboardingPage from './pages/offboarding/OffboardingPage'
 import SettingsPage from './pages/settings/SettingsPage'
 import AuditTrailPage from './pages/audit/AuditTrailPage'
 
-// Only the four active roles have entries — disabled roles (client, mediator,
-// finance) fall through to the superadmin fallback but their accounts can't
-// log in at the auth gate.
+// Only the active roles have entries — disabled roles (mediator, finance)
+// fall through to the superadmin fallback but their accounts can't log in at
+// the auth gate.
 const ALLOWED_PATHS: Record<UserRole, string[]> = {
   superadmin: [
     '/dashboard', '/users', '/system', '/audit', '/payments', '/settings', '/profile',
@@ -44,7 +45,9 @@ const ALLOWED_PATHS: Record<UserRole, string[]> = {
   editor: [
     '/dashboard', '/projects', '/ess', '/attendance', '/warning', '/settings', '/profile',
   ],
-  client: [],
+  client: [
+    '/dashboard', '/browse-editors', '/projects', '/settings', '/profile',
+  ],
   mediator: [],
   finance: [],
 }
@@ -110,7 +113,8 @@ function AppRoutes() {
         <Route path="/recruitment" element={<RoleGuard role={role}><RecruitmentPage role={role} /></RoleGuard>} />
         <Route path="/recruitment/:id" element={<RoleGuard role={role}><ApplicantDetailPage /></RoleGuard>} />
         <Route path="/projects" element={<RoleGuard role={role}><ProjectsPage role={role} /></RoleGuard>} />
-        <Route path="/projects/:id" element={<RoleGuard role={role}><ProjectDetailPage role={role} /></RoleGuard>} />
+        <Route path="/projects/:id" element={<RoleGuard role={role}><ProjectRoomPage role={role} /></RoleGuard>} />
+        <Route path="/browse-editors" element={<RoleGuard role={role}><BrowseEditorsPage /></RoleGuard>} />
         <Route path="/payments" element={<RoleGuard role={role}><PaymentsPage role={role} /></RoleGuard>} />
         <Route path="/attendance" element={<RoleGuard role={role}><AttendancePage role={role} /></RoleGuard>} />
         <Route path="/departments" element={<RoleGuard role={role}><DepartmentsPage role={role} /></RoleGuard>} />

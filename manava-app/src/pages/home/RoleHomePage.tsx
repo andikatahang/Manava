@@ -8,6 +8,7 @@ import type { User, UserRole } from '../../types'
 import { HomeHero } from '../../components/home/HomeHero'
 import { QuickAttendance } from '../../components/home/QuickAttendance'
 import { FeatureGrid, type FeatureTile } from '../../components/home/FeatureGrid'
+import ClientHome from './ClientHome'
 
 interface RoleHomeConfig {
   roleLabel: string
@@ -67,7 +68,8 @@ const configs: Record<UserRole, RoleHomeConfig> = {
       { label: 'Pengaturan',         to: '/settings',  icon: Settings,       accent: 'navy' },
     ],
   },
-  client:   { roleLabel: 'Klien',    subtitle: 'Role nonaktif.',   features: [] },
+  // client dirender oleh <ClientHome/> (inbox + proyek), bukan config ini.
+  client:   { roleLabel: 'Klien',    subtitle: 'Cari editor, pantau proyek, dan beri ulasan.', features: [] },
   mediator: { roleLabel: 'Mediator', subtitle: 'Role nonaktif.',   features: [] },
   finance:  { roleLabel: 'Keuangan', subtitle: 'Role nonaktif.',   features: [] },
 }
@@ -85,6 +87,10 @@ const headerCopy: Record<UserRole, { eyebrow: string; helper: string }> = {
 interface RoleHomePageProps { user: User }
 
 export default function RoleHomePage({ user }: RoleHomePageProps) {
+  // Home klien punya susunan sendiri (kotak masuk + proyek aktif + riwayat)
+  // dan tanpa QuickAttendance — klien tidak melakukan presensi.
+  if (user.role === 'client') return <ClientHome user={user} />
+
   const cfg = configs[user.role] ?? configs.editor
   const copy = headerCopy[user.role] ?? headerCopy.editor
 

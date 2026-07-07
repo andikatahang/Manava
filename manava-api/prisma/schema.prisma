@@ -508,13 +508,20 @@ model RevisionEnvelope {
   project Project @relation(fields: [project_id], references: [project_id], onDelete: Cascade)
 }
 
+// Contract juga menjadi "formulir briefing" pada alur booking klien:
+// editor mengirim brief {title, scope(=deskripsi), revision_limit, project_value}
+// berstatus pending_client_approval; klien menyetujui → active, proyek dimulai.
+// style/key_elements/estimated_duration_days berdefault kosong karena tidak
+// ada di formulir brief (tetap terisi pada data historis).
 model Contract {
   contract_id            String         @id @default(cuid())
   project_id             String
+  title                  String?
   scope                  String
-  style                  String
-  key_elements           String
-  estimated_duration_days Int
+  style                  String         @default("")
+  key_elements           String         @default("")
+  estimated_duration_days Int           @default(0)
+  revision_limit         Int            @default(5)
   project_value          Int
   status                 ContractStatus @default(draft)
   issued_at              DateTime       @default(now())

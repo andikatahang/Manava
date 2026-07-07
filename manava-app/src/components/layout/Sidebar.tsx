@@ -6,7 +6,7 @@ import logoDark from '../../assets/logo-dark.png'
 import {
   LayoutDashboard, Users, Briefcase, UserCheck,
   Settings, ChevronLeft, ChevronDown, LogOut, Shield, X, User, Home,
-  Cog, Building2,
+  Cog, Building2, Search,
 } from 'lucide-react'
 
 // A nav item either navigates directly (`to`) or expands into sub-pages
@@ -60,7 +60,11 @@ const navByRole: Record<UserRole, NavItem[]> = {
     { to: '/projects', icon: Briefcase, label: 'Proyek Saya' },
     { to: '/ess', icon: UserCheck, label: 'Layanan Mandiri' },
   ],
-  client: [],
+  client: [
+    { to: '/dashboard', icon: Home, label: 'Home' },
+    { to: '/browse-editors', icon: Search, label: 'Cari Editor' },
+    { to: '/projects', icon: Briefcase, label: 'Proyek Saya' },
+  ],
   mediator: [],
   finance: [],
 }
