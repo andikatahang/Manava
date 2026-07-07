@@ -412,6 +412,322 @@ const PROJECTS: ProjectSpec[] = [
     revisions: [] },
 ]
 
+// ─── Proyek tambahan: cakupan penuh 50 editor ────────────────────────────────
+// PROJECTS di atas hanya menyentuh 14/50 editor (ditulis manual untuk showcase
+// alur revisi/sengketa/review secara detail). Supaya SETIAP editor punya
+// riwayat proyek yang berbeda-beda untuk demo visual, sisanya dibangun dari
+// template per departemen lalu divariasikan per editor (klien, nilai, tanggal,
+// status, jumlah & isi revisi) secara deterministik — bukan Math.random, jadi
+// hasilnya identik di setiap run seperti bagian lain file ini.
+
+const DEPT_RANGES: Array<{ dept: string; from: number; to: number }> = [
+  { dept: 'Photo Retouching', from: 1, to: 10 },
+  { dept: 'Video Editing', from: 11, to: 20 },
+  { dept: 'Color Grading', from: 21, to: 30 },
+  { dept: 'Motion Graphics', from: 31, to: 40 },
+  { dept: 'VFX & Compositing', from: 41, to: 50 },
+]
+
+interface ProjectTemplate {
+  title: string; description: string; included: string; excluded: string
+  scope: string; style: string; elements: string; days: number
+  valueMin: number; valueMax: number
+}
+
+const DEPT_TEMPLATES: Record<string, ProjectTemplate[]> = {
+  'Photo Retouching': [
+    { title: 'Retouching Produk Skincare 40 Foto',
+      description: 'Retouching 40 foto produk skincare untuk marketplace: koreksi tekstur botol, refleksi label, dan konsistensi warna antar varian.',
+      included: 'Koreksi refleksi & tekstur botol, warna label konsisten ke standar brand, hingga 2 ronde revisi minor.',
+      excluded: 'Foto ulang produk, penambahan varian di luar 40 item, ilustrasi tambahan.',
+      scope: '40 foto produk skincare siap upload marketplace', style: 'Clean pack-shot, highlight lembut', elements: 'Refleksi botol, warna label, background putih', days: 12, valueMin: 5_000_000, valueMax: 8_000_000 },
+    { title: 'Retouching Portrait Korporat 25 Foto',
+      description: 'Retouching 25 foto headshot jajaran direksi untuk laporan tahunan dan situs perusahaan: skin retouch natural, koreksi pencahayaan seragam.',
+      included: 'Skin retouch natural, pencahayaan & background seragam, hingga 2 ronde revisi minor.',
+      excluded: 'Perubahan pose/ekspresi, penggantian busana, retouch di luar 25 foto.',
+      scope: '25 headshot korporat siap cetak & web', style: 'Profesional, tone netral', elements: 'Skin retouch, koreksi cahaya, background seragam', days: 8, valueMin: 4_000_000, valueMax: 6_500_000 },
+    { title: 'Retouching Foto Interior Properti 18 Foto',
+      description: 'Retouching 18 foto interior rumah untuk listing properti premium: koreksi perspektif, pencahayaan ruangan, penghapusan kabel/objek mengganggu.',
+      included: 'Koreksi perspektif & pencahayaan, penghapusan objek kecil mengganggu, hingga 2 ronde revisi minor.',
+      excluded: 'Virtual staging furnitur, rendering 3D, foto di luar 18 ruangan.',
+      scope: '18 foto interior print & web-ready', style: 'Terang, aspirational', elements: 'Koreksi perspektif, pencahayaan, cleanup objek', days: 10, valueMin: 4_500_000, valueMax: 7_000_000 },
+    { title: 'Retouching Katalog Sepatu 55 Foto',
+      description: 'Retouching 55 foto katalog sepatu olahraga: cleanup jahitan, konsistensi warna sol, background putih seragam untuk seluruh varian.',
+      included: 'Cleanup detail jahitan & sol, warna konsisten antar varian, hingga 3 ronde revisi minor.',
+      excluded: 'Foto ulang varian baru, retouch model, layout katalog cetak.',
+      scope: '55 foto katalog sepatu siap cetak & web', style: 'Clean commercial, detail tajam', elements: 'Cleanup jahitan, warna sol, background putih', days: 14, valueMin: 6_000_000, valueMax: 9_500_000 },
+  ],
+  'Video Editing': [
+    { title: 'Video Testimoni Klien Multi-Segmen',
+      description: 'Editing 5 segmen video testimoni klien (masing-masing 1 menit) dari wawancara mentah: pacing natural, lower third, subtitle Indonesia.',
+      included: '5 segmen 1 menit, lower third, subtitle, hingga 2 ronde revisi minor.',
+      excluded: 'Wawancara tambahan, animasi logo 3D, versi durasi lain.',
+      scope: '5 video testimoni @1 menit, 1080p', style: 'Hangat, personal', elements: 'Pacing wawancara, lower third, subtitle', days: 10, valueMin: 7_000_000, valueMax: 11_000_000 },
+    { title: 'Recap Event Konferensi 2 Hari',
+      description: 'Editing video recap 3 menit dari footage konferensi 2 hari: highlight sesi, testimoni peserta, grading energik.',
+      included: 'Recap 3 menit, grading, musik berlisensi, hingga 2 ronde revisi minor.',
+      excluded: 'Dokumentasi full sesi, multicam sync tambahan, versi bahasa lain.',
+      scope: 'Recap event 3 menit 1080p + versi 9:16', style: 'Energik korporat', elements: 'Highlight sesi, testimoni, grading', days: 12, valueMin: 9_000_000, valueMax: 15_000_000 },
+    { title: 'Iklan Media Sosial 15 Detik (3 Versi)',
+      description: 'Editing 3 versi iklan media sosial 15 detik dari satu master shoot: cut cepat, teks kinetik, adaptasi rasio 9:16 dan 1:1.',
+      included: '3 versi 15 detik, teks kinetik, 2 rasio, hingga 2 ronde revisi minor.',
+      excluded: 'Shoot tambahan, versi durasi lain, voice-over baru.',
+      scope: '3 iklan 15 detik, rasio 9:16 & 1:1', style: 'Cepat, punchy', elements: 'Cut cepat, teks kinetik, musik', days: 7, valueMin: 5_000_000, valueMax: 8_000_000 },
+    { title: 'Video Tutorial Produk Series 5 Episode',
+      description: 'Editing series tutorial produk 5 episode @2 menit dari rekaman screen + talent: cleanup audio, on-screen text, intro/outro seragam.',
+      included: '5 episode @2 menit, intro/outro seragam, cleanup audio, hingga 2 ronde revisi minor.',
+      excluded: 'Rekaman ulang, episode tambahan di luar 5, animasi karakter.',
+      scope: '5 episode tutorial @2 menit, 1080p', style: 'Jelas, ramah pemula', elements: 'Cleanup audio, on-screen text, intro/outro', days: 15, valueMin: 10_000_000, valueMax: 16_000_000 },
+  ],
+  'Color Grading': [
+    { title: 'Color Grading Serial Web Series (4 Episode)',
+      description: 'Grading 4 episode web series @10 menit: konsistensi look antar episode, day-for-night, deliver ProRes.',
+      included: 'Grading 4 episode, 1 look utama, hingga 2 ronde revisi minor.',
+      excluded: 'Online editing, VFX, conform ulang dari editor lain.',
+      scope: '4 episode graded, ProRes 4444', style: 'Sinematik kontras terkontrol', elements: 'Konsistensi antar episode, day-for-night', days: 14, valueMin: 12_000_000, valueMax: 18_000_000 },
+    { title: 'Grading Iklan Otomotif 45 Detik',
+      description: 'Grading iklan otomotif 45 detik: look metalik premium, konsistensi warna cat mobil di 20 shot, deliver rec709 + HDR.',
+      included: 'Grading 20 shot, 1 look utama + versi HDR, hingga 2 ronde revisi minor.',
+      excluded: 'VFX reflection cleanup, re-shoot, versi durasi lain.',
+      scope: 'Iklan 45 detik, rec709 + HDR', style: 'Metalik premium, kontras tegas', elements: '20 shot, konsistensi cat mobil', days: 10, valueMin: 14_000_000, valueMax: 20_000_000 },
+    { title: 'Grading Dokumenter Alam 25 Menit',
+      description: 'Grading dokumenter alam 25 menit: konsistensi warna antar lokasi syuting, look natural-vivid, deliver DCP-ready.',
+      included: 'Grading 25 menit, 1 look utama, hingga 2 ronde revisi minor.',
+      excluded: 'VFX cleanup satwa, re-conform, DCP final packaging.',
+      scope: 'Dokumenter 25 menit graded, ProRes 4444', style: 'Natural-vivid, saturasi terkontrol', elements: 'Konsistensi lokasi, look natural', days: 18, valueMin: 13_000_000, valueMax: 19_000_000 },
+    { title: 'Grading Video Musik Indie 4 Menit',
+      description: 'Grading video musik indie 4 menit: look film analog, konsistensi 30 shot antar lokasi, deliver master + versi sosial media.',
+      included: 'Grading 30 shot, 1 look utama, hingga 2 ronde revisi minor.',
+      excluded: 'VFX, re-shoot, versi durasi extended.',
+      scope: 'Video musik 4 menit graded + versi 9:16', style: 'Film analog, grain halus', elements: '30 shot, konsistensi lokasi', days: 9, valueMin: 8_000_000, valueMax: 12_000_000 },
+  ],
+  'Motion Graphics': [
+    { title: 'Infografis Animasi Data Tahunan',
+      description: 'Animasi infografis 2 menit untuk laporan tahunan: visualisasi data statistik, transisi chart, tipografi kinetik sesuai brand.',
+      included: 'Animasi 2 menit, 4 visualisasi data, hingga 2 ronde revisi minor.',
+      excluded: 'Data tambahan di luar brief, versi bahasa lain, cetak infografis statis.',
+      scope: 'Infografis animasi 2 menit, 1080p', style: 'Korporat modern, palet brand', elements: 'Visualisasi data, tipografi kinetik', days: 10, valueMin: 6_000_000, valueMax: 10_000_000 },
+    { title: 'Logo Reveal & Brand Package',
+      description: 'Animasi logo reveal 8 detik plus paket 5 lower third untuk kebutuhan siaran brand baru.',
+      included: 'Logo reveal 8 detik, 5 lower third, hingga 2 ronde revisi minor.',
+      excluded: 'Redesign logo, elemen brand di luar paket, versi 3D penuh.',
+      scope: 'Logo reveal + 5 lower third, 4K', style: 'Modern minimal, gerakan halus', elements: 'Logo animation, lower third set', days: 8, valueMin: 5_000_000, valueMax: 8_500_000 },
+    { title: 'Title Sequence Series Podcast Video',
+      description: 'Title sequence pembuka 12 detik plus template lower third untuk series podcast video 20 episode.',
+      included: 'Title sequence 12 detik, 1 template lower third reusable, hingga 2 ronde revisi minor.',
+      excluded: 'Editing episode, variasi lower third tambahan, musik custom.',
+      scope: 'Title sequence + template lower third, 1080p', style: 'Playful, warna cerah', elements: 'Title sequence, template reusable', days: 7, valueMin: 4_500_000, valueMax: 7_500_000 },
+    { title: 'Animasi Onboarding Aplikasi Mobile',
+      description: 'Animasi onboarding 4 screen untuk aplikasi mobile: ilustrasi flat, transisi antar screen, ekspor Lottie untuk developer.',
+      included: '4 screen animasi, ekspor Lottie, hingga 2 ronde revisi minor.',
+      excluded: 'Ilustrasi karakter kompleks, screen tambahan di luar 4, integrasi kode.',
+      scope: 'Onboarding 4 screen, file Lottie + preview MP4', style: 'Flat design playful', elements: 'Ilustrasi, transisi, ekspor Lottie', days: 9, valueMin: 5_500_000, valueMax: 9_000_000 },
+  ],
+  'VFX & Compositing': [
+    { title: 'Compositing Iklan Produk dengan CGI',
+      description: 'Compositing 10 shot iklan produk elektronik: integrasi render CGI produk dengan footage live-action, koreksi bayangan & refleksi.',
+      included: 'Compositing 10 shot sesuai shot list, hingga 2 ronde revisi minor per shot.',
+      excluded: 'Rendering CGI produk (disediakan klien), shot tambahan di luar list.',
+      scope: '10 shot compositing, EXR + ProRes', style: 'Fotorealistik, refleksi tajam', elements: 'Integrasi CGI, bayangan, refleksi', days: 16, valueMin: 16_000_000, valueMax: 24_000_000 },
+    { title: 'Cleanup & Stabilization Footage Drone',
+      description: 'Cleanup dan stabilisasi 15 shot footage drone untuk dokumentasi properti: penghapusan bayangan drone, horizon leveling, sky replacement parsial.',
+      included: 'Cleanup 15 shot, stabilisasi, sky replacement parsial, hingga 2 ronde revisi minor.',
+      excluded: 'Reshoot drone, shot tambahan di luar 15, color grading final.',
+      scope: '15 shot drone cleaned & stabilized, ProRes', style: 'Natural, stabil', elements: 'Stabilisasi, cleanup bayangan, sky replacement', days: 12, valueMin: 11_000_000, valueMax: 17_000_000 },
+    { title: 'Green Screen Compositing Virtual Set',
+      description: 'Compositing 8 shot presenter green screen ke virtual set 3D: keying rambut detail, matching pencahayaan, tracking kamera.',
+      included: 'Compositing 8 shot, keying detail, matching cahaya, hingga 2 ronde revisi minor.',
+      excluded: 'Pembuatan virtual set 3D, shot tambahan di luar 8, motion capture.',
+      scope: '8 shot virtual set composited, ProRes 4444', style: 'Studio broadcast', elements: 'Keying, matching cahaya, tracking', days: 14, valueMin: 15_000_000, valueMax: 22_000_000 },
+    { title: 'Particle & Atmospheric FX Short Film',
+      description: 'Penambahan efek partikel dan atmosfer (kabut, debu, cahaya volumetrik) di 12 shot film pendek untuk submission festival.',
+      included: 'FX partikel & atmosfer 12 shot, hingga 2 ronde revisi minor per shot.',
+      excluded: 'CG karakter/asset baru, shot tambahan di luar 12, grading final.',
+      scope: '12 shot dengan FX partikel & atmosfer, EXR', style: 'Moody, atmosferik', elements: 'Partikel, kabut, cahaya volumetrik', days: 18, valueMin: 18_000_000, valueMax: 26_000_000 },
+  ],
+}
+
+const DEPT_REVISION_TEXTS: Record<string, string[]> = {
+  'Photo Retouching': [
+    'Warna beberapa foto masih meleset dari sampel fisik, tolong disesuaikan lagi.',
+    'Tolong rapikan bagian tepi objek yang masih terlihat kasar di beberapa frame.',
+    'Highlight di area tertentu terlalu terang, mohon diseimbangkan.',
+    'Konsistensi shadow antar foto belum seragam, tolong disamakan.',
+  ],
+  'Video Editing': [
+    'Pacing di bagian tengah terasa terlalu lambat, tolong dipersingkat.',
+    'Transisi antar segmen kurang mulus, mohon diperhalus.',
+    'Level audio narasi naik-turun, tolong disamakan volumenya.',
+    'Tolong ganti musik latar di satu segmen, kurang sesuai mood.',
+  ],
+  'Color Grading': [
+    'Look di beberapa shot masih terasa beda dibanding shot referensi utama.',
+    'Skin tone talent agak kemerahan di beberapa scene, tolong dinetralkan.',
+    'Kontras di adegan malam terlalu tinggi, detail bayangan hilang.',
+    'Tolong samakan white balance antar shot yang diambil di lokasi berbeda.',
+  ],
+  'Motion Graphics': [
+    'Timing animasi di satu bagian terasa terlalu cepat, sulit dibaca.',
+    'Tolong perbesar ukuran teks utama, kurang terbaca di layar kecil.',
+    'Warna elemen grafis belum sesuai brand guideline terbaru.',
+    'Transisi antar scene tolong dibuat lebih halus mengikuti musik.',
+  ],
+  'VFX & Compositing': [
+    'Edge keying di beberapa frame masih terlihat, tolong dihaluskan.',
+    'Bayangan hasil compositing kurang natural, arah cahaya tidak konsisten.',
+    'Tolong rapikan artefak di area transisi antara elemen CGI dan live-action.',
+    'Partikel di satu shot terlalu padat, mohon dikurangi densitasnya.',
+  ],
+}
+
+const DEPT_REVIEWS: Record<string, Array<{ rating: number; comment: string }>> = {
+  'Photo Retouching': [
+    { rating: 5, comment: 'Hasil retouching rapi dan konsisten di semua foto, pengerjaan tepat waktu.' },
+    { rating: 4, comment: 'Kualitas bagus, ada sedikit revisi warna tapi direspons cepat.' },
+    { rating: 5, comment: 'Sangat teliti, detail yang biasanya terlewat justru diperhatikan.' },
+    { rating: 3, comment: 'Hasil cukup baik namun revisi memakan waktu lebih lama dari perkiraan.' },
+  ],
+  'Video Editing': [
+    { rating: 5, comment: 'Editing halus, pacing pas, dan komunikasi selama proses sangat baik.' },
+    { rating: 4, comment: 'Hasil akhir memuaskan meski ada satu ronde revisi untuk audio.' },
+    { rating: 5, comment: 'Cepat tanggap dan hasil sesuai brief sejak draft pertama.' },
+    { rating: 4, comment: 'Kualitas video bagus, transisi mulus, timeline sesuai jadwal.' },
+  ],
+  'Color Grading': [
+    { rating: 5, comment: 'Look yang dihasilkan tepat sesuai referensi, konsisten di semua shot.' },
+    { rating: 4, comment: 'Grading solid, ada penyesuaian kecil di beberapa scene tapi hasil akhir memuaskan.' },
+    { rating: 5, comment: 'Colorist sangat memahami mood yang diinginkan sejak awal.' },
+    { rating: 3, comment: 'Look dasarnya bagus, tapi butuh beberapa ronde untuk konsistensi antar shot.' },
+  ],
+  'Motion Graphics': [
+    { rating: 5, comment: 'Animasi halus dan sangat sesuai brand, tim kami sangat puas.' },
+    { rating: 4, comment: 'Hasil kreatif dan rapi, ada revisi kecil di timing yang direspons cepat.' },
+    { rating: 5, comment: 'Detail animasi luar biasa, jauh melebihi ekspektasi awal.' },
+    { rating: 4, comment: 'Kualitas bagus, komunikasi lancar sepanjang pengerjaan.' },
+  ],
+  'VFX & Compositing': [
+    { rating: 5, comment: 'Compositing sangat rapi, hasil akhir terlihat seamless dan natural.' },
+    { rating: 4, comment: 'Kualitas VFX solid, ada revisi kecil di bagian keying yang ditangani baik.' },
+    { rating: 5, comment: 'Detail teknis diperhatikan dengan sangat baik, hasil melebihi ekspektasi.' },
+    { rating: 3, comment: 'Hasil cukup baik namun proses revisi memakan waktu lebih lama dari rencana.' },
+  ],
+}
+
+const DEPT_DISPUTE_REASONS: Record<string, string[]> = {
+  'Photo Retouching': ['Klien menganggap koreksi warna tambahan seharusnya masih dalam scope awal, sementara editor menilai perubahan tersebut di luar sampel yang disepakati.'],
+  'Video Editing': ['Klien meminta penambahan segmen baru dianggap revisi minor, sementara editor menilainya sebagai pekerjaan tambahan di luar scope kontrak.'],
+  'Color Grading': ['Klien keberatan dengan biaya revisi look tambahan yang dianggap seharusnya termasuk dalam ronde revisi awal.'],
+  'Motion Graphics': ['Klien menganggap perubahan gaya animasi di tengah proses adalah penyesuaian kecil, sementara editor menilainya sebagai perubahan konsep besar.'],
+  'VFX & Compositing': ['Klien menilai hasil compositing belum sesuai referensi awal, sementara editor menilai referensi tersebut berubah dari brief yang disepakati.'],
+}
+
+// Distribusi status per editor tambahan — didominasi "completed" (riwayat
+// panjang) dengan selingan status aktif/bermasalah supaya setiap departemen
+// tetap menunjukkan variasi kondisi proyek yang realistis.
+const EXTRA_STATUS_CYCLE: ProjectStatus[] = [
+  'completed', 'completed', 'in_progress', 'completed', 'in_review',
+  'completed', 'revision', 'completed', 'disputed', 'completed',
+  'awaiting_dp', 'completed', 'cancelled', 'completed',
+]
+
+/** Tanggal deterministik antara 1 Feb – 1 Jul 2026, digeser per editor + offset hari. */
+function extraDate(n: number, offsetDays: number): string {
+  const base = Date.UTC(2026, 1, 1)
+  const span = Date.UTC(2026, 6, 1) - base
+  const frac = ((n * 37) % 150) / 150
+  return new Date(base + frac * span + offsetDays * 86_400_000).toISOString().slice(0, 10)
+}
+function addDays(key: string, days: number): string {
+  return new Date(new Date(`${key}T00:00:00Z`).getTime() + days * 86_400_000).toISOString().slice(0, 10)
+}
+
+interface ExtraDispute { project_id: string; editor: string; client: string; reason: string; status: DisputeStatus }
+
+function buildExtraProjects(): { projects: ProjectSpec[]; disputes: ExtraDispute[] } {
+  const covered = new Set(PROJECTS.map(p => Number(p.editor.slice(1))))
+  const projects: ProjectSpec[] = []
+  const disputes: ExtraDispute[] = []
+  let seq = PROJECTS.length + 1
+
+  for (const [deptIdx, range] of DEPT_RANGES.entries()) {
+    const templates = DEPT_TEMPLATES[range.dept]!
+    const revisionPool = DEPT_REVISION_TEXTS[range.dept]!
+    const reviewPool = DEPT_REVIEWS[range.dept]!
+    const disputeReasons = DEPT_DISPUTE_REASONS[range.dept]!
+    let localIdx = 0
+
+    for (let n = range.from; n <= range.to; n++) {
+      if (covered.has(n)) continue
+      const editorId = `e${String(n).padStart(2, '0')}`
+      const tpl = templates[localIdx % templates.length]!
+      const client = CLIENTS[(n + deptIdx) % CLIENTS.length]!
+      const status = EXTRA_STATUS_CYCLE[(n + deptIdx * 3) % EXTRA_STATUS_CYCLE.length]!
+      const value = tpl.valueMin + Math.floor(rnd(n * 11 + deptIdx) * (tpl.valueMax - tpl.valueMin))
+      const created = extraDate(n, 0)
+      const id = `p${String(seq++).padStart(2, '0')}`
+
+      const started = status === 'awaiting_dp' ? undefined : extraDate(n, 3)
+      const completed = status === 'completed' ? extraDate(n, tpl.days + 5) : undefined
+
+      const allowance = 2 + (n % 2)
+      const revCount = status === 'awaiting_dp' || status === 'cancelled' ? 0 : 1 + (n % 2)
+      const revisions: ProjectSpec['revisions'] = []
+      for (let r = 0; r < revCount; r++) {
+        const text = revisionPool[(n + r) % revisionPool.length]!
+        const isMajor = (n + r) % 6 === 0
+        const isUncertain = !isMajor && (n + r) % 9 === 0
+        const at = extraDate(n, 4 + r * 2)
+        const isTerminalRound = r === revCount - 1
+        if (status === 'disputed' && isTerminalRound) {
+          revisions.push({ text, ai: isUncertain ? 'uncertain' : (isMajor ? 'major' : 'minor'), conf: round1(0.6 + rnd(n + r) * 0.3), status: 'disputed', at })
+        } else if (status === 'revision' && isTerminalRound) {
+          revisions.push({ text, ai: 'minor', conf: round1(0.8 + rnd(n + r) * 0.15), final: 'minor', status: 'in_progress', at })
+        } else {
+          const finalLabel: RevisionFinalLabel = isMajor ? 'major' : 'minor'
+          revisions.push({
+            text, ai: isUncertain ? 'uncertain' : finalLabel, conf: round1(0.75 + rnd(n + r) * 0.2),
+            final: finalLabel, price: isMajor ? 800_000 + Math.floor(rnd(n + r + 3) * 8) * 100_000 : undefined,
+            status: 'resolved', at,
+          })
+        }
+      }
+      const consumed = Math.min(allowance, revisions.filter(r => r.final === 'minor' || r.status === 'in_progress').length)
+
+      const contractStatus: ContractStatus =
+        status === 'awaiting_dp' ? 'pending_client_approval'
+        : status === 'cancelled' ? 'rejected'
+        : status === 'completed' ? 'closed'
+        : 'active'
+
+      const project: ProjectSpec = {
+        id, client: client.id, editor: editorId, title: tpl.title, description: tpl.description,
+        status, value, created, started, completed,
+        allowance, consumed,
+        included: tpl.included, excluded: tpl.excluded,
+        contract: {
+          scope: tpl.scope, style: tpl.style, elements: tpl.elements, days: tpl.days,
+          status: contractStatus,
+          approved: status === 'awaiting_dp' ? undefined : extraDate(n, 2),
+        },
+        revisions,
+      }
+      if (status === 'completed') {
+        project.review = reviewPool[n % reviewPool.length]!
+      }
+      projects.push(project)
+      if (status === 'disputed') {
+        disputes.push({
+          project_id: id, editor: editorId, client: client.id,
+          reason: disputeReasons[n % disputeReasons.length]!,
+          status: n % 2 === 0 ? DisputeStatus.open : DisputeStatus.in_mediation,
+        })
+      }
+      localIdx++
+    }
+  }
+  return { projects, disputes }
+}
+
 // Konversi id editor (e01) → id user (ed01) — penomoran seed dasar sejajar.
 const editorUserId = (editorId: string) => `ed${editorId.slice(1)}`
 
@@ -426,6 +742,8 @@ async function main() {
   }
   const editors = await prisma.editor.findMany({ orderBy: { editor_id: 'asc' } })
   const editorById = new Map(editors.map(e => [e.editor_id, e]))
+  const { projects: extraProjects, disputes: extraDisputes } = buildExtraProjects()
+  const ALL_PROJECTS: ProjectSpec[] = [...PROJECTS, ...extraProjects]
 
   // ── Wipe transaksional (anak dulu, lalu induk) ────────────────────────────
   await prisma.kpiSnapshot.deleteMany()
@@ -620,7 +938,7 @@ async function main() {
   // ── Proyek + kontrak + revisi + chat + escrow + transaksi + review ────────
   let msgCount = 0
   let trxCount = 0
-  for (const p of PROJECTS) {
+  for (const p of ALL_PROJECTS) {
     const editor = editorById.get(p.editor)!
     const client = CLIENTS.find(c => c.id === p.client)!
     const clientLabel = `${client.name} — ${client.company}`
@@ -731,7 +1049,7 @@ async function main() {
     }
     trxCount += trx.length
   }
-  console.log(`📁 ${PROJECTS.length} proyek + kontrak/revisi/escrow, ${msgCount} pesan, ${trxCount} transaksi.`)
+  console.log(`📁 ${ALL_PROJECTS.length} proyek (mencakup ${new Set(ALL_PROJECTS.map(p => p.editor)).size}/${editors.length} editor) + kontrak/revisi/escrow, ${msgCount} pesan, ${trxCount} transaksi.`)
 
   // ── Sengketa ──────────────────────────────────────────────────────────────
   const p12 = PROJECTS.find(p => p.id === 'p12')!
@@ -760,7 +1078,25 @@ async function main() {
       sla_deadline: t('2026-06-01', '17:00'),
     },
   })
-  console.log('⚖️  2 sengketa (1 mediasi berjalan, 1 selesai).')
+  for (const dd of extraDisputes) {
+    const proj = ALL_PROJECTS.find(p => p.id === dd.project_id)!
+    const editor = editorById.get(dd.editor)!
+    const client = CLIENTS.find(c => c.id === dd.client)!
+    const disputedRev = proj.revisions.find(r => r.status === 'disputed')!
+    await prisma.dispute.create({
+      data: {
+        project_id: dd.project_id, project_title: proj.title,
+        client_name: `${client.name} — ${client.company}`, editor_name: editor.full_name,
+        opened_by: client.name, opened_by_role: DisputeOpenerRole.client,
+        reason: dd.reason,
+        evidence: [`https://files.manava.id/disputes/${dd.project_id}/bukti-1.pdf`],
+        status: dd.status,
+        opened_at: t(addDays(disputedRev.at, 1), '09:15'),
+        sla_deadline: t(addDays(disputedRev.at, 8), '17:00'),
+      },
+    })
+  }
+  console.log(`⚖️  ${2 + extraDisputes.length} sengketa (2 detail manual + ${extraDisputes.length} tersebar per departemen).`)
 
   // ── Slip gaji: April, Mei (paid) & Juni (finalized) ───────────────────────
   const BONUS: Record<string, Record<string, number>> = {
@@ -795,7 +1131,7 @@ async function main() {
 
   // ── Sinkronkan active_projects editor ─────────────────────────────────────
   const activeCount = new Map<string, number>()
-  for (const p of PROJECTS) {
+  for (const p of ALL_PROJECTS) {
     if (['in_progress', 'in_review', 'revision', 'disputed'].includes(p.status)) {
       activeCount.set(p.editor, (activeCount.get(p.editor) ?? 0) + 1)
     }
