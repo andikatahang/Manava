@@ -1,7 +1,7 @@
 // Job-application API client. Candidates submit from the public /apply page;
-// HR admin reviews via /recruitment. A localStorage flag guards against the
-// same browser re-submitting the current vacancy (the server also rejects a
-// second active application for the same email).
+// HR admin reviews via /recruitment. No client-side re-apply guard (demo needs
+// repeated submissions); the server still rejects a second ACTIVE application
+// for the same email.
 
 import { api, apiBlob } from './api'
 
@@ -79,6 +79,11 @@ export interface ApproveResult {
   email: MailResult
 }
 
+export interface RejectResult {
+  application: JobApplication
+  email: MailResult
+}
+
 export function submitApplication(input: SubmitApplicationInput): Promise<JobApplication> {
   return api<JobApplication>('/applications', { method: 'POST', body: input })
 }
@@ -105,33 +110,18 @@ export function shortlistApplication(id: string, details: InterviewDetails): Pro
   return api<ShortlistResult>(`/applications/${id}/shortlist`, { method: 'PATCH', body: details })
 }
 
-export function approveApplication(id: string): Promise<ApproveResult> {
-  return api<ApproveResult>(`/applications/${id}/approve`, { method: 'PATCH' })
+// `department` is HR's placement choice from the approval popup; omitted =
+// server falls back to the AI recommendation from the CV screening.
+export function approveApplication(id: string, department?: string): Promise<ApproveResult> {
+  return api<ApproveResult>(`/applications/${id}/approve`, {
+    method: 'PATCH',
+    body: department ? { department } : {},
+  })
 }
 
-export function rejectApplication(id: string): Promise<JobApplication> {
-  return api<JobApplication>(`/applications/${id}/reject`, { method: 'PATCH' })
-}
-
-// ── Duplicate-apply guard (localStorage, cookie-free) ─────────────────────
-// Bump this when a new vacancy opens — candidates may then apply again.
-export const CURRENT_VACANCY_ID = 'vac-2026-06'
-const APPLIED_KEY = `manava_applied_${CURRENT_VACANCY_ID}`
-
-export function hasApplied(): boolean {
-  try {
-    return localStorage.getItem(APPLIED_KEY) === '1'
-  } catch {
-    return false
-  }
-}
-
-export function markApplied(): void {
-  try {
-    localStorage.setItem(APPLIED_KEY, '1')
-  } catch {
-    // Storage unavailable — guard simply won't persist.
-  }
+// Rejection also sends a templated notification email to the candidate.
+export function rejectApplication(id: string): Promise<RejectResult> {
+  return api<RejectResult>(`/applications/${id}/reject`, { method: 'PATCH' })
 }
 
 export const STATUS_LABELS: Record<ApplicationStatus, string> = {

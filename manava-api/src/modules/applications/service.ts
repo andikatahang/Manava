@@ -47,6 +47,28 @@ export function renderInterviewEmail(app: JobApplication, details: InterviewDeta
   ].join('\n')
 }
 
+// Rejection email — sent for both screening (New) and post-interview
+// rejections so the candidate is never left waiting without word.
+export function renderRejectionEmail(app: JobApplication): string {
+  return [
+    `Kepada ${app.full_name},`,
+    '',
+    'Terima kasih atas waktu dan minat Anda melamar sebagai Editor di Manava.',
+    '',
+    'Setelah peninjauan yang cermat, dengan berat hati kami sampaikan bahwa kami',
+    'belum dapat melanjutkan lamaran Anda ke tahap berikutnya untuk lowongan ini.',
+    '',
+    'Keputusan ini bukan penilaian akhir atas kemampuan Anda — kebutuhan kami saat',
+    'ini sangat spesifik. Kami menyimpan data lamaran Anda dan mengundang Anda',
+    'untuk melamar kembali saat lowongan baru dibuka.',
+    '',
+    'Semoga sukses dalam perjalanan karier Anda.',
+    '',
+    'Salam,',
+    'Tim HR Manava',
+  ].join('\n')
+}
+
 // ─── Account creation on approval ────────────────────────────────────────────
 
 // Demo requirement: every approved editor starts with this shared password;
@@ -104,8 +126,12 @@ async function uniqueUsername(base: string): Promise<string> {
 }
 
 // Create the employee account (User + Editor) from application data.
-// Default role is editor; HR can adjust department/salary later.
-export async function createEditorAccount(app: JobApplication): Promise<CreatedAccount> {
+// Default role is editor. `departmentName` is HR's choice from the placement
+// popup; without it the AI recommendation from the CV screening is used.
+export async function createEditorAccount(
+  app: JobApplication,
+  departmentName?: string,
+): Promise<CreatedAccount> {
   const emailTaken = await prisma.user.findUnique({ where: { email: app.email } })
   if (emailTaken) {
     throw new HttpError(409, 'Email pelamar sudah terdaftar sebagai user — buat akun manual dari halaman Users')
@@ -118,6 +144,9 @@ export async function createEditorAccount(app: JobApplication): Promise<CreatedA
   const password_hash = await hashPassword(temp_password)
 
   const DEFAULT_BASE_SALARY = 7_000_000
+  const department = departmentName?.trim()
+    || app.ai_department
+    || deriveDepartment(app.skills)
 
   const user = await prisma.$transaction(async tx => {
     const created = await tx.user.create({
@@ -130,19 +159,26 @@ export async function createEditorAccount(app: JobApplication): Promise<CreatedA
         role: 'editor',
       },
     })
-    await tx.editor.create({
+    const editor = await tx.editor.create({
       data: {
         user_id: created.user_id,
         full_name: app.full_name,
         email: app.email,
-        // Reuse the insight stored at submission (OpenAI or heuristic) so the
-        // department HR reviewed is the one the account is created with.
-        department: app.ai_department ?? deriveDepartment(app.skills),
+        department,
         specialization: app.skills,
         base_salary: DEFAULT_BASE_SALARY,
         onboarded_at: new Date(),
       },
     })
+    // Place the new editor into the actual department roster when one with
+    // that name exists — a brand-new editor has no other membership, so the
+    // one-editor-one-department rule always holds here.
+    const dept = await tx.department.findFirst({ where: { name: department } })
+    if (dept) {
+      await tx.departmentMember.create({
+        data: { department_id: dept.id, editor_id: editor.editor_id },
+      })
+    }
     await tx.jobApplication.update({
       where: { application_id: app.application_id },
       data: { status: 'approved', decided_at: new Date(), created_user_id: created.user_id },

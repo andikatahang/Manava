@@ -16,6 +16,9 @@ import { IssueWarningForEditor, EditorDetailInfo, EditorAvatar } from './EditorA
 import { TeamPresensiTab } from '../attendance/TeamPresensiTab'
 import WarningPage from '../warning/WarningPage'
 import OffboardingPage from '../offboarding/OffboardingPage'
+import { useMonthlyKpi } from '../../hooks/queries/useKpi'
+import { KpiTrendChart } from '../performance/KpiTrendChart'
+import { KpiRecommendationCard } from './KpiRecommendationCard'
 
 const SPEC_LABELS: Record<string, string> = {
   product_retouch: 'Product Retouch',
@@ -61,6 +64,7 @@ function HrDepartmentDashboard() {
   const departmentsQuery = useDepartments()
   const editorsQuery = useEditors()
   const mutations = useDepartmentMutations()
+  const kpiTrendQuery = useMonthlyKpi()
   const departments = departmentsQuery.data ?? []
   const allEditors = (editorsQuery.data ?? []).filter(e => e.status === 'active')
 
@@ -122,11 +126,22 @@ function HrDepartmentDashboard() {
           Gagal memuat departemen — pastikan backend berjalan. ({(departmentsQuery.error as Error).message})
         </p>
       )}
+      {tab === 'departemen' && !managing && kpiTrendQuery.data && kpiTrendQuery.data.length > 0 && (
+        <div className="space-y-4 mb-6">
+          <KpiTrendChart points={kpiTrendQuery.data} />
+          <KpiRecommendationCard />
+        </div>
+      )}
+
       {tab === 'departemen' && !departmentsQuery.isLoading && !departmentsQuery.isError && (
         managing ? (
           <DepartmentManageView
             department={managing}
-            allEditors={allEditors}
+            // One editor belongs to at most one department: the "Tambah
+            // Editor" picker only offers editors with no membership elsewhere.
+            allEditors={allEditors.filter(e =>
+              !departments.some(d => d.id !== managing.id && d.member_ids.includes(e.editor_id)),
+            )}
             isNew={managing.id === draftId}
             onDone={finishManage}
             onDiscard={() => discardDraft(managing.id)}
@@ -513,10 +528,19 @@ function DepartmentBasicForm({
   onCancel: () => void
 }) {
   const managersQuery = useDepartmentManagers()
-  const managers: DepartmentManager[] = managersQuery.data ?? []
+  const departmentsQuery = useDepartments()
+  // One manager leads at most one department: hide managers who already lead
+  // another department (the current department's own manager stays pickable).
+  const takenManagerIds = new Set(
+    (departmentsQuery.data ?? [])
+      .filter(d => d.id !== initial?.id)
+      .map(d => d.manager_id),
+  )
+  const managers: DepartmentManager[] = (managersQuery.data ?? [])
+    .filter(m => !takenManagerIds.has(m.id))
   const [name, setName] = useState(initial?.name ?? '')
   const [managerId, setManagerId] = useState(initial?.manager_id ?? '')
-  // Default the picker to the first manager once the list arrives.
+  // Default the picker to the first available manager once the list arrives.
   const effectiveManagerId = managerId || managers[0]?.id || ''
   const [error, setError] = useState('')
 
@@ -547,6 +571,11 @@ function DepartmentBasicForm({
             <option key={m.id} value={m.id}>{m.full_name} — {m.department}</option>
           ))}
         </select>
+        {managers.length === 0 && !managersQuery.isLoading && (
+          <p className="text-xs text-amber-700 mt-1">
+            Semua manajer sudah memimpin departemen — satu manajer hanya boleh memimpin satu departemen.
+          </p>
+        )}
       </div>
 
       <div className="flex justify-end gap-2 pt-1">

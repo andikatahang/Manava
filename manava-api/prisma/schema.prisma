@@ -276,6 +276,7 @@ model Editor {
   projects        Project[]
   payslips        Payslip[]
   metrics         EditorMetrics?
+  kpi_snapshots   KpiSnapshot[]
 
   @@index([status])
 }
@@ -426,6 +427,28 @@ model Warning {
   @@index([status])
   @@index([severity])
   @@index([target_user_id])
+}
+
+// Snapshot KPI per editor per bulan. Digunakan untuk grafik tren KPI bulan-ke-
+// bulan per departemen di halaman Performance. Departemen disimpan denormal
+// agar filter historis tetap benar meskipun editor pindah departemen di masa
+// depan.
+model KpiSnapshot {
+  id                String   @id @default(cuid())
+  editor_id         String
+  department        String
+  period            String   // "YYYY-MM"
+  avg_client_rating Float
+  completion_rate   Int
+  manager_rating    Float
+  kpi_average       Float
+  created_at        DateTime @default(now())
+
+  editor Editor @relation(fields: [editor_id], references: [editor_id], onDelete: Cascade)
+
+  @@unique([editor_id, period])
+  @@index([department, period])
+  @@index([period])
 }
 
 model EditorMetrics {
