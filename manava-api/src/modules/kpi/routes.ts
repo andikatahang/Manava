@@ -77,6 +77,84 @@ kpiRouter.get(
   }),
 )
 
+// ── Tren rating klien granular (hari/minggu) ────────────────────────────────
+// Beda dari /monthly: KpiSnapshot hanya punya granularitas bulanan (satu
+// baris per editor per bulan), jadi tidak bisa dipecah ke hari/minggu.
+// Endpoint ini menghitung rata-rata rating klien LANGSUNG dari Review.rating +
+// Review.created_at (data asli, per kejadian review) — satu-satunya komponen
+// KPI yang punya timestamp granular. completion_rate/manager_rating tidak
+// disertakan karena tidak ada riwayat harian/mingguannya di skema.
+interface ReviewTrendPoint {
+  department: string
+  period: string // "YYYY-MM-DD" — tanggal (hari) atau awal minggu (Senin)
+  avg_client_rating: number
+  review_count: number
+}
+
+function dayBucket(d: Date): string {
+  return d.toISOString().slice(0, 10)
+}
+function weekBucket(d: Date): string {
+  const day = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+  const dow = (day.getUTCDay() + 6) % 7 // 0 = Senin
+  day.setUTCDate(day.getUTCDate() - dow)
+  return day.toISOString().slice(0, 10)
+}
+
+kpiRouter.get(
+  '/reviews-trend',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const viewer = req.user!
+    const granularity = req.query.granularity === 'week' ? 'week' : 'day'
+
+    const [reviews, editors] = await Promise.all([
+      prisma.review.findMany({
+        select: { rating: true, created_at: true, project: { select: { editor_id: true } } },
+        orderBy: { created_at: 'asc' },
+      }),
+      prisma.editor.findMany({ select: { editor_id: true, department: true, user_id: true } }),
+    ])
+    const deptByEditor = new Map(editors.map(e => [e.editor_id, e.department]))
+
+    let ownedDepts: Set<string> | null = null
+    if (viewer.role === 'admin_manager') {
+      const departments = await prisma.department.findMany({
+        where: { manager: { user_id: viewer.sub } },
+        select: { name: true },
+      })
+      ownedDepts = new Set(departments.map(d => d.name))
+    } else if (viewer.role === 'editor') {
+      const me = editors.find(e => e.user_id === viewer.sub)
+      ownedDepts = new Set(me ? [me.department] : [])
+    }
+
+    const bucketOf = granularity === 'week' ? weekBucket : dayBucket
+    const buckets = new Map<string, { sum: number; n: number; d: string; p: string }>()
+    for (const r of reviews) {
+      const dept = deptByEditor.get(r.project.editor_id)
+      if (!dept) continue
+      if (ownedDepts && !ownedDepts.has(dept)) continue
+      const period = bucketOf(r.created_at)
+      const key = `${dept}|${period}`
+      const cur = buckets.get(key) ?? { sum: 0, n: 0, d: dept, p: period }
+      cur.sum += r.rating
+      cur.n += 1
+      buckets.set(key, cur)
+    }
+
+    const points: ReviewTrendPoint[] = Array.from(buckets.values()).map(b => ({
+      department: b.d,
+      period: b.p,
+      avg_client_rating: Math.round((b.sum / b.n) * 100) / 100,
+      review_count: b.n,
+    }))
+    points.sort((a, b) => a.period.localeCompare(b.period) || a.department.localeCompare(b.department))
+
+    res.json(ok(points, { total: points.length }))
+  }),
+)
+
 // ── Per-editor tren (garis per editor) ───────────────────────────────────────
 interface EditorMonthPoint {
   editor_id: string

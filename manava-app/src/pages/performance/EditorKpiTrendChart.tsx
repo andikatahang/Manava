@@ -10,12 +10,23 @@ import {
 import type { EditorMonthlyKpiPoint } from '../../hooks/queries/useKpi'
 
 type Metric = 'kpi_average' | 'avg_client_rating' | 'completion_rate' | 'manager_rating'
+type RangeOption = '3m' | '6m' | '12m' | 'all'
 
 const METRIC_LABEL: Record<Metric, string> = {
   kpi_average: 'KPI Rata-rata',
   avg_client_rating: 'Rating Klien',
   completion_rate: 'Penyelesaian (%)',
   manager_rating: 'Rating Manajer',
+}
+
+const RANGE_LABEL: Record<RangeOption, string> = {
+  '3m': '3 Bulan',
+  '6m': '6 Bulan',
+  '12m': '12 Bulan',
+  all: 'Semua',
+}
+const RANGE_MONTHS: Record<RangeOption, number | null> = {
+  '3m': 3, '6m': 6, '12m': 12, all: null,
 }
 
 // Palet luas: sampai 12 editor terlihat berbeda cukup jelas.
@@ -40,19 +51,25 @@ interface Props {
 
 export function EditorKpiTrendChart({ points, department, title, subtitle }: Props) {
   const [metric, setMetric] = useState<Metric>('kpi_average')
+  const [range, setRange] = useState<RangeOption>('6m')
 
   const filtered = useMemo(
     () => (department ? points.filter(p => p.department === department) : points),
     [points, department],
   )
 
-  const { rows, editors } = useMemo(() => {
+  const { rows, editors, rangeLabel } = useMemo(() => {
+    const allPeriods = Array.from(new Set(filtered.map(p => p.period))).sort()
+    const n = RANGE_MONTHS[range]
+    const visiblePeriods = new Set(n ? allPeriods.slice(-n) : allPeriods)
+    const rangeFiltered = filtered.filter(p => visiblePeriods.has(p.period))
+
     const editorSet = new Map<string, string>()
-    for (const p of filtered) editorSet.set(p.editor_id, p.editor_name)
+    for (const p of rangeFiltered) editorSet.set(p.editor_id, p.editor_name)
     const editorList = Array.from(editorSet.entries()).sort((a, b) => a[1].localeCompare(b[1]))
 
     const byPeriod = new Map<string, Record<string, number | string>>()
-    for (const p of filtered) {
+    for (const p of rangeFiltered) {
       const row = byPeriod.get(p.period) ?? { period: p.period, label: formatPeriod(p.period) }
       row[p.editor_name] = p[metric]
       byPeriod.set(p.period, row)
@@ -60,8 +77,12 @@ export function EditorKpiTrendChart({ points, department, title, subtitle }: Pro
     const sortedRows = Array.from(byPeriod.values()).sort((a, b) =>
       String(a.period).localeCompare(String(b.period)),
     )
-    return { rows: sortedRows, editors: editorList.map(([, name]) => name) }
-  }, [filtered, metric])
+    const sortedVisible = Array.from(visiblePeriods).sort()
+    const label = sortedVisible.length
+      ? `${formatPeriod(sortedVisible[0])}–${formatPeriod(sortedVisible[sortedVisible.length - 1])}`
+      : '—'
+    return { rows: sortedRows, editors: editorList.map(([, name]) => name), rangeLabel: label }
+  }, [filtered, metric, range])
 
   if (filtered.length === 0) return null
 
@@ -75,10 +96,20 @@ export function EditorKpiTrendChart({ points, department, title, subtitle }: Pro
             <Users className="w-3.5 h-3.5" /> {title ?? 'Perkembangan KPI Anggota Departemen'}
           </p>
           <p className="text-sm text-navy/60 mt-1">
-            {subtitle ?? `Rata-rata ${METRIC_LABEL[metric].toLowerCase()} per anggota — Jan–Jun 2026.`}
+            {subtitle ?? `Rata-rata ${METRIC_LABEL[metric].toLowerCase()} per anggota — ${rangeLabel}.`}
           </p>
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <select
+            value={range}
+            onChange={e => setRange(e.target.value as RangeOption)}
+            className="text-xs px-3 py-1.5 rounded-full font-medium bg-navy/5 text-navy/70 border-none focus:outline-none focus:ring-1 focus:ring-navy/20 cursor-pointer"
+          >
+            {(Object.keys(RANGE_LABEL) as RangeOption[]).map(r => (
+              <option key={r} value={r}>{RANGE_LABEL[r]}</option>
+            ))}
+          </select>
+          <span className="w-px h-4 bg-navy/10" />
           {(Object.keys(METRIC_LABEL) as Metric[]).map(m => (
             <button
               key={m}

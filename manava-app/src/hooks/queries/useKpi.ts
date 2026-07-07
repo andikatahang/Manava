@@ -27,6 +27,24 @@ export function useEditorMonthlyKpi() {
   })
 }
 
+// Granularitas hari/minggu — dihitung langsung dari Review.rating +
+// Review.created_at (data asli per kejadian review), bukan dari KpiSnapshot
+// bulanan. Hanya rating klien yang tersedia di granularitas ini.
+export interface ReviewTrendPoint {
+  department: string
+  period: string // "YYYY-MM-DD"
+  avg_client_rating: number
+  review_count: number
+}
+
+export function useKpiReviewsTrend(granularity: 'day' | 'week', enabled = true) {
+  return useQuery({
+    queryKey: ['kpi', 'reviews-trend', granularity],
+    queryFn: () => api<ReviewTrendPoint[]>(`/kpi/reviews-trend?granularity=${granularity}`),
+    enabled,
+  })
+}
+
 export interface KpiRecommendation {
   department: string
   priority: 'high' | 'medium' | 'low'
