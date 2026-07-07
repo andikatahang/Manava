@@ -204,6 +204,488 @@ kpiRouter.get(
   }),
 )
 
+// ── ESS: Tren KPI personal editor (hari/minggu/bulan) ───────────────────────
+// Endpoint khusus untuk halaman ESS editor — menampilkan riwayat KPI mereka
+// sendiri dengan granularitas yang dapat dipilih. Hanya editor yang login
+// yang bisa melihat data ini (tidak bisa melihat editor lain).
+interface MyKpiTrendPoint {
+  period: string // "YYYY-MM-DD" untuk day/week, "YYYY-MM" untuk month
+  kpi_average: number | null
+  avg_client_rating: number | null
+  completion_rate: number | null
+  manager_rating: number | null
+  review_count: number
+  project_count: number
+}
+
+kpiRouter.get(
+  '/my-trend',
+  authenticate,
+  requireRole('editor'),
+  asyncHandler(async (req, res) => {
+    const viewer = req.user!
+    const granularity = req.query.granularity === 'week' ? 'week' : req.query.granularity === 'day' ? 'day' : 'month'
+
+    // Cari editor_id dari user yang login
+    const editor = await prisma.editor.findUnique({
+      where: { user_id: viewer.sub },
+      select: { editor_id: true },
+    })
+    if (!editor) {
+      res.json(ok([]))
+      return
+    }
+
+    if (granularity === 'month') {
+      // Untuk bulan: ambil dari KpiSnapshot tapi JUGA hitung review_count & project_count dari Reviews/Projects
+      const snapshots = await prisma.kpiSnapshot.findMany({
+        where: { editor_id: editor.editor_id },
+        orderBy: { period: 'asc' },
+        select: {
+          period: true,
+          kpi_average: true,
+          avg_client_rating: true,
+          completion_rate: true,
+          manager_rating: true,
+        },
+      })
+
+      // Juga query Projects dan Reviews untuk mendapatkan counts per bulan
+      const projects = await prisma.project.findMany({
+        where: { editor_id: editor.editor_id },
+        include: {
+          reviews: { select: { rating: true, created_at: true } },
+        },
+      })
+
+      // Hitung counts per bulan (YYYY-MM)
+      function monthBucket(d: Date): string {
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+      }
+
+      const countsByMonth = new Map<string, { reviewCount: number; projectIds: Set<string> }>()
+
+      for (const p of projects) {
+        // Hitung reviews per bulan (berdasarkan tanggal review)
+        for (const r of p.reviews) {
+          const period = monthBucket(r.created_at)
+          const cur = countsByMonth.get(period) ?? { reviewCount: 0, projectIds: new Set() }
+          cur.reviewCount += 1
+          cur.projectIds.add(p.project_id)
+          countsByMonth.set(period, cur)
+        }
+        // Jika project completed, masukkan ke bulan completion
+        if (p.completed_at) {
+          const period = monthBucket(p.completed_at)
+          const cur = countsByMonth.get(period) ?? { reviewCount: 0, projectIds: new Set() }
+          cur.projectIds.add(p.project_id)
+          countsByMonth.set(period, cur)
+        }
+      }
+
+      const points: MyKpiTrendPoint[] = snapshots.map(s => {
+        const counts = countsByMonth.get(s.period) ?? { reviewCount: 0, projectIds: new Set() }
+        return {
+          period: s.period,
+          kpi_average: s.kpi_average,
+          avg_client_rating: s.avg_client_rating,
+          completion_rate: s.completion_rate,
+          manager_rating: s.manager_rating,
+          review_count: counts.reviewCount,
+          project_count: counts.projectIds.size,
+        }
+      })
+
+      res.json(ok(points, { total: points.length }))
+      return
+    }
+
+    // Untuk day/week: hitung dari Review + Project secara real-time
+    const projects = await prisma.project.findMany({
+      where: { editor_id: editor.editor_id },
+      include: {
+        reviews: { select: { rating: true, created_at: true } },
+      },
+      orderBy: { created_at: 'asc' },
+    })
+
+    const bucketOf = granularity === 'week' ? weekBucket : dayBucket
+    const buckets = new Map<string, { ratingSum: number; ratingN: number; projectIds: Set<string> }>()
+
+    for (const p of projects) {
+      // Gunakan tanggal review untuk rating (saat feedback diberikan)
+      for (const r of p.reviews) {
+        const period = bucketOf(r.created_at)
+        const cur = buckets.get(period) ?? { ratingSum: 0, ratingN: 0, projectIds: new Set() }
+        cur.ratingSum += r.rating
+        cur.ratingN += 1
+        cur.projectIds.add(p.project_id)
+        buckets.set(period, cur)
+      }
+      // Hitung project yang completed di periode ini (untuk completion_rate nantinya)
+      if (p.completed_at) {
+        const period = bucketOf(p.completed_at)
+        const cur = buckets.get(period) ?? { ratingSum: 0, ratingN: 0, projectIds: new Set() }
+        cur.projectIds.add(p.project_id)
+        buckets.set(period, cur)
+      }
+    }
+
+    const points: MyKpiTrendPoint[] = Array.from(buckets.entries())
+      .map(([period, data]) => ({
+        period,
+        kpi_average: null, // KPI bulanan tidak bisa dihitung harian/mingguan tanpa snapshot
+        avg_client_rating: data.ratingN > 0 ? Math.round((data.ratingSum / data.ratingN) * 100) / 100 : null,
+        completion_rate: null, // Completion rate perlu data assignment, tidak ada di scope ini
+        manager_rating: null, // Manager rating hanya ada di snapshot bulanan
+        review_count: data.ratingN,
+        project_count: data.projectIds.size,
+      }))
+      .sort((a, b) => a.period.localeCompare(b.period))
+
+    res.json(ok(points, { total: points.length }))
+  }),
+)
+
+// ── AI Insight Personal untuk Editor ─────────────────────────────────────────
+// Endpoint khusus ESS editor: analisis performa personal + rekomendasi actionable
+// untuk membantu pengambilan keputusan dan motivasi. Hanya bisa diakses editor
+// yang login, melihat data mereka sendiri.
+
+interface EditorInsight {
+  summary: string
+  performance_level: 'excellent' | 'good' | 'needs_improvement'
+  trend: 'improving' | 'stable' | 'declining'
+  key_strengths: string[]
+  areas_for_improvement: string[]
+  actionable_tips: string[]
+  motivational_message: string
+}
+
+interface EditorInsightResponse {
+  source: 'openai' | 'heuristic'
+  insight: EditorInsight
+  generated_at: string
+}
+
+// Konteks performa editor untuk AI analysis
+interface EditorContext {
+  editor_name: string
+  department: string
+  kpi_trend_6m: number[] // 6 bulan terakhir
+  kpi_latest: number
+  kpi_delta_6m: number
+  avg_client_rating: number
+  total_projects: number
+  total_reviews: number
+  completed_projects: number
+  disputed_projects: number
+  performance_band: 'excellent' | 'good' | 'needs_improvement'
+  recent_ratings: number[] // 5 rating terakhir
+}
+
+async function buildEditorContext(editorId: string): Promise<EditorContext | null> {
+  const editor = await prisma.editor.findUnique({
+    where: { editor_id: editorId },
+    select: { full_name: true, department: true, performance_band: true },
+  })
+  if (!editor) return null
+
+  // KPI 6 bulan terakhir
+  const snapshots = await prisma.kpiSnapshot.findMany({
+    where: { editor_id: editorId },
+    orderBy: { period: 'desc' },
+    take: 6,
+    select: { period: true, kpi_average: true, avg_client_rating: true },
+  })
+  snapshots.reverse() // oldest first
+
+  const trend = snapshots.map(s => s.kpi_average)
+  const latest = trend[trend.length - 1] ?? 0
+  const earliest = trend[0] ?? 0
+  const delta = Math.round((latest - earliest) * 100) / 100
+
+  // Projects & reviews
+  const projects = await prisma.project.findMany({
+    where: { editor_id: editorId },
+    include: { reviews: { select: { rating: true, created_at: true } } },
+  })
+
+  const completedProjects = projects.filter(p => p.status === 'completed').length
+  const disputedProjects = projects.filter(p => p.status === 'disputed').length
+  const allReviews = projects.flatMap(p => p.reviews)
+  const recentReviews = allReviews
+    .sort((a, b) => b.created_at.getTime() - a.created_at.getTime())
+    .slice(0, 5)
+    .map(r => r.rating)
+
+  const avgRating =
+    allReviews.length > 0
+      ? Math.round((allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length) * 100) / 100
+      : 0
+
+  return {
+    editor_name: editor.full_name,
+    department: editor.department,
+    kpi_trend_6m: trend,
+    kpi_latest: latest,
+    kpi_delta_6m: delta,
+    avg_client_rating: avgRating,
+    total_projects: projects.length,
+    total_reviews: allReviews.length,
+    completed_projects: completedProjects,
+    disputed_projects: disputedProjects,
+    performance_band: editor.performance_band,
+    recent_ratings: recentReviews,
+  }
+}
+
+function heuristicEditorInsight(ctx: EditorContext): EditorInsight {
+  const kpi = ctx.kpi_latest
+  const delta = ctx.kpi_delta_6m
+  const rating = ctx.avg_client_rating
+
+  // Determine performance level
+  let level: EditorInsight['performance_level']
+  if (kpi >= 4.5 && rating >= 4.5) level = 'excellent'
+  else if (kpi >= 4.0 && rating >= 4.0) level = 'good'
+  else level = 'needs_improvement'
+
+  // Determine trend
+  let trend: EditorInsight['trend']
+  if (delta >= 0.3) trend = 'improving'
+  else if (delta <= -0.3) trend = 'declining'
+  else trend = 'stable'
+
+  // Key strengths
+  const strengths: string[] = []
+  if (rating >= 4.5) strengths.push(`Rating klien sangat baik (${rating.toFixed(1)}/5.0)`)
+  if (ctx.completed_projects >= 10) strengths.push(`${ctx.completed_projects} proyek selesai sukses`)
+  if (ctx.disputed_projects === 0) strengths.push('Tidak ada proyek disengketakan')
+  if (delta >= 0.5) strengths.push(`Peningkatan signifikan dalam 6 bulan (+${delta.toFixed(1)})`)
+  if (ctx.recent_ratings.every(r => r >= 4)) strengths.push('Konsisten mendapat rating tinggi dari klien')
+
+  // Areas for improvement
+  const improvements: string[] = []
+  if (rating < 4.0) improvements.push('Rating klien perlu ditingkatkan')
+  if (ctx.disputed_projects > 0) improvements.push(`${ctx.disputed_projects} proyek mengalami sengketa`)
+  if (delta < -0.3) improvements.push('Tren KPI menurun dalam 6 bulan terakhir')
+  if (ctx.recent_ratings.some(r => r < 3)) improvements.push('Beberapa review klien terakhir kurang memuaskan')
+
+  // Actionable tips
+  const tips: string[] = []
+  if (level === 'excellent') {
+    tips.push('Pertahankan standar kualitas tinggi Anda dengan dokumentasi best practices')
+    tips.push('Pertimbangkan mentoring editor junior untuk berbagi pengalaman')
+    tips.push('Eksplorasi teknik atau tools baru untuk terus berkembang')
+  } else if (level === 'good') {
+    tips.push('Review feedback klien secara detail untuk identifikasi pola improvement')
+    tips.push('Komunikasi proaktif dengan klien di awal proyek untuk alignment ekspektasi')
+    tips.push('Alokasikan waktu untuk refine deliverable sebelum submit final')
+  } else {
+    tips.push('Jadwalkan 1-on-1 dengan manager untuk diskusi tantangan spesifik')
+    tips.push('Fokus pada quality over speed - pastikan deliverable memenuhi brief')
+    tips.push('Minta feedback konstruktif dari senior editor di departemen Anda')
+  }
+
+  if (trend === 'declining') {
+    tips.push('Identifikasi penyebab penurunan: workload, tools, komunikasi klien?')
+  }
+
+  // Motivational message
+  let message: string
+  if (level === 'excellent' && trend === 'improving') {
+    message = `Luar biasa, ${ctx.editor_name}! Performa Anda konsisten cemerlang dan terus meningkat. Anda adalah role model di ${ctx.department}. Terus pertahankan momentum ini! 🌟`
+  } else if (level === 'excellent') {
+    message = `Excellent work, ${ctx.editor_name}! Rating ${rating.toFixed(1)}/5.0 menunjukkan klien sangat puas dengan kualitas Anda. Pertahankan standar tinggi ini! 💪`
+  } else if (level === 'good' && trend === 'improving') {
+    message = `Great progress, ${ctx.editor_name}! Peningkatan ${delta >= 0 ? '+' : ''}${delta.toFixed(1)} dalam 6 bulan menunjukkan komitmen Anda. Terus maju! 🚀`
+  } else if (level === 'good') {
+    message = `Solid performance, ${ctx.editor_name}! Anda di jalur yang baik. Fokus pada konsistensi dan feedback klien untuk naik ke level berikutnya. 👍`
+  } else if (trend === 'improving') {
+    message = `Kabar baik, ${ctx.editor_name}! Tren Anda membaik. Terus fokus pada improvement area dan momentum ini akan membawa hasil positif. 💡`
+  } else {
+    message = `${ctx.editor_name}, ini waktu untuk action. Review feedback klien, diskusi dengan manager, dan buat rencana konkret untuk improvement. Anda pasti bisa! 🔥`
+  }
+
+  const summary =
+    level === 'excellent'
+      ? `Performa cemerlang dengan KPI ${kpi.toFixed(1)}/5.0 dan rating klien ${rating.toFixed(1)}/5.0. ${trend === 'improving' ? 'Tren meningkat.' : trend === 'declining' ? 'Perlu jaga konsistensi.' : 'Stabil di level tinggi.'}`
+      : level === 'good'
+        ? `Performa baik dengan KPI ${kpi.toFixed(1)}/5.0. ${trend === 'improving' ? 'Tren positif, terus tingkatkan!' : trend === 'declining' ? 'Tren menurun, perlu perhatian.' : 'Stabil, ada ruang untuk improvement.'}`
+        : `KPI ${kpi.toFixed(1)}/5.0 perlu peningkatan segera. ${trend === 'improving' ? 'Kabar baik: tren membaik.' : 'Butuh action plan konkret dengan manager.'}`
+
+  return {
+    summary,
+    performance_level: level,
+    trend,
+    key_strengths: strengths.length > 0 ? strengths : ['Terus kembangkan keahlian teknis dan komunikasi Anda'],
+    areas_for_improvement: improvements.length > 0 ? improvements : ['Pertahankan performa saat ini'],
+    actionable_tips: tips,
+    motivational_message: message,
+  }
+}
+
+kpiRouter.post(
+  '/my-insight',
+  authenticate,
+  requireRole('editor'),
+  asyncHandler(async (req, res) => {
+    const viewer = req.user!
+    const editor = await prisma.editor.findUnique({
+      where: { user_id: viewer.sub },
+      select: { editor_id: true },
+    })
+    if (!editor) {
+      res.json(
+        ok<EditorInsightResponse>({
+          source: 'heuristic',
+          insight: {
+            summary: 'Belum ada data performa.',
+            performance_level: 'needs_improvement',
+            trend: 'stable',
+            key_strengths: [],
+            areas_for_improvement: [],
+            actionable_tips: ['Selesaikan proyek pertama untuk mulai tracking performa'],
+            motivational_message: 'Selamat bergabung! Fokus pada kualitas di proyek pertama Anda. 🚀',
+          },
+          generated_at: new Date().toISOString(),
+        }),
+      )
+      return
+    }
+
+    const ctx = await buildEditorContext(editor.editor_id)
+    if (!ctx || ctx.total_projects === 0) {
+      res.json(
+        ok<EditorInsightResponse>({
+          source: 'heuristic',
+          insight: {
+            summary: 'Belum ada data proyek.',
+            performance_level: 'needs_improvement',
+            trend: 'stable',
+            key_strengths: [],
+            areas_for_improvement: [],
+            actionable_tips: ['Selesaikan proyek pertama untuk mulai tracking performa'],
+            motivational_message: 'Mulai dengan proyek pertama! Setiap expert pernah jadi pemula. 💪',
+          },
+          generated_at: new Date().toISOString(),
+        }),
+      )
+      return
+    }
+
+    // Heuristic fallback jika OpenAI tidak tersedia
+    if (!isOpenAiConfigured()) {
+      res.json(
+        ok<EditorInsightResponse>({
+          source: 'heuristic',
+          insight: heuristicEditorInsight(ctx),
+          generated_at: new Date().toISOString(),
+        }),
+      )
+      return
+    }
+
+    try {
+      const client = getOpenAi()
+      const completion = await client.chat.completions.create({
+        model: OPENAI_MODEL,
+        response_format: { type: 'json_object' },
+        temperature: 0.3, // Slightly creative for motivational tone
+        top_p: 1,
+        messages: [
+          {
+            role: 'system',
+            content: [
+              'Anda adalah performance coach berpengalaman untuk profesional jasa visual (editor foto, video, color grading) di Indonesia.',
+              'Tugas: menganalisis data performa personal editor dan memberikan insight MOTIVASIONAL + ACTIONABLE.',
+              '',
+              'KELUARAN WAJIB berupa JSON valid dengan schema TEPAT:',
+              '{',
+              '  "summary": string (2-3 kalimat ringkasan performa, sebutkan angka KPI dan rating klien)',
+              '  "performance_level": "excellent" | "good" | "needs_improvement",',
+              '  "trend": "improving" | "stable" | "declining",',
+              '  "key_strengths": string[] (2-4 kekuatan spesifik berdasarkan data, bukan generik)',
+              '  "areas_for_improvement": string[] (1-3 area konkret yang perlu diperbaiki)',
+              '  "actionable_tips": string[] (3-5 tips spesifik dan langsung bisa dilakukan, bukan saran umum)',
+              '  "motivational_message": string (2-3 kalimat motivasi personal, sebutkan nama editor, tone supportive tapi jujur)',
+              '}',
+              '',
+              'ATURAN PENTING:',
+              '- HARUS menyebut angka konkret dari data (KPI, rating, jumlah proyek)',
+              '- Tips harus ACTIONABLE (bisa langsung dilakukan), bukan generik ("tingkatkan komunikasi" → "Kirim update progress ke klien setiap 2 hari")',
+              '- Tone: Supportive tapi jujur. Jika performa menurun, akui tapi tetap motivational.',
+              '- Bahasa Indonesia natural-formal. Gunakan emoji 1-2x di motivational_message untuk warmth.',
+              '- Jangan pernah bandingkan dengan editor lain (data privacy).',
+            ].join('\n'),
+          },
+          {
+            role: 'user',
+            content: [
+              `Analisis performa editor berikut dan berikan insight personal:`,
+              '',
+              '```json',
+              JSON.stringify(ctx, null, 2),
+              '```',
+              '',
+              'Kembalikan JSON sesuai schema.',
+            ].join('\n'),
+          },
+        ],
+      })
+
+      const raw = completion.choices[0]?.message?.content ?? '{}'
+      const parsed = JSON.parse(raw) as Partial<EditorInsight>
+
+      // Validate & fallback ke heuristic jika OpenAI output tidak lengkap
+      if (
+        !parsed.summary ||
+        !parsed.performance_level ||
+        !parsed.trend ||
+        !Array.isArray(parsed.actionable_tips)
+      ) {
+        console.warn('[kpi/my-insight] OpenAI returned incomplete data, fallback to heuristic')
+        res.json(
+          ok<EditorInsightResponse>({
+            source: 'heuristic',
+            insight: heuristicEditorInsight(ctx),
+            generated_at: new Date().toISOString(),
+          }),
+        )
+        return
+      }
+
+      res.json(
+        ok<EditorInsightResponse>({
+          source: 'openai',
+          insight: {
+            summary: String(parsed.summary).trim(),
+            performance_level: parsed.performance_level,
+            trend: parsed.trend,
+            key_strengths: Array.isArray(parsed.key_strengths) ? parsed.key_strengths.map(String) : [],
+            areas_for_improvement: Array.isArray(parsed.areas_for_improvement)
+              ? parsed.areas_for_improvement.map(String)
+              : [],
+            actionable_tips: parsed.actionable_tips.map(String),
+            motivational_message: String(parsed.motivational_message ?? '').trim(),
+          },
+          generated_at: new Date().toISOString(),
+        }),
+      )
+    } catch (err) {
+      console.error('[kpi/my-insight] OpenAI failed, fallback to heuristic:', err)
+      res.json(
+        ok<EditorInsightResponse>({
+          source: 'heuristic',
+          insight: heuristicEditorInsight(ctx),
+          generated_at: new Date().toISOString(),
+        }),
+      )
+    }
+  }),
+)
+
 // ── Rekomendasi AI: analisis operasional per departemen ─────────────────────
 // Hanya HR admin/superadmin. Endpoint mengumpulkan konteks REAL dari DB
 // (KPI 6 bulan + peringatan aktif + isu presensi 30 hari + hasil proyek

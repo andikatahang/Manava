@@ -3,7 +3,7 @@
 // (pengajuan + riwayat), gaji menampilkan keadaan payroll yang belum aktif.
 
 import { useMemo, useState } from 'react'
-import { Calendar, CheckCircle2, Clock, Plus, Wallet } from 'lucide-react'
+import { Calendar, CheckCircle2, Clock, Plus, Wallet, TrendingUp } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
 import { Drawer } from '../../components/ui/Drawer'
@@ -15,12 +15,14 @@ import { useLeaveRequests, useLeaveRequestMutations } from '../../hooks/queries/
 import { ROUTES_TO_LABEL, type RequesterRole } from '../../lib/leaveRequests'
 import type { Attendance } from '../../lib/attendance'
 import { CalendarCard, DayDetailBody, StatStrip } from '../attendance/AttendanceTab'
+import { MyKpiScore } from './MyKpiScore'
 
-type Tab = 'absensi' | 'cuti' | 'gaji'
+type Tab = 'absensi' | 'cuti' | 'kpi' | 'gaji'
 
 const TABS: { id: Tab; label: string; icon: typeof Clock }[] = [
   { id: 'absensi', label: 'Absensi', icon: Clock },
   { id: 'cuti', label: 'Cuti & Izin', icon: Calendar },
+  { id: 'kpi', label: 'KPI Score', icon: TrendingUp },
   { id: 'gaji', label: 'Slip Gaji', icon: Wallet },
 ]
 
@@ -49,6 +51,7 @@ export default function ESSPage({ role }: { role: UserRole }) {
 
       {tab === 'absensi' && <MyAttendance />}
       {tab === 'cuti' && <MyLeave role={role} />}
+      {tab === 'kpi' && <MyKpiScore />}
       {tab === 'gaji' && <PayslipPlaceholder />}
     </div>
   )
