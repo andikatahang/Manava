@@ -17,8 +17,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-manava}
       # Tidak ada default — wajib diset di .env agar password tidak tersimpan di repo.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD wajib diset di .env}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+    # Database only exposed internally to other containers (via manava-net bridge)
+    # Do NOT expose ports in production — only for local dev if absolutely necessary
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -56,7 +56,6 @@ services:
       APP_URL: ${APP_URL:-http://localhost:5173}
     ports:
       - "${API_PORT:-4000}:4000"
-      - "${PRISMA_STUDIO_PORT:-5555}:5555"
     depends_on:
       postgres:
         condition: service_healthy

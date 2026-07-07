@@ -1,0 +1,50 @@
+# Production-specific overrides for docker-compose.yml
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# This file enhances the base config with production-only settings:
+# - Enforces restart policies
+# - Removes development volumes
+# - Adds resource limits
+# - Disables debug ports
+
+services:
+  postgres:
+    restart: always
+    # Production resource limits (adjust based on server capacity)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  api:
+    restart: always
+    environment:
+      NODE_ENV: production
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    # Override: only API port exposed (Prisma Studio removed)
+    ports:
+      - "${API_PORT:-4000}:4000"
+
+  frontend:
+    restart: always
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
