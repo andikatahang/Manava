@@ -23,8 +23,8 @@ const app = express()
 
 app.use(helmet())
 app.use(cors({ origin: env.CORS_ORIGIN }))
-// 8mb: job applications carry the CV inline as a base64 data URL (max 5MB file).
-app.use(express.json({ limit: '8mb' }))
+// 12mb: job application CV + preview image data URLs (base64 balloons ~1.37x).
+app.use(express.json({ limit: '12mb' }))
 if (env.NODE_ENV !== 'test') app.use(morgan('dev'))
 
 // Health check — used by Docker healthcheck and monitoring.

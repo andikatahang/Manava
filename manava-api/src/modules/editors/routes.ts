@@ -50,6 +50,23 @@ editorsRouter.get(
   }),
 )
 
+// GET /api/v1/editors/:id/reviews — ulasan klien terbaru untuk profil editor
+// (dipakai halaman Cari Editor). Hanya data publik: rating, komentar, proyek.
+editorsRouter.get(
+  '/:id/reviews',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const reviews = await prisma.review.findMany({
+      where: { project: { editor_id: req.params.id } },
+      orderBy: { created_at: 'desc' },
+      take: 10,
+      include: { project: { select: { title: true } } },
+    })
+    const visible = reviews.map(({ project, ...r }) => ({ ...r, project_title: project.title }))
+    res.json(ok(visible, { total: visible.length }))
+  }),
+)
+
 const ratingSchema = z.object({
   manager_rating: z.number().min(1).max(5),
 })

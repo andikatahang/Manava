@@ -6,7 +6,8 @@ import { HttpError } from '../../middleware/errorHandler.js'
 
 // Role yang dinonaktifkan sementara: login, refresh, dan sesi aktifnya ditolak.
 // Data user tetap di database sehingga role dapat diaktifkan kembali nanti.
-const DISABLED_ROLES: readonly UserRole[] = ['client', 'mediator', 'finance']
+// 'client' diaktifkan kembali (fitur booking editor); mediator & finance masih menunggu.
+const DISABLED_ROLES: readonly UserRole[] = ['mediator', 'finance']
 
 function assertRoleActive(role: UserRole): void {
   if (DISABLED_ROLES.includes(role)) {
@@ -57,7 +58,6 @@ export interface RegisterInput {
 
 // Self-service signup — always creates a client account and logs it in.
 // Email and username must each be unique across all users.
-// NOTE: pendaftaran publik dinonaktifkan selama role client tidak aktif.
 export async function register(input: RegisterInput): Promise<AuthResult> {
   assertRoleActive('client')
   const emailTaken = await prisma.user.findUnique({ where: { email: input.email } })

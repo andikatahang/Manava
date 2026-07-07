@@ -440,14 +440,14 @@ async function main() {
   await prisma.user.deleteMany({ where: { role: UserRole.client } })
   console.log('🧹 Tabel transaksional dikosongkan.')
 
-  // ── Klien (role client — nonaktif di gerbang login, hanya untuk data) ─────
+  // ── Klien (role client — aktif; bisa login untuk booking editor) ──────────
   const password_hash = await bcrypt.hash(DEFAULT_PASSWORD!, 10)
   for (const c of CLIENTS) {
     await prisma.user.create({
       data: {
         user_id: c.id, full_name: c.name, email: c.email,
         username: c.email.split('@')[0]! + '.' + c.id,
-        password_hash, role: UserRole.client, is_active: false,
+        password_hash, role: UserRole.client, is_active: true,
       },
     })
   }

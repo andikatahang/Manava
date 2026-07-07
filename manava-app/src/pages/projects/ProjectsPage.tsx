@@ -1,10 +1,10 @@
-// Proyek — halaman untuk Editor (proyek miliknya) & Admin Manajer (proyek
-// tim). Datanya dari /projects; modul proyek belum menerima input, sehingga
-// hasilnya biasanya kosong sampai fitur booking diaktifkan.
+// Proyek — halaman untuk Editor (proyek miliknya), Klien (pesanannya), dan
+// Admin Manajer (proyek tim). Data dari /projects yang sudah di-scope per
+// role di backend; booking baru dibuat klien dari halaman Cari Editor.
 
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Briefcase, User, Building2, Calendar, ChevronRight } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Briefcase, User, Building2, Calendar, ChevronRight, Search } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
 import { formatCurrency, formatDate } from '../../lib/utils'
 import { useProjects } from '../../hooks/queries/useProjects'
@@ -35,8 +35,9 @@ export default function ProjectsPage({ role }: { role: UserRole }) {
   const editorsQuery = useEditors(role === 'editor' || role === 'admin_manager')
   const departmentsQuery = useDepartments()
 
-  // Scope by role:
+  // Scope by role (backend sudah membatasi; filter di sini untuk kepastian UI):
   //   editor        → proyek dengan editor_id = editor row milik akun ini
+  //   client        → proyek dengan client_id = user ini
   //   admin_manager → proyek editor di departemen yang ia kelola
   //   lainnya       → semua
   const scoped = useMemo<Project[]>(() => {
@@ -45,6 +46,9 @@ export default function ProjectsPage({ role }: { role: UserRole }) {
       const myEditor = (editorsQuery.data ?? []).find(e => e.user_id === meQuery.data?.user_id)
       if (!myEditor) return []
       return projects.filter(p => p.editor_id === myEditor.editor_id)
+    }
+    if (role === 'client') {
+      return projects.filter(p => p.client_id === meQuery.data?.user_id)
     }
     if (role === 'admin_manager') {
       const myDeptEditorIds = new Set(
@@ -68,12 +72,26 @@ export default function ProjectsPage({ role }: { role: UserRole }) {
     )
   }
 
-  return role === 'editor'
-    ? <EditorGridView projects={scoped} filtered={filtered} filter={filter} setFilter={setFilter} />
-    : <ManagerListView projects={scoped} filter={filter} setFilter={setFilter} />
+  if (role === 'editor' || role === 'client') {
+    return (
+      <GridView
+        role={role}
+        projects={scoped}
+        filtered={filtered}
+        filter={filter}
+        setFilter={setFilter}
+      />
+    )
+  }
+  return <ManagerListView projects={scoped} filter={filter} setFilter={setFilter} />
 }
 
-function EditorGridView({ projects, filtered, filter, setFilter }: {
+// Grid bersama Editor & Klien — beda pada lawan transaksi yang ditampilkan
+// dan definisi "perlu tindakan":
+//   editor → draft (klien menunggu brief), revision (harus dikerjakan ulang), disputed
+//   klien  → in_review (preview menunggu tanggapan), selesai belum diulas
+function GridView({ role, projects, filtered, filter, setFilter }: {
+  role: 'editor' | 'client'
   projects: Project[]
   filtered: Project[]
   filter: ProjectStatus | 'all'
@@ -81,25 +99,32 @@ function EditorGridView({ projects, filtered, filter, setFilter }: {
 }) {
   const navigate = useNavigate()
   const total = projects.length
-  const ongoing = projects.filter(p => ['in_progress', 'in_review', 'revision', 'awaiting_dp'].includes(p.status)).length
+  const ongoing = projects.filter(p => ['in_progress', 'in_review', 'revision', 'awaiting_dp', 'draft'].includes(p.status)).length
   const completed = projects.filter(p => p.status === 'completed').length
-  const needAction = projects.filter(p => ['awaiting_dp', 'in_review', 'disputed'].includes(p.status)).length
+  const needAction = role === 'editor'
+    ? projects.filter(p => ['draft', 'revision', 'disputed'].includes(p.status)).length
+    : projects.filter(p => p.status === 'in_review' || (p.status === 'completed' && !p.has_review)).length
 
   return (
     <div className="space-y-6 max-w-6xl">
-      <div className="card no-hover">
+      <div className="card no-hover flex items-center justify-between gap-4">
         <div className="flex gap-7">
-          <SummaryStat value={needAction} label="Perlu tindakan" accent="text-amber-600" />
+          <SummaryStat value={needAction} label={role === 'client' ? 'Perlu tanggapan' : 'Perlu tindakan'} accent="text-amber-600" />
           <SummaryStat value={ongoing} label="Berjalan" accent="text-blue-600" />
           <SummaryStat value={completed} label="Selesai" accent="text-emerald-600" />
           <SummaryStat value={total} label="Total" accent="text-navy" />
         </div>
+        {role === 'client' && (
+          <Link to="/browse-editors" className="btn-primary text-sm shrink-0 hidden sm:inline-flex">
+            <Search className="w-4 h-4" /> Cari Editor
+          </Link>
+        )}
       </div>
 
       <FilterRow filter={filter} setFilter={setFilter} projects={projects} />
 
       {filtered.length === 0 ? (
-        <EmptyState />
+        <EmptyState role={role} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(p => (
@@ -113,10 +138,16 @@ function EditorGridView({ projects, filtered, filter, setFilter }: {
                 <span className="text-xs text-navy/40">{formatDate(p.created_at)}</span>
               </div>
               <h3 className="mt-3 font-semibold text-navy text-sm leading-snug line-clamp-2">{p.title}</h3>
-              <p className="text-xs text-navy/50 mt-1.5 line-clamp-2">{p.description}</p>
+              <p className="text-xs text-navy/50 mt-1.5 line-clamp-2">
+                {p.description || 'Tahap diskusi — cakupan proyek belum disepakati.'}
+              </p>
               <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
-                <span className="text-xs text-navy/50 truncate">{p.client_name}</span>
-                <span className="text-sm font-bold text-navy">{formatCurrency(p.project_value)}</span>
+                <span className="text-xs text-navy/50 truncate">
+                  {role === 'editor' ? p.client_name : p.editor_name}
+                </span>
+                {p.project_value > 0
+                  ? <span className="text-sm font-bold text-navy">{formatCurrency(p.project_value)}</span>
+                  : <span className="text-xs text-navy/40">belum ada harga</span>}
               </div>
             </button>
           ))}
@@ -262,12 +293,25 @@ function StatCell({ label, value, tone }: { label: string; value: number; tone: 
   )
 }
 
-function EmptyState() {
+function EmptyState({ role }: { role?: 'editor' | 'client' }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-navy/35">
       <Briefcase className="w-12 h-12 mb-3 opacity-30" />
       <p className="text-sm font-medium">Belum ada proyek</p>
-      <p className="text-xs mt-1 text-navy/45">Modul proyek belum diaktifkan.</p>
+      {role === 'client' ? (
+        <>
+          <p className="text-xs mt-1 text-navy/45">Mulai dengan mencari editor yang sesuai kebutuhan Anda.</p>
+          <Link to="/browse-editors" className="btn-primary text-sm mt-4">
+            <Search className="w-4 h-4" /> Cari Editor
+          </Link>
+        </>
+      ) : (
+        <p className="text-xs mt-1 text-navy/45">
+          {role === 'editor'
+            ? 'Booking dari klien akan muncul di sini.'
+            : 'Proyek tim akan muncul di sini setelah ada booking.'}
+        </p>
+      )}
     </div>
   )
 }
