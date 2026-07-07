@@ -88,6 +88,8 @@ export interface Project {
   started_at?: string
   completed_at?: string
   created_at: string
+  // GET /projects menyertakan flag ini untuk CTA "Beri Ulasan" milik klien.
+  has_review?: boolean
 }
 
 export interface RevisionEnvelope {
@@ -102,10 +104,13 @@ export interface RevisionEnvelope {
 export interface Contract {
   contract_id: string
   project_id: string
+  // Terisi pada brief dari alur booking; null pada kontrak historis lama.
+  title?: string | null
   scope: string
   style: string
   key_elements: string
   estimated_duration_days: number
+  revision_limit: number
   project_value: number
   status: 'draft' | 'pending_client_approval' | 'active' | 'superseded' | 'closed' | 'rejected'
   issued_at: string
@@ -223,8 +228,39 @@ export interface Message {
   sender_role: UserRole
   body: string
   message_type: 'text' | 'brief' | 'deliverable' | 'revision_request' | 'ai_summary' | 'system'
-  attachment?: string
+  attachment?: string | null
   created_at: string
+}
+
+// Item inbox ruang proyek (GET /projects/inbox): pesan terbaru dari lawan
+// bicara lintas semua proyek milik viewer.
+export interface InboxItem extends Message {
+  project_title: string
+  project_status: ProjectStatus
+}
+
+// Hasil klasifikasi AI untuk permintaan revisi (POST /projects/:id/revisions/classify).
+export interface RevisionClassification {
+  label: 'minor' | 'major' | 'uncertain'
+  confidence: number
+  summary: string
+  source: 'openai' | 'heuristic'
+  allowance: { count: number; consumed: number }
+}
+
+// Ulasan pada profil editor (GET /editors/:id/reviews).
+export interface EditorReview extends Review {
+  project_title: string
+}
+
+// File yang dapat diunduh klien setelah proyek selesai (GET /projects/:id/download).
+export interface DownloadableFile {
+  message_id: string
+  note: string
+  download_url: string
+  preview_url: string | null
+  created_at: string
+  file_label: string
 }
 
 export interface EscrowAccount {
