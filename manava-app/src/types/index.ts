@@ -253,6 +253,16 @@ export interface EditorReview extends Review {
   project_title: string
 }
 
+// File yang dapat diunduh klien setelah proyek selesai (GET /projects/:id/download).
+export interface DownloadableFile {
+  message_id: string
+  note: string
+  download_url: string
+  preview_url: string | null
+  created_at: string
+  file_label: string
+}
+
 export interface EscrowAccount {
   escrow_id: string
   project_id: string

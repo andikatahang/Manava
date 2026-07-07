@@ -5,8 +5,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import type {
-  Contract, EditorReview, InboxItem, Message, Project, Review,
-  RevisionClassification, RevisionEnvelope, RevisionRequest,
+  Contract, DownloadableFile, EditorReview, InboxItem, Message, Project,
+  Review, RevisionClassification, RevisionEnvelope, RevisionRequest,
 } from '../../types'
 
 export interface ProjectDetail extends Project {
@@ -49,6 +49,14 @@ export function useEditorReviews(editorId: string | undefined) {
     queryKey: ['editor-reviews', editorId],
     queryFn: () => api<EditorReview[]>(`/editors/${editorId}/reviews`),
     enabled: !!editorId,
+  })
+}
+
+export function useProjectDownloads(id: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ['project-downloads', id],
+    queryFn: () => api<DownloadableFile[]>(`/projects/${id}/download`),
+    enabled: !!id && enabled,
   })
 }
 

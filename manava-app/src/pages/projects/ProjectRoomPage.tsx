@@ -3,10 +3,10 @@
 // permintaan revisi bergerbang analisis AI, penyelesaian proyek, dan ulasan
 // KPI. Role staff (manajer/HR/superadmin) melihat ruang sebagai read-only.
 
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  ArrowLeft, Briefcase, Building2, CheckCircle2, FileText,
+  ArrowLeft, Briefcase, Building2, CheckCircle2, Download, FileText,
   PackageCheck, RefreshCw, Send, User, X,
 } from 'lucide-react'
 import { Modal } from '../../components/ui/Modal'
@@ -14,7 +14,8 @@ import { StatusBadge } from '../../components/ui/Badge'
 import { formatCurrency, formatDate } from '../../lib/utils'
 import { useMe } from '../../hooks/queries/useMe'
 import {
-  useProjectDetail, useProjectMessages, useProjectRoomMutations,
+  useProjectDetail, useProjectDownloads, useProjectMessages,
+  useProjectRoomMutations,
 } from '../../hooks/queries/useProjectRoom'
 import { ChatThread } from './room/ChatThread'
 import { BriefFormModal, DeliverableModal } from './room/EditorModals'
@@ -35,6 +36,19 @@ export default function ProjectRoomPage({ role: _role }: { role: UserRole }) {
   const [revisionOpen, setRevisionOpen] = useState(false)
   const [completeOpen, setCompleteOpen] = useState(false)
   const [chatInput, setChatInput] = useState('')
+
+  const isCompleted = detailQuery.data?.status === 'completed'
+  const isClientViewer = detailQuery.data?.viewer_access === 'client'
+  const downloadsQuery = useProjectDownloads(id, isCompleted && isClientViewer)
+
+  const downloadFile = useCallback((dataUrl: string, filename: string) => {
+    const link = document.createElement('a')
+    link.href = dataUrl
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }, [])
 
   if (detailQuery.isLoading) return <p className="text-sm text-navy/50">Memuat ruang proyek…</p>
   if (detailQuery.isError || !detailQuery.data) {
@@ -177,14 +191,85 @@ export default function ProjectRoomPage({ role: _role }: { role: UserRole }) {
         </div>
       )}
 
-      {/* Ulasan (selesai) */}
+      {/* Ulasan & download (selesai) */}
       {p.status === 'completed' && (
-        <ReviewPanel
-          editorName={p.editor_name}
-          existing={existingReview}
-          canReview={access === 'client'}
-          mutation={mutations.submitReview}
-        />
+        <>
+          {/* Panel download — hanya untuk klien */}
+          {access === 'client' && (
+            <div className="card no-hover border-emerald-200 bg-gradient-to-br from-emerald-50/60 to-white">
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-emerald-700 mb-3">
+                <Download className="w-3.5 h-3.5" /> Unduh Hasil Akhir
+              </p>
+              <p className="text-xs text-navy/60 mb-4">
+                Proyek telah selesai — Anda dapat mengunduh file hasil editing <strong className="text-navy">tanpa watermark</strong> di bawah ini.
+              </p>
+              {downloadsQuery.isLoading && (
+                <p className="text-xs text-navy/50 py-4 text-center">Memuat file…</p>
+              )}
+              {downloadsQuery.data && downloadsQuery.data.length === 0 && (
+                <p className="text-xs text-navy/45 py-4 text-center">
+                  Tidak ada file gambar untuk diunduh. Editor mengirim preview melalui tautan eksternal.
+                </p>
+              )}
+              {downloadsQuery.data && downloadsQuery.data.length > 0 && (
+                <div className="space-y-2.5">
+                  {downloadsQuery.data.map(file => {
+                    const isImage = file.download_url.startsWith('data:image/')
+                    const ext = file.download_url.match(/^data:image\/(\w+)/)?.[1] ?? 'png'
+                    const safeName = `${p.title.replace(/[^a-zA-Z0-9_\- ]/g, '').trim() || 'manava'}-${file.file_label.replace(/\s+/g, '-')}.${ext}`
+                    return (
+                      <div
+                        key={file.message_id}
+                        className="flex items-center gap-3 p-3 rounded-xl border border-emerald-100 bg-white/80 hover:bg-emerald-50/50 transition-colors"
+                      >
+                        {/* Thumbnail preview (watermarked) */}
+                        {file.preview_url && file.preview_url.startsWith('data:image/') && (
+                          <div className="w-14 h-14 shrink-0 rounded-lg overflow-hidden bg-navy/5 border border-border">
+                            <img
+                              src={file.preview_url}
+                              alt={file.file_label}
+                              className="w-full h-full object-cover"
+                              draggable={false}
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-navy truncate">{file.file_label}</p>
+                          <p className="text-[11px] text-navy/50 truncate mt-0.5">{file.note}</p>
+                          <p className="text-[10px] text-navy/35 mt-0.5">{formatDate(file.created_at)}</p>
+                        </div>
+                        {isImage ? (
+                          <button
+                            onClick={() => downloadFile(file.download_url, safeName)}
+                            className="btn-primary text-xs px-3 py-1.5 shrink-0"
+                          >
+                            <Download className="w-3.5 h-3.5" /> Unduh
+                          </button>
+                        ) : (
+                          <a
+                            href={file.download_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-primary text-xs px-3 py-1.5 shrink-0 inline-flex items-center gap-1.5"
+                          >
+                            <Download className="w-3.5 h-3.5" /> Buka
+                          </a>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          <ReviewPanel
+            editorName={p.editor_name}
+            existing={existingReview}
+            canReview={access === 'client'}
+            mutation={mutations.submitReview}
+          />
+        </>
       )}
 
       {/* Chat */}

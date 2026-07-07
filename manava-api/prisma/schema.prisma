@@ -556,8 +556,9 @@ model Message {
   sender_role  UserRole
   body         String
   message_type MessageType
-  attachment   String?
-  created_at   DateTime    @default(now())
+  attachment           String?
+  original_attachment  String?   // Gambar asli tanpa watermark — hanya diberikan ke klien setelah proyek selesai
+  created_at           DateTime  @default(now())
 
   project Project @relation(fields: [project_id], references: [project_id], onDelete: Cascade)
   sender  User    @relation(fields: [sender_id], references: [user_id], onDelete: Restrict)

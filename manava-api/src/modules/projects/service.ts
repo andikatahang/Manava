@@ -378,6 +378,9 @@ export async function sendDeliverable(
         message_type: 'deliverable',
         body: input.note,
         attachment,
+        // Simpan gambar asli tanpa watermark — klien baru boleh download
+        // setelah proyek di-complete, lewat endpoint /download.
+        original_attachment: input.image ? input.image.data_url : null,
       },
     })
     // Revisi yang sedang berjalan dianggap sudah dikerjakan ulang.
@@ -655,6 +658,48 @@ async function recomputeEditorKpi(editorId: string): Promise<void> {
       },
     }),
   ])
+}
+
+// ── Download hasil akhir (klien, proyek completed) ──────────────────────────
+
+export async function getDownloadableFiles(projectId: string, viewer: Viewer) {
+  const project = await loadProject(projectId)
+  const access = await resolveAccess(project, viewer)
+  if (access !== 'client') {
+    throw new HttpError(403, 'Hanya klien pemilik proyek yang dapat mengunduh hasil akhir')
+  }
+  if (project.status !== 'completed') {
+    throw new HttpError(422, 'File hanya dapat diunduh setelah proyek selesai')
+  }
+
+  // Ambil semua pesan deliverable yang punya original_attachment (gambar asli
+  // tanpa watermark). Diurutkan agar file terbaru muncul pertama.
+  const deliverables = await prisma.message.findMany({
+    where: {
+      project_id: projectId,
+      message_type: 'deliverable',
+      original_attachment: { not: null },
+    },
+    select: {
+      message_id: true,
+      body: true,
+      attachment: true,
+      original_attachment: true,
+      created_at: true,
+    },
+    orderBy: { created_at: 'desc' },
+  })
+
+  return deliverables.map((m, idx) => ({
+    message_id: m.message_id,
+    note: m.body,
+    // File asli (tanpa watermark) — hanya diberikan setelah proyek selesai.
+    download_url: m.original_attachment,
+    // Preview (watermarked) sebagai referensi thumbnail.
+    preview_url: m.attachment,
+    created_at: m.created_at,
+    file_label: `Hasil Kerja ${deliverables.length - idx}`,
+  }))
 }
 
 // ── Inbox (notifikasi ruang proyek) ──────────────────────────────────────────

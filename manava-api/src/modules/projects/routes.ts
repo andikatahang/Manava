@@ -195,6 +195,18 @@ projectsRouter.post(
   }),
 )
 
+// ── Download file asli (klien, setelah proyek selesai) ───────────────────────
+
+projectsRouter.get(
+  '/:id/download',
+  authenticate,
+  requireRole('client'),
+  asyncHandler(async (req, res) => {
+    const files = await service.getDownloadableFiles(req.params.id, viewerOf(req))
+    res.json(ok(files, { total: files.length }))
+  }),
+)
+
 const reviewSchema = z.object({
   rating: z.number().int().min(1).max(5),
   comment: z.string().trim().min(3).max(1000),
