@@ -117,6 +117,31 @@ const LEAVE_PLAN: Array<{
   { user: 'am4',  role: 'admin_manager', type: 'izin', start: '2026-07-10', end: '2026-07-10', status: 'pending',  filed: '2026-07-07' },
   { user: 'ed07', role: 'editor',        type: 'cuti', start: '2026-07-13', end: '2026-07-15', status: 'pending',  filed: '2026-07-05' },
   { user: 'ed09', role: 'editor',        type: 'cuti', start: '2026-07-20', end: '2026-07-24', status: 'pending',  filed: '2026-07-06' },
+  // Tambahan — meluaskan cakupan ke editor & admin manajer yang sebelumnya
+  // tidak pernah muncul di riwayat cuti/izin, supaya demo tidak terasa
+  // terkonsentrasi pada segelintir orang yang sama.
+  { user: 'ed01', role: 'editor',        type: 'cuti', start: '2026-03-10', end: '2026-03-11', status: 'approved', filed: '2026-03-02' },
+  { user: 'ed02', role: 'editor',        type: 'izin', start: '2026-06-05', end: '2026-06-05', status: 'approved', filed: '2026-06-03' },
+  { user: 'ed04', role: 'editor',        type: 'cuti', start: '2026-04-14', end: '2026-04-15', status: 'rejected', filed: '2026-04-07' },
+  { user: 'ed10', role: 'editor',        type: 'izin', start: '2026-06-12', end: '2026-06-12', status: 'approved', filed: '2026-06-10' },
+  { user: 'ed11', role: 'editor',        type: 'cuti', start: '2026-02-16', end: '2026-02-18', status: 'approved', filed: '2026-02-09' },
+  { user: 'ed16', role: 'editor',        type: 'izin', start: '2026-07-15', end: '2026-07-15', status: 'pending',  filed: '2026-07-07' },
+  { user: 'ed18', role: 'editor',        type: 'cuti', start: '2026-06-23', end: '2026-06-24', status: 'approved', filed: '2026-06-15' },
+  { user: 'ed20', role: 'editor',        type: 'izin', start: '2026-05-06', end: '2026-05-06', status: 'rejected', filed: '2026-05-05' },
+  { user: 'ed21', role: 'editor',        type: 'cuti', start: '2026-03-23', end: '2026-03-25', status: 'approved', filed: '2026-03-16' },
+  { user: 'ed24', role: 'editor',        type: 'izin', start: '2026-06-26', end: '2026-06-26', status: 'approved', filed: '2026-06-24' },
+  { user: 'ed29', role: 'editor',        type: 'cuti', start: '2026-07-17', end: '2026-07-17', status: 'pending',  filed: '2026-07-06' },
+  { user: 'ed32', role: 'editor',        type: 'izin', start: '2026-04-22', end: '2026-04-22', status: 'approved', filed: '2026-04-21' },
+  { user: 'ed33', role: 'editor',        type: 'cuti', start: '2026-06-02', end: '2026-06-03', status: 'approved', filed: '2026-05-26' },
+  { user: 'ed37', role: 'editor',        type: 'izin', start: '2026-05-19', end: '2026-05-19', status: 'rejected', filed: '2026-05-18' },
+  { user: 'ed38', role: 'editor',        type: 'cuti', start: '2026-07-21', end: '2026-07-22', status: 'pending',  filed: '2026-07-08' },
+  { user: 'ed43', role: 'editor',        type: 'izin', start: '2026-06-30', end: '2026-06-30', status: 'approved', filed: '2026-06-29' },
+  { user: 'ed46', role: 'editor',        type: 'cuti', start: '2026-03-05', end: '2026-03-06', status: 'approved', filed: '2026-02-26' },
+  { user: 'ed47', role: 'editor',        type: 'izin', start: '2026-04-28', end: '2026-04-28', status: 'rejected', filed: '2026-04-27' },
+  { user: 'ed49', role: 'editor',        type: 'cuti', start: '2026-06-17', end: '2026-06-18', status: 'approved', filed: '2026-06-10' },
+  { user: 'ed50', role: 'editor',        type: 'izin', start: '2026-07-14', end: '2026-07-14', status: 'pending',  filed: '2026-07-06' },
+  { user: 'am3',  role: 'admin_manager', type: 'cuti', start: '2026-06-04', end: '2026-06-04', status: 'approved', filed: '2026-05-28' },
+  { user: 'am5',  role: 'admin_manager', type: 'izin', start: '2026-06-09', end: '2026-06-09', status: 'approved', filed: '2026-06-08' },
 ]
 
 // Kasus lupa clock-out: pending menunggu HR, approved (HR isi), rejected (absen).
@@ -132,6 +157,15 @@ const INCOMPLETE_CASES: Array<{
   { user: 'ed48', date: '2026-06-24', review: 'approved', explanation: 'Sesi keluar sudah tutup saat saya keluar.', proposed: '17:20', note: 'Disetujui, sesi keluar tutup lebih awal.' },
   { user: 'ed26', date: '2026-06-12', review: 'rejected', explanation: 'Lupa presensi keluar.', proposed: '17:00', note: 'Tidak ada bukti kehadiran sore, dihitung tidak hadir.' },
   { user: 'ed39', date: '2026-06-23', review: 'rejected', note: 'Tanpa penjelasan hingga batas review, dihitung tidak hadir.' },
+  // Tambahan — menjangkau editor, HR, dan admin manajer yang sebelumnya
+  // belum pernah punya kasus lupa clock-out.
+  { user: 'ed01', date: '2026-06-15', review: 'pending', explanation: 'Lupa clock-out setelah rapat brief klien sore hari.', proposed: '17:20' },
+  { user: 'ed11', date: '2026-06-18', review: 'approved', explanation: 'Lupa presensi keluar karena buru-buru menjemput anak.', proposed: '17:00', note: 'Dikonfirmasi rekan satu tim, hadir penuh.' },
+  { user: 'ed21', date: '2026-06-10', review: 'rejected', note: 'Tidak ada konfirmasi kehadiran sore, dihitung tidak hadir.' },
+  { user: 'ed37', date: '2026-07-01', review: 'pending', explanation: 'Lupa clock-out, terburu-buru submit render sebelum deadline.', proposed: '17:40' },
+  { user: 'ed46', date: '2026-06-29', review: 'approved', explanation: 'Sesi presensi keluar sudah tutup saat saya selesai membereskan file.', proposed: '17:15', note: 'Log aktivitas render server cocok jam 17:12.' },
+  { user: 'am2',  date: '2026-06-22', review: 'pending', explanation: 'Meeting evaluasi vendor molor hingga lewat jam presensi keluar.', proposed: '17:35' },
+  { user: 'hr1',  date: '2026-06-25', review: 'approved', explanation: 'Lupa clock-out karena menyiapkan laporan payroll mendadak.', proposed: '17:10', note: 'Dikonfirmasi lembur payroll bulan Juni.' },
 ]
 
 const WARNINGS: Array<{
@@ -155,6 +189,16 @@ const WARNINGS: Array<{
   { target: 'ed48', role: 'editor', severity: 'ringan', status: 'aktif', issuer: 'am5', issued: '2026-07-01', expires: '2026-08-01', reason: 'Absen tanpa keterangan 1 hari kerja pada minggu paling sibuk sprint.' },
   { target: 'ed14', role: 'editor', severity: 'ringan', status: 'aktif', issuer: 'am2', issued: '2026-06-25', expires: '2026-07-25', reason: 'Progress update proyek terlambat 3 hari — mengganggu perencanaan sprint tim.' },
   { target: 'ed34', role: 'editor', severity: 'ringan', status: 'aktif', issuer: 'am4', issued: '2026-06-29', expires: '2026-07-29', reason: 'Timeline animasi mundur 2 hari tanpa flag lebih awal ke manajer.' },
+  // Tambahan — melebarkan cakupan ke editor yang belum pernah kena
+  // peringatan dan ke admin manajer sendiri (sebelumnya hanya am3).
+  { target: 'ed02', role: 'editor', severity: 'ringan', status: 'kedaluwarsa', issuer: 'am1', issued: '2026-02-20', expires: '2026-03-20', reason: 'Terlambat submit revisi retouching 2 hari tanpa memberi tahu klien terlebih dahulu.' },
+  { target: 'ed11', role: 'editor', severity: 'sedang', status: 'aktif', issuer: 'am2', issued: '2026-06-15', expires: '2026-08-15', reason: 'Tidak melaporkan progres mingguan selama dua minggu berturut-turut.' },
+  { target: 'am1',  role: 'admin_manager', severity: 'ringan', status: 'diakui', issuer: 'hr1', issued: '2026-05-10', expires: '2026-07-10', reason: 'Laporan evaluasi kinerja tim retouching diserahkan lewat tenggat.' },
+  { target: 'am2',  role: 'admin_manager', severity: 'ringan', status: 'aktif', issuer: 'hr1', issued: '2026-07-05', expires: '2026-09-05', reason: 'Rapat koordinasi mingguan tim video dua kali tidak dihadiri tanpa pemberitahuan.' },
+  { target: 'ed37', role: 'editor', severity: 'sedang', status: 'aktif', issuer: 'am4', issued: '2026-06-20', expires: '2026-08-20', reason: 'Revisi timeline animasi disetujui tanpa konfirmasi ke admin manajer terlebih dahulu.' },
+  { target: 'ed46', role: 'editor', severity: 'ringan', status: 'kedaluwarsa', issuer: 'am5', issued: '2026-03-12', expires: '2026-04-12', reason: 'File proyek VFX disimpan dengan struktur folder tidak sesuai SOP.' },
+  { target: 'ed50', role: 'editor', severity: 'berat', status: 'aktif', issuer: 'hr1', issued: '2026-06-18', expires: '2026-09-18', reason: 'Ditemukan mengakses proyek klien lain di luar penugasan tanpa izin.' },
+  { target: 'ed21', role: 'editor', severity: 'ringan', status: 'diakui', issuer: 'am3', issued: '2026-04-25', expires: '2026-05-25', reason: 'Terlambat mengumpulkan preview grading untuk review internal mingguan.' },
 ]
 
 const JOB_POSTINGS = [
@@ -162,6 +206,7 @@ const JOB_POSTINGS = [
   { job_id: 'j2', title: 'Video Editor',               specialization: ['video_edit', 'color_grading'],         status: JobStatus.open,   created: '2026-06-10' },
   { job_id: 'j3', title: 'Motion Graphics Designer',   specialization: ['motion_graphics', 'vfx'],              status: JobStatus.open,   created: '2026-06-20' },
   { job_id: 'j4', title: 'Colorist (Film & Iklan)',    specialization: ['color_grading'],                       status: JobStatus.closed, created: '2026-04-05' },
+  { job_id: 'j5', title: 'Colorist Senior (Iklan & Film)', specialization: ['color_grading', 'video_edit'],     status: JobStatus.open,   created: '2026-07-01' },
 ]
 
 const APPLICANTS: Array<{ job: string; name: string; email: string; tahap: ApplicantStage; score: number | null; created: string }> = [
@@ -177,6 +222,9 @@ const APPLICANTS: Array<{ job: string; name: string; email: string; tahap: Appli
   { job: 'j3', name: 'Nadia Safira',      email: 'nadia.safira@gmail.com',     tahap: 'offer_accepted', score: 89,   created: '2026-06-22' },
   { job: 'j4', name: 'Hafiz Alamsyah',    email: 'hafiz.alamsyah@gmail.com',   tahap: 'confirmed',      score: 93,   created: '2026-04-20' },
   { job: 'j4', name: 'Rosa Kirana',       email: 'rosa.kirana@gmail.com',      tahap: 'offer_expired',  score: 82,   created: '2026-04-15' },
+  { job: 'j5', name: 'Farah Nabila',      email: 'farah.nabila@gmail.com',     tahap: 'applied',        score: null, created: '2026-07-07' },
+  { job: 'j5', name: 'Kevin Halim',       email: 'kevin.halim@gmail.com',      tahap: 'screening',      score: 81,   created: '2026-07-03' },
+  { job: 'j5', name: 'Nadia Kusuma',      email: 'nadia.kusuma2@gmail.com',    tahap: 'interview',      score: 86,   created: '2026-06-28' },
 ]
 
 interface ApplicationSpec {
@@ -247,6 +295,18 @@ const APPLICATIONS: ApplicationSpec[] = [
     dept: 'Video Editing', meets: false, source: 'heuristic', confidence: null,
     status: 'rejected', submitted: '2026-06-22', decided: '2026-06-27',
     summary: 'Latar belakang manajemen proyek kreatif tanpa pengalaman hands-on editing; tidak cocok untuk posisi teknis editor video.' },
+  { name: 'Satria Wibawa', email: 'satria.wibawa@gmail.com', phone: '081234567811', age: 27,
+    education: 'S1 Sinematografi — Institut Kesenian Jakarta', gpa: 3.4, gradYear: 2021,
+    skills: ['DaVinci Resolve', 'Color Grading', 'Look Development'],
+    dept: 'Color Grading', meets: true, source: 'openai', confidence: 0.85,
+    status: 'new', submitted: '2026-07-07',
+    summary: 'Colorist muda dengan pengalaman 2 tahun di rumah produksi iklan; kuat di look development namun belum terbiasa proyek durasi panjang.' },
+  { name: 'Vania Kirana', email: 'vania.kirana@gmail.com', phone: '081234567812', age: 25,
+    education: 'S1 Animasi — Universitas Multimedia Nusantara', gpa: 3.5, gradYear: 2023,
+    skills: ['Nuke', 'Houdini Dasar', 'Compositing'],
+    dept: 'VFX & Compositing', meets: true, source: 'openai', confidence: 0.79,
+    status: 'new', submitted: '2026-07-08',
+    summary: 'Fresh graduate animasi dengan portofolio compositing kuat di Nuke; masih perlu pendalaman untuk proyek skala produksi komersial.' },
 ]
 
 const CLIENTS = [

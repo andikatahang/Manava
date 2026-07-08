@@ -81,6 +81,23 @@ async function main() {
   console.log('🔐 Bcrypt hash for default password ready.')
 
   // ── Wipe everything (transactional tables stay empty on purpose) ─────────
+  // Termasuk tabel yang dimiliki seed-demo.ts: seed-demo.ts membuat baris yang
+  // FK ke Editor (Project, dll.), jadi kalau tabel-tabel itu tidak dikosongkan
+  // di sini dulu, Editor.deleteMany() di bawah gagal FK constraint dan proses
+  // berhenti SEBELUM sempat membuat ulang AdminManager/Department/Editor.
+  await prisma.kpiSnapshot.deleteMany()
+  await prisma.transaction.deleteMany()
+  await prisma.escrowAccount.deleteMany()
+  await prisma.review.deleteMany()
+  await prisma.dispute.deleteMany()
+  await prisma.message.deleteMany()
+  await prisma.revisionRequest.deleteMany()
+  await prisma.contract.deleteMany()
+  await prisma.revisionEnvelope.deleteMany()
+  await prisma.project.deleteMany()
+  await prisma.payslip.deleteMany()
+  await prisma.applicant.deleteMany()
+  await prisma.jobPosting.deleteMany()
   await prisma.jobApplication.deleteMany()
   await prisma.warning.deleteMany()
   await prisma.leaveRequest.deleteMany()
