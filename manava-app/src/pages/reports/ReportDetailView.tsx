@@ -1,8 +1,9 @@
-// Detailed report view - printable layout untuk laporan departemen
+// Detailed report view - formal letterhead layout, print/PDF friendly
 
 import { useState } from 'react'
 import { Printer, ArrowLeft } from 'lucide-react'
 import { useReportDetail } from '../../hooks/queries/useReports'
+import logoDark from '../../assets/logo-dark.png'
 
 interface ReportDetailViewProps {
   reportId: string
@@ -37,6 +38,8 @@ export default function ReportDetailView({ reportId, onBack }: ReportDetailViewP
     }, 100)
   }
 
+  const docRef = `MNV/DR/${report.period.replace('-', '')}/${report.id.slice(-6).toUpperCase()}`
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
@@ -54,142 +57,218 @@ export default function ReportDetailView({ reportId, onBack }: ReportDetailViewP
           disabled={isPrinting}
           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-navy bg-navy/5 hover:bg-navy/10 transition-colors disabled:opacity-50"
         >
-          <Printer className="w-4 h-4" /> {isPrinting ? 'Mempersiapkan…' : 'Print'}
+          <Printer className="w-4 h-4" /> {isPrinting ? 'Mempersiapkan…' : 'Print / Simpan PDF'}
         </button>
       </div>
 
-      {/* Report Content - Print Friendly */}
-      <div id="report-content" className="bg-white p-8 space-y-8">
-        {/* Header */}
-        <div className="border-b-2 border-navy pb-6">
-          <h1 className="text-2xl font-bold text-navy mb-2">Laporan Departemen</h1>
-          <div className="grid grid-cols-2 gap-6 text-sm text-navy/70">
-            <div>
-              <p className="text-xs font-semibold text-navy/50 uppercase">Departemen</p>
-              <p className="text-base font-semibold text-navy mt-1">{report.department_name}</p>
+      {/* Report Content — formal letterhead document */}
+      <div id="report-content" className="report-doc bg-white mx-auto max-w-[820px] shadow-card sm:p-10 p-6 print:shadow-none print:p-0">
+        {/* Letterhead */}
+        <div className="flex items-start justify-between pb-5 border-b-[3px] border-navy">
+          <div className="flex items-center gap-3">
+            <img src={logoDark} alt="Manava" className="h-8 w-auto object-contain" />
+            <div className="leading-tight">
+              <p className="text-[13px] font-bold text-navy tracking-tight">Manava ERP</p>
+              <p className="text-[10px] text-navy/50">Human Resource &amp; Operations Report</p>
             </div>
-            <div>
-              <p className="text-xs font-semibold text-navy/50 uppercase">Manajer</p>
-              <p className="text-base font-semibold text-navy mt-1">{report.manager_name}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-navy/50 uppercase">Periode</p>
-              <p className="text-base font-semibold text-navy mt-1">{formatPeriod(report.period)}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-navy/50 uppercase">Tanggal Laporan</p>
-              <p className="text-base font-semibold text-navy mt-1">{formatDate(report.submitted_at)}</p>
-            </div>
+          </div>
+          <div className="text-right leading-tight">
+            <p className="text-[10px] uppercase tracking-[0.12em] text-navy/40">No. Dokumen</p>
+            <p className="text-[11px] font-semibold text-navy tabular-nums">{docRef}</p>
           </div>
         </div>
 
+        {/* Title block */}
+        <div className="pt-6 pb-5">
+          <p className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-navy/40 mb-1.5">
+            Laporan Departemen Bulanan
+          </p>
+          <h1 className="text-[26px] font-bold text-navy leading-tight">{report.department_name}</h1>
+          <p className="text-sm text-navy/50 mt-1">Periode {formatPeriod(report.period)}</p>
+        </div>
+
+        {/* Meta info table */}
+        <table className="w-full text-sm mb-8 border-collapse">
+          <tbody>
+            <MetaRow label="Departemen" value={report.department_name} />
+            <MetaRow label="Manajer Departemen" value={report.manager_name} />
+            <MetaRow label="Periode Laporan" value={formatPeriod(report.period)} />
+            <MetaRow label="Tanggal Diterbitkan" value={formatDate(report.submitted_at)} last />
+          </tbody>
+        </table>
+
         {/* Section 1: Attendance */}
-        <Section title="Kehadiran Departemen">
-          <div className="grid grid-cols-4 gap-4">
-            <Stat label="Hari Kerja" value={report.attendance_summary.total_days} />
-            <Stat label="Hadir" value={`${report.attendance_summary.present_pct}%`} />
-            <Stat label="Terlambat" value={`${report.attendance_summary.late_pct}%`} />
-            <Stat label="Bolong" value={`${report.attendance_summary.absent_pct}%`} />
-          </div>
+        <Section index="01" title="Kehadiran Departemen">
+          <MetricTable
+            rows={[
+              ['Total Hari Kerja Tercatat', String(report.attendance_summary.total_days)],
+              ['Tingkat Kehadiran (Hadir)', `${report.attendance_summary.present_pct}%`],
+              ['Keterlambatan', `${report.attendance_summary.late_pct}%`],
+              ['Tanpa Keterangan (Bolong)', `${report.attendance_summary.absent_pct}%`],
+              ['Cuti/Izin', `${report.attendance_summary.leave_pct}%`],
+            ]}
+          />
           {report.attendance_summary.top_editors.length > 0 && (
             <div className="mt-4">
-              <p className="text-xs font-semibold text-navy/50 uppercase mb-2">Top 3 Kehadiran Terbaik</p>
-              <div className="space-y-1">
-                {report.attendance_summary.top_editors.map((e: any, i: number) => (
-                  <div key={i} className="flex justify-between text-sm">
-                    <span>{e.name}</span>
-                    <span className="font-medium text-navy">{e.present_count} hari</span>
-                  </div>
-                ))}
-              </div>
+              <p className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-navy/40 mb-2">
+                Peringkat Kehadiran Terbaik
+              </p>
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b border-navy/15">
+                    <th className="text-left font-semibold text-navy/60 py-1.5 w-10">#</th>
+                    <th className="text-left font-semibold text-navy/60 py-1.5">Nama Editor</th>
+                    <th className="text-right font-semibold text-navy/60 py-1.5">Hari Hadir</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.attendance_summary.top_editors.map((e, i) => (
+                    <tr key={i} className="border-b border-navy/[0.06]">
+                      <td className="py-1.5 text-navy/50 tabular-nums">{i + 1}</td>
+                      <td className="py-1.5 text-navy">{e.name}</td>
+                      <td className="py-1.5 text-right font-semibold text-navy tabular-nums">{e.present_count} hari</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </Section>
 
         {/* Section 2: KPI */}
-        <Section title="Kinerja Tim (KPI)">
-          <div className="grid grid-cols-4 gap-4">
-            <Stat label="KPI Rata-rata" value={report.kpi_summary.avg_kpi.toFixed(2)} />
-            <Stat label="Sangat Baik" value={report.kpi_summary.excellent_count} />
-            <Stat label="Baik" value={report.kpi_summary.good_count} />
-            <Stat label="Perlu Peningkatan" value={report.kpi_summary.needs_count} />
-          </div>
+        <Section index="02" title="Kinerja Tim (KPI)">
+          <MetricTable
+            rows={[
+              ['Skor KPI Rata-rata Departemen', report.kpi_summary.avg_kpi.toFixed(2)],
+              ['Editor Kategori Sangat Baik', String(report.kpi_summary.excellent_count)],
+              ['Editor Kategori Baik', String(report.kpi_summary.good_count)],
+              ['Editor Perlu Peningkatan', String(report.kpi_summary.needs_count)],
+            ]}
+          />
         </Section>
 
         {/* Section 3: Leave */}
-        <Section title="Cuti & Izin">
-          <div className="grid grid-cols-3 gap-4">
-            <Stat label="Disetujui" value={report.leave_summary.approved_count} />
-            <Stat label="Ditolak" value={report.leave_summary.rejected_count} />
-            <Stat label="Menunggu" value={report.leave_summary.pending_count} />
-          </div>
-          <div className="mt-4 text-sm text-navy/70">
-            <p><span className="font-medium">Cuti:</span> {report.leave_summary.cuti_approved} hari</p>
-            <p><span className="font-medium">Izin:</span> {report.leave_summary.izin_approved} hari</p>
-          </div>
+        <Section index="03" title="Cuti & Izin">
+          <MetricTable
+            rows={[
+              ['Pengajuan Disetujui', String(report.leave_summary.approved_count)],
+              ['Pengajuan Ditolak', String(report.leave_summary.rejected_count)],
+              ['Menunggu Persetujuan', String(report.leave_summary.pending_count)],
+              ['Total Hari Cuti Disetujui', `${report.leave_summary.cuti_approved} hari`],
+              ['Total Hari Izin Disetujui', `${report.leave_summary.izin_approved} hari`],
+            ]}
+          />
         </Section>
 
         {/* Section 4: Warnings */}
-        <Section title="Peringatan Kerja">
-          <div className="grid grid-cols-4 gap-4">
-            <Stat label="Total" value={report.warning_summary.total_count} />
-            <Stat label="Ringan" value={report.warning_summary.ringan_count} />
-            <Stat label="Sedang" value={report.warning_summary.sedang_count} />
-            <Stat label="Berat" value={report.warning_summary.berat_count} />
-          </div>
+        <Section index="04" title="Peringatan Kerja" isLast={!report.manager_notes}>
+          <MetricTable
+            rows={[
+              ['Total Peringatan Diterbitkan', String(report.warning_summary.total_count)],
+              ['Kategori Ringan', String(report.warning_summary.ringan_count)],
+              ['Kategori Sedang', String(report.warning_summary.sedang_count)],
+              ['Kategori Berat', String(report.warning_summary.berat_count)],
+            ]}
+          />
         </Section>
 
         {/* Section 5: Manager Notes */}
         {report.manager_notes && (
-          <Section title="Catatan Manajer">
-            <div className="p-4 bg-navy/5 border border-navy/10 rounded-lg text-sm text-navy/80 whitespace-pre-wrap">
+          <Section index="05" title="Catatan Manajer" isLast>
+            <div className="border-l-[3px] border-navy/20 pl-4 py-1 text-sm text-navy/80 leading-relaxed whitespace-pre-wrap italic">
               {report.manager_notes}
             </div>
           </Section>
         )}
 
+        {/* Signature block */}
+        <div className="grid grid-cols-2 gap-8 mt-12 pt-8 print:break-inside-avoid">
+          <div>
+            <p className="text-xs text-navy/50 mb-16">Diketahui oleh,</p>
+            <p className="text-sm font-semibold text-navy border-t border-navy/30 pt-2 inline-block min-w-[180px]">
+              {report.manager_name}
+            </p>
+            <p className="text-[11px] text-navy/50">Manajer Departemen</p>
+          </div>
+          <div>
+            <p className="text-xs text-navy/50 mb-16">Diterima oleh,</p>
+            <p className="text-sm font-semibold text-navy border-t border-navy/30 pt-2 inline-block min-w-[180px]">
+              HR Admin
+            </p>
+            <p className="text-[11px] text-navy/50">Human Resources</p>
+          </div>
+        </div>
+
         {/* Footer */}
-        <div className="border-t-2 border-navy pt-6 text-xs text-navy/50 text-center">
-          <p>Laporan otomatis sistem Manava ERP</p>
-          <p>Untuk pertanyaan, hubungi departemen HR</p>
+        <div className="border-t border-navy/15 mt-10 pt-4 flex items-center justify-between text-[10px] text-navy/40">
+          <span>Dihasilkan otomatis oleh sistem Manava ERP — metrik dihitung dari data operasional real-time.</span>
+          <span className="tabular-nums shrink-0 ml-4">{docRef}</span>
         </div>
       </div>
 
       {/* Print Styles */}
       <style>{`
         @media print {
-          body { background: white; }
+          @page { size: A4; margin: 16mm 14mm; }
+          body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .no-print { display: none !important; }
-          #report-content { box-shadow: none; border: none; }
-          @page { margin: 1cm; }
+          .report-doc { box-shadow: none !important; max-width: none !important; }
         }
       `}</style>
     </div>
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function MetaRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
   return (
-    <div>
-      <h2 className="text-lg font-bold text-navy mb-4 pb-2 border-b border-navy/20">{title}</h2>
+    <tr className={last ? '' : 'border-b border-navy/[0.06]'}>
+      <td className="py-1.5 pr-4 text-navy/45 font-medium w-[38%] align-top">{label}</td>
+      <td className="py-1.5 text-navy font-semibold">{value}</td>
+    </tr>
+  )
+}
+
+function Section({
+  index, title, children, isLast,
+}: {
+  index: string
+  title: string
+  children: React.ReactNode
+  isLast?: boolean
+}) {
+  return (
+    <div className={`print:break-inside-avoid ${isLast ? '' : 'mb-7'}`}>
+      <div className="flex items-baseline gap-2.5 mb-3 pb-1.5 border-b-2 border-navy">
+        <span className="text-[11px] font-bold text-navy/30 tabular-nums">{index}</span>
+        <h2 className="text-[15px] font-bold text-navy tracking-tight">{title}</h2>
+      </div>
       {children}
     </div>
   )
 }
 
-function Stat({ label, value }: { label: string; value: string | number }) {
+function MetricTable({ rows }: { rows: [string, string][] }) {
   return (
-    <div className="p-3 bg-navy/5 border border-navy/10 rounded-lg">
-      <p className="text-xs font-semibold text-navy/50 uppercase">{label}</p>
-      <p className="text-xl font-bold text-navy mt-1">{value}</p>
-    </div>
+    <table className="w-full text-sm border-collapse">
+      <tbody>
+        {rows.map(([label, value], i) => (
+          <tr key={label} className={i === rows.length - 1 ? '' : 'border-b border-navy/[0.06]'}>
+            <td className="py-1.5 text-navy/60">{label}</td>
+            <td className="py-1.5 text-right font-semibold text-navy tabular-nums">{value}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }
 
 function formatPeriod(period: string): string {
   const [y, m] = period.split('-')
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
-  return `${monthNames[Number(m) - 1]} ${y}`
+  const monthNames = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+  ]
+  return `${monthNames[Number(m) - 1] ?? m} ${y}`
 }
 
 function formatDate(dateStr: string): string {

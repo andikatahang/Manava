@@ -5,6 +5,7 @@ import PerformancePage from '../performance/PerformancePage'
 import ProjectsPage from '../projects/ProjectsPage'
 import DepartmentsPage from '../departments/DepartmentsPage'
 import ReportGenerateForm from './ReportGenerateForm'
+import { AutoAggregationSummary } from './AutoAggregationSummary'
 import type { UserRole } from '../../types'
 
 // One dashboard that consolidates the Admin Manager's department surfaces:
@@ -13,11 +14,11 @@ import type { UserRole } from '../../types'
 type Tab = 'anggota' | 'presensi' | 'kpi' | 'proyek' | 'laporan'
 
 const TABS: { key: Tab; label: string; icon: typeof Users }[] = [
-  { key: 'anggota',  label: 'Anggota',   icon: Users },
-  { key: 'presensi', label: 'Presensi',  icon: Clock },
-  { key: 'kpi',      label: 'KPI Tim',   icon: BarChart2 },
-  { key: 'proyek',   label: 'Proyek Tim', icon: Briefcase },
-  { key: 'laporan',  label: 'Laporan',    icon: FileText },
+  { key: 'anggota',  label: 'Rapor Performa & Evaluasi',   icon: Users },
+  { key: 'presensi', label: 'Dashboard Ketersediaan Tim',  icon: Clock },
+  { key: 'kpi',      label: 'Tren Kinerja & Target',   icon: BarChart2 },
+  { key: 'proyek',   label: 'Alokasi Proyek', icon: Briefcase },
+  { key: 'laporan',  label: 'Kirim Laporan ke HR',    icon: FileText },
 ]
 
 export default function TeamDashboardPage({ role }: { role: UserRole }) {
@@ -49,7 +50,20 @@ export default function TeamDashboardPage({ role }: { role: UserRole }) {
       {tab === 'presensi' && <TeamPresensiTab role={role} />}
       {tab === 'kpi'      && <PerformancePage role={role} embedded />}
       {tab === 'proyek'   && <ProjectsPage role={role} />}
-      {tab === 'laporan'  && <ReportGenerateForm />}
+      {tab === 'laporan'  && (
+        <div className="space-y-6">
+          <AutoAggregationSummary />
+          <div className="card space-y-4">
+            <div className="border-b border-border pb-4">
+              <h3 className="text-lg font-bold text-navy">Kirim Laporan ke HR</h3>
+              <p className="text-sm text-navy/60 mt-1">
+                Setelah mereview agregasi di atas, Anda dapat menambahkan catatan dan mengirim laporan bulanan ke HR Admin.
+              </p>
+            </div>
+            <ReportGenerateForm />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { FileText, Send, AlertCircle } from 'lucide-react'
 import { useReportMutations } from '../../hooks/queries/useReports'
 import { Modal } from '../../components/ui/Modal'
+import { MonthPicker } from '../../components/ui/MonthPicker'
 import { ApiError } from '../../lib/api'
 
 interface ReportGenerateFormProps {
@@ -68,12 +69,7 @@ export default function ReportGenerateForm({ onSuccess }: ReportGenerateFormProp
 
       <div>
         <label className="label">Periode Laporan</label>
-        <input
-          type="month"
-          value={period}
-          onChange={e => setPeriod(e.target.value)}
-          className="input w-full"
-        />
+        <MonthPicker value={period} onChange={setPeriod} />
         <p className="text-xs text-navy/50 mt-1">Laporan untuk periode yang dipilih</p>
       </div>
 
