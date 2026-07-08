@@ -9,8 +9,9 @@ import { useProjects } from '../../hooks/queries/useProjects'
 import { useTeamAttendance } from '../../hooks/queries/useAttendance'
 import { fmtTimeWIB, type TeamAttendanceMember } from '../../lib/attendance'
 import { useMonthlyKpi, useEditorMonthlyKpi } from '../../hooks/queries/useKpi'
-import { KpiTrendChart } from '../performance/KpiTrendChart'
 import { EditorKpiTrendChart } from '../performance/EditorKpiTrendChart'
+import { DepartmentKpiMetrics } from './DepartmentKpiMetrics'
+import { DepartmentKpiInsight } from './DepartmentKpiInsight'
 import type { Editor, Project, UserRole } from '../../types'
 
 const SPEC_LABELS: Record<string, string> = {
@@ -73,17 +74,32 @@ export function ManagerDepartmentView(_props: { role: UserRole; embedded?: boole
         const deptEditorPoints = (editorTrendQuery.data ?? []).filter(p => p.department === dep.name)
         return (
           <div key={dep.id} className="space-y-4">
-            {deptDeptPoints.length > 0 && (
-              <KpiTrendChart points={deptDeptPoints} />
-            )}
-            {deptEditorPoints.length > 0 && (
-              <EditorKpiTrendChart
-                points={deptEditorPoints}
-                department={dep.name}
-                title={`Perkembangan Anggota — ${dep.name}`}
-                subtitle="Tren KPI setiap editor di departemen Anda selama 6 bulan terakhir."
-              />
-            )}
+            {/* 2-column layout: Charts on left, Insight AI on right */}
+            <div className="grid grid-cols-3 gap-4">
+              {/* Left column: KPI Metrics + Trend Chart */}
+              <div className="col-span-2 space-y-4">
+                {deptDeptPoints.length > 0 && (
+                  <DepartmentKpiMetrics points={deptDeptPoints} department={dep.name} />
+                )}
+                {deptEditorPoints.length > 0 && (
+                  <EditorKpiTrendChart
+                    points={deptEditorPoints}
+                    department={dep.name}
+                    title={`Perkembangan Anggota — ${dep.name}`}
+                    subtitle="Tren KPI setiap editor di departemen Anda selama 6 bulan terakhir."
+                  />
+                )}
+              </div>
+
+              {/* Right column: AI Insight */}
+              <div>
+                {deptDeptPoints.length > 0 && (
+                  <DepartmentKpiInsight points={deptDeptPoints} department={dep.name} />
+                )}
+              </div>
+            </div>
+
+            {/* Full width: Department Block */}
             <DepartmentBlock
               department={dep}
               projects={projectsQuery.data ?? []}
