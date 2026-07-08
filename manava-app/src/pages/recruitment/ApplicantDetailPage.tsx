@@ -11,6 +11,7 @@ import {
 } from '../../lib/applications'
 import { useApplication, useApplicationMutations } from '../../hooks/queries/useApplications'
 import { useDepartments } from '../../hooks/queries/useDepartments'
+import { useMe } from '../../hooks/queries/useMe'
 import { ApiError } from '../../lib/api'
 import { Modal } from '../../components/ui/Modal'
 
@@ -355,8 +356,9 @@ function PlacementForm({
   )
 }
 
-// Interview invitation form: applicant name is locked; interviewer + method
-// (address required for offline) feed the templated email.
+// Interview invitation form: applicant name and interviewer are both locked —
+// the interviewer is not a free-text field, it's whichever HR admin is
+// signed in and performing this action (the server derives it the same way).
 function InterviewForm({
   applicantName, submitting, onSubmit,
 }: {
@@ -364,7 +366,7 @@ function InterviewForm({
   submitting: boolean
   onSubmit: (details: InterviewDetails) => void
 }) {
-  const [interviewer, setInterviewer] = useState('')
+  const { data: me } = useMe()
   const [mode, setMode] = useState<'online' | 'offline'>('online')
   const [location, setLocation] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -372,12 +374,10 @@ function InterviewForm({
   function handleSubmit(ev: React.FormEvent) {
     ev.preventDefault()
     const e: Record<string, string> = {}
-    if (interviewer.trim().length < 2) e.interviewer = 'Nama interviewer wajib diisi'
     if (mode === 'offline' && location.trim().length < 5) e.location = 'Alamat interview wajib diisi'
     setErrors(e)
     if (Object.keys(e).length > 0) return
     onSubmit({
-      interviewer: interviewer.trim(),
       mode,
       ...(mode === 'offline' ? { location: location.trim() } : {}),
     })
@@ -394,14 +394,13 @@ function InterviewForm({
       </div>
 
       <div>
-        <label className="block text-[13px] font-medium text-navy mb-1.5">Nama Interviewer</label>
+        <label className="block text-[13px] font-medium text-navy mb-1.5">Interviewer</label>
         <input
-          className={inputCls}
-          value={interviewer}
-          onChange={e => setInterviewer(e.target.value)}
-          placeholder="mis. Eko Manager"
+          className={`${inputCls} bg-primary-200 text-navy/60 cursor-not-allowed`}
+          value={me?.full_name ?? 'Memuat…'}
+          disabled
         />
-        {errors.interviewer && <p className="text-xs text-red-600 mt-1">{errors.interviewer}</p>}
+        <p className="text-xs text-navy/40 mt-1">Otomatis mengikuti HR yang menangani pelamar ini — tidak dapat diubah.</p>
       </div>
 
       <div>

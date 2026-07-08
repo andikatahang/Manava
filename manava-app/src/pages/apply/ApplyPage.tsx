@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, ClipboardList, FileText, Upload, X } from 'lucide-react'
 import logoDark from '../../assets/logo-dark.png'
 import {
-  fetchVacancyCriteria, submitApplication,
+  fetchRecruitmentStatus, fetchVacancyCriteria, submitApplication,
   type VacancyCriterion,
 } from '../../lib/applications'
 import { ApiError } from '../../lib/api'
@@ -49,9 +49,13 @@ export default function ApplyPage() {
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  // null = still checking; the form is hidden until we know for sure so a
+  // closed vacancy never flashes an editable form first.
+  const [isOpen, setIsOpen] = useState<boolean | null>(null)
 
   useEffect(() => {
     fetchVacancyCriteria().then(setCriteria).catch(() => {})
+    fetchRecruitmentStatus().then(s => setIsOpen(s.is_open)).catch(() => setIsOpen(true))
   }, [])
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -125,7 +129,9 @@ export default function ApplyPage() {
       </header>
 
       <main className="max-w-[760px] mx-auto px-6 py-12">
-        {submitted ? (
+        {isOpen === false ? (
+          <ClosedView />
+        ) : submitted ? (
           <SuccessView email={form.email} />
         ) : (
           <>
@@ -244,6 +250,25 @@ function Field({ label, error, children }: { label: string; error?: string; chil
       <label className="block text-[13px] font-medium text-[#021526] mb-1.5">{label}</label>
       {children}
       {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+    </div>
+  )
+}
+
+function ClosedView() {
+  return (
+    <div className="text-center py-12">
+      <div className="w-16 h-16 rounded-2xl bg-[#f2f2f2] flex items-center justify-center mx-auto mb-5">
+        <ClipboardList className="w-8 h-8 text-[#596074]" />
+      </div>
+      <h1 className="text-2xl font-bold text-[#021526]" style={{ fontFamily: "'Inter Display', sans-serif" }}>
+        Pendaftaran Sedang Ditutup
+      </h1>
+      <p className="text-[#596074] mt-2 max-w-md mx-auto">
+        Lowongan Editor saat ini tidak menerima lamaran baru. Silakan kembali lagi nanti.
+      </p>
+      <Link to="/" className="inline-flex items-center gap-1.5 mt-6 text-sm font-semibold text-[#021526] hover:underline">
+        <ArrowLeft className="w-4 h-4" /> Kembali ke beranda
+      </Link>
     </div>
   )
 }

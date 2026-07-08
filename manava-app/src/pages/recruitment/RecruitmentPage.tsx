@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, Clock, CalendarPlus, CheckCircle2, UserCheck } from 'lucide-react'
+import { Users, Clock, CalendarPlus, CheckCircle2, UserCheck, Megaphone } from 'lucide-react'
 import type { UserRole } from '../../types'
 import {
   STATUS_LABELS,
   type ApplicationStatus, type JobApplication,
 } from '../../lib/applications'
-import { useApplications } from '../../hooks/queries/useApplications'
+import { useApplications, useRecruitmentStatus, useSetRecruitmentStatus } from '../../hooks/queries/useApplications'
 import { ApplicantCard } from './ApplicantCard'
 
 const STATUSES: ApplicationStatus[] = ['new', 'interview', 'approved', 'rejected']
@@ -34,6 +34,8 @@ export default function RecruitmentPage(_props: { role: UserRole }) {
 
   return (
     <div className="space-y-6">
+
+      <RecruitmentToggle />
 
       {/* Signal: how many decisions are queued */}
       {(countByStatus.new + countByStatus.interview) > 0 && (
@@ -100,6 +102,40 @@ export default function RecruitmentPage(_props: { role: UserRole }) {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// HR switch controlling whether /apply (public form) accepts new submissions.
+function RecruitmentToggle() {
+  const { data: setting, isLoading } = useRecruitmentStatus()
+  const setStatus = useSetRecruitmentStatus()
+  const isOpen = setting?.is_open ?? true
+  const busy = isLoading || setStatus.isPending
+
+  return (
+    <div className="card p-4 flex items-center justify-between gap-4">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isOpen ? 'bg-emerald-50' : 'bg-[#f2f2f2]'}`}>
+          <Megaphone className={`w-4 h-4 ${isOpen ? 'text-emerald-600' : 'text-navy/40'}`} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-navy">Pendaftaran Lowongan</p>
+          <p className="text-xs text-navy/50">
+            {isOpen ? 'Terbuka — form /apply menerima lamaran baru.' : 'Ditutup — form /apply menolak lamaran baru.'}
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={isOpen}
+        disabled={busy}
+        onClick={() => setStatus.mutate(!isOpen)}
+        className={`relative shrink-0 w-12 h-7 rounded-full transition-colors disabled:opacity-50 ${isOpen ? 'bg-emerald-600' : 'bg-[#d8d8d8]'}`}
+      >
+        <span className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${isOpen ? 'translate-x-5' : 'translate-x-0'}`} />
+      </button>
     </div>
   )
 }

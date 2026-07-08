@@ -664,6 +664,14 @@ model JobPosting {
   applicants Applicant[]
 }
 
+// Single-row switch (id "default") controlling whether the public /apply
+// form accepts new submissions — HR toggles this from the Recruitment page.
+model RecruitmentSetting {
+  id         String   @id @default("default")
+  is_open    Boolean  @default(true)
+  updated_at DateTime @updatedAt
+}
+
 // Candidate application from the public /apply form. CV is stored inline as a
 // data URL (demo-scale) and streamed back via GET /applications/:id/cv.
 // ai_summary is generated once at submission time (mock AI, deterministic).

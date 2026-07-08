@@ -6,6 +6,16 @@ import { HttpError } from '../../middleware/errorHandler.js'
 // Candidate insight generation moved to ./screening.ts (July 2026): the AI now
 // extracts the profile from the CV itself and evaluates the vacancy criteria.
 
+// Single-row switch (id "default") — HR toggles whether /apply accepts new
+// submissions. Missing row defaults to open (matches the schema default).
+export async function getRecruitmentSetting() {
+  return prisma.recruitmentSetting.upsert({
+    where: { id: 'default' },
+    update: {},
+    create: { id: 'default' },
+  })
+}
+
 // Map skills to the closest existing department, used both when storing the
 // screening result and as fallback at account creation.
 export function deriveDepartment(skills: string[]): string {

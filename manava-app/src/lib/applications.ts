@@ -53,6 +53,22 @@ export function fetchVacancyCriteria(): Promise<VacancyCriterion[]> {
   return api<VacancyCriterion[]>('/applications/criteria')
 }
 
+// ── Recruitment on/off switch ─────────────────────────────────────────────
+
+export interface RecruitmentSetting {
+  id: string
+  is_open: boolean
+  updated_at: string
+}
+
+export function fetchRecruitmentStatus(): Promise<RecruitmentSetting> {
+  return api<RecruitmentSetting>('/applications/recruitment-status')
+}
+
+export function updateRecruitmentStatus(is_open: boolean): Promise<RecruitmentSetting> {
+  return api<RecruitmentSetting>('/applications/recruitment-status', { method: 'PATCH', body: { is_open } })
+}
+
 // Editor account auto-created when HR approves a candidate.
 export interface CreatedAccount {
   user_id: string
@@ -100,8 +116,9 @@ export function fetchCvBlob(id: string): Promise<Blob> {
   return apiBlob(`/applications/${id}/cv`)
 }
 
+// interviewer is not sent by the client — the server locks it to whichever
+// HR admin is authenticated when the shortlist request is made.
 export interface InterviewDetails {
-  interviewer: string
   mode: 'online' | 'offline'
   location?: string
 }

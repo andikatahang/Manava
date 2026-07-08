@@ -3,15 +3,31 @@ import {
   approveApplication,
   fetchApplication,
   fetchApplications,
+  fetchRecruitmentStatus,
   rejectApplication,
   shortlistApplication,
+  updateRecruitmentStatus,
   type InterviewDetails,
 } from '../../lib/applications'
 
 const KEY = ['applications']
+const RECRUITMENT_STATUS_KEY = ['recruitment-status']
 
 export function useApplications(enabled = true) {
   return useQuery({ queryKey: KEY, queryFn: fetchApplications, enabled })
+}
+
+// Whether the public /apply form currently accepts submissions.
+export function useRecruitmentStatus() {
+  return useQuery({ queryKey: RECRUITMENT_STATUS_KEY, queryFn: fetchRecruitmentStatus })
+}
+
+export function useSetRecruitmentStatus() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (is_open: boolean) => updateRecruitmentStatus(is_open),
+    onSuccess: updated => qc.setQueryData(RECRUITMENT_STATUS_KEY, updated),
+  })
 }
 
 export function useApplication(id: string | undefined) {

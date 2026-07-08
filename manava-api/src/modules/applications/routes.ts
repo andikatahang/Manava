@@ -12,6 +12,7 @@ import { env } from '../../config/env.js'
 import {
   createEditorAccount,
   deriveDepartment,
+  getRecruitmentSetting,
   renderCredentialsEmail,
   renderInterviewEmail,
   renderRejectionEmail,
@@ -71,6 +72,33 @@ applicationsRouter.get('/criteria', (_req, res) => {
   res.json(ok(CRITERIA_DESCRIPTION))
 })
 
+// ── 0b. Recruitment on/off switch ────────────────────────────────────────────
+// Public GET so the /apply form knows whether to show itself; PATCH is HR-only.
+const recruitmentSettingSchema = z.object({ is_open: z.boolean() })
+
+applicationsRouter.get(
+  '/recruitment-status',
+  asyncHandler(async (_req, res) => {
+    res.json(ok(await getRecruitmentSetting()))
+  }),
+)
+
+applicationsRouter.patch(
+  '/recruitment-status',
+  authenticate,
+  requireRole(...HR_ROLES),
+  validateBody(recruitmentSettingSchema),
+  asyncHandler(async (req, res) => {
+    const body = req.body as z.infer<typeof recruitmentSettingSchema>
+    const updated = await prisma.recruitmentSetting.upsert({
+      where: { id: 'default' },
+      update: body,
+      create: { id: 'default', ...body },
+    })
+    res.json(ok(updated))
+  }),
+)
+
 // ── 1. Public submission from the landing page /apply form ──────────────────
 applicationsRouter.post(
   '/',
@@ -78,6 +106,11 @@ applicationsRouter.post(
   validateBody(submitSchema),
   asyncHandler(async (req, res) => {
     const body = req.body as z.infer<typeof submitSchema>
+
+    const setting = await getRecruitmentSetting()
+    if (!setting.is_open) {
+      return res.status(403).json(fail('Pendaftaran lowongan saat ini ditutup'))
+    }
 
     // One active application per email — resubmit allowed once decided.
     const active = await prisma.jobApplication.findFirst({
@@ -168,11 +201,11 @@ applicationsRouter.get(
 )
 
 // ── 4. Shortlist: New → Interview + auto interview invitation email ─────────
-// HR fills interviewer + mode (address required when offline) in a small form;
-// the details are embedded in the templated invitation email.
+// HR fills mode (address required when offline) in a small form; the
+// interviewer is not a free-text field — it is locked to whichever HR admin
+// is performing the shortlist action, taken from the authenticated session.
 const shortlistSchema = z
   .object({
-    interviewer: z.string().trim().min(2).max(100),
     mode: z.enum(['online', 'offline']),
     location: z.string().trim().min(5).max(200).optional(),
   })
@@ -194,9 +227,15 @@ applicationsRouter.patch(
       return res.status(409).json(fail('Hanya pelamar berstatus Baru yang dapat di-shortlist'))
     }
 
+    const hrUser = await prisma.user.findUnique({
+      where: { user_id: req.user!.sub },
+      select: { full_name: true },
+    })
+    const details = { interviewer: hrUser?.full_name ?? 'Tim HR Manava', mode: body.mode, location: body.location }
+
     // Delivery failure must not block the pipeline: the transition still
     // happens and HR sees the delivery status to follow up manually.
-    const emailBody = renderInterviewEmail(app, body)
+    const emailBody = renderInterviewEmail(app, details)
     const mail = await sendEmail(app.email, 'Undangan Interview — Editor Manava', emailBody)
 
     const updated = await prisma.jobApplication.update({
