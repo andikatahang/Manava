@@ -85,7 +85,7 @@ function analyzeKpiTrend(points: MonthlyKpiPoint[], _department?: string): Quick
   }
 }
 
-export function DepartmentKpiInsight({ points, department }: DepartmentKpiInsightProps) {
+export function DepartmentKpiInsight({ department, points }: DepartmentKpiInsightProps) {
   const { mutate, data, isPending, isError, error, reset } = useKpiRecommendation()
   const assessment = useMemo(() => analyzeKpiTrend(points), [points])
 
@@ -179,7 +179,7 @@ export function DepartmentKpiInsight({ points, department }: DepartmentKpiInsigh
           <button
             onClick={() => {
               reset()
-              mutate()
+              mutate(department)
             }}
             disabled={isPending}
             className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"

@@ -2,8 +2,10 @@
 // periode agar tampil sebagai satu garis per departemen di grafik.
 
 import { Router } from 'express'
+import { z } from 'zod'
 import { authenticate } from '../../middleware/authenticate.js'
 import { requireRole } from '../../middleware/requireRole.js'
+import { validateBody } from '../../middleware/validate.js'
 import { asyncHandler } from '../../utils/asyncHandler.js'
 import { prisma } from '../../lib/prisma.js'
 import { ok } from '../../lib/response.js'
@@ -945,12 +947,30 @@ function heuristicRecommendation(ctx: DeptContext[]): RecommendationResponse {
   return { source: 'heuristic', summary, recommendations: items, generated_at: new Date().toISOString() }
 }
 
+const recommendationSchema = z.object({ department: z.string().trim().min(1).optional() })
+
 kpiRouter.post(
   '/recommendation',
   authenticate,
-  requireRole('hr_admin', 'superadmin'),
-  asyncHandler(async (_req, res) => {
-    const ctx = await buildDeptContexts()
+  requireRole('hr_admin', 'superadmin', 'admin_manager'),
+  validateBody(recommendationSchema),
+  asyncHandler(async (req, res) => {
+    const body = req.body as z.infer<typeof recommendationSchema>
+    let ctx = await buildDeptContexts()
+
+    if (req.user!.role === 'admin_manager') {
+      // Scope is enforced server-side from the manager's own record — never
+      // trust a client-supplied department for this role.
+      const manager = await prisma.adminManager.findFirst({
+        where: { user_id: req.user!.sub },
+        include: { departments: { select: { name: true } } },
+      })
+      const myDept = manager?.departments[0]?.name
+      ctx = ctx.filter(c => c.department === myDept)
+    } else if (body.department) {
+      ctx = ctx.filter(c => c.department === body.department)
+    }
+
     if (ctx.length === 0) {
       res.json(ok<RecommendationResponse>({ source: 'heuristic', summary: 'Belum ada data departemen.', recommendations: [], generated_at: new Date().toISOString() }))
       return

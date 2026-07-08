@@ -27,7 +27,7 @@ export function KpiRecommendationCard() {
           </p>
         </div>
         <button
-          onClick={() => { reset(); mutate() }}
+          onClick={() => { reset(); mutate(undefined) }}
           disabled={isPending}
           className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
         >

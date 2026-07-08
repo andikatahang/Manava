@@ -59,8 +59,13 @@ export interface KpiRecommendationResult {
   generated_at: string
 }
 
+// `department` scopes the recommendation to a single department — required
+// for Admin Manager (server enforces their own department regardless), and
+// used by HR's per-department card so each card gets its own recommendation
+// instead of every department mixed together.
 export function useKpiRecommendation() {
   return useMutation({
-    mutationFn: () => api<KpiRecommendationResult>('/kpi/recommendation', { method: 'POST' }),
+    mutationFn: (department?: string) =>
+      api<KpiRecommendationResult>('/kpi/recommendation', { method: 'POST', body: department ? { department } : {} }),
   })
 }
