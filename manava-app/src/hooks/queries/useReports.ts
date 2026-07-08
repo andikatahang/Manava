@@ -17,7 +17,7 @@ export function useReports(filters?: { period?: string; department_id?: string }
   return useQuery({
     queryKey: ['reports', filters],
     queryFn: async () => {
-      const url = `/api/v1/reports${params.toString() ? `?${params.toString()}` : ''}`
+      const url = `/reports${params.toString() ? `?${params.toString()}` : ''}`
       return api<ReportListResponse[]>(url)
     },
   })
@@ -29,7 +29,7 @@ export function useReports(filters?: { period?: string; department_id?: string }
 export function useReportDetail(reportId: string) {
   return useQuery({
     queryKey: ['reports', reportId],
-    queryFn: () => api<DepartmentReportData>(`/api/v1/reports/${reportId}`),
+    queryFn: () => api<DepartmentReportData>(`/reports/${reportId}`),
     enabled: !!reportId,
   })
 }
@@ -42,7 +42,7 @@ export function useReportMutations() {
 
   const createReport = useMutation({
     mutationFn: async (data: CreateReportRequest) => {
-      return api<DepartmentReportData>('/api/v1/reports', {
+      return api<DepartmentReportData>('/reports', {
         method: 'POST',
         body: JSON.stringify(data),
       })
