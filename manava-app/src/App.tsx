@@ -9,7 +9,7 @@ import LoginPage from './pages/auth/LoginPage'
 import ApplyPage from './pages/apply/ApplyPage'
 import RecruitmentPage from './pages/recruitment/RecruitmentPage'
 import ApplicantDetailPage from './pages/recruitment/ApplicantDetailPage'
-import PaymentsPage from './pages/payments/PaymentsPage'
+import PayrollPage from './pages/payroll/PayrollPage'
 import AttendancePage from './pages/attendance/AttendancePage'
 import PerformancePage from './pages/performance/PerformancePage'
 import ProjectsPage from './pages/projects/ProjectsPage'
@@ -122,7 +122,7 @@ function AppRoutes() {
         <Route path="/projects" element={<RoleGuard role={role}><ProjectsPage role={role} /></RoleGuard>} />
         <Route path="/projects/:id" element={<RoleGuard role={role}><ProjectRoomPage role={role} /></RoleGuard>} />
         <Route path="/browse-editors" element={<RoleGuard role={role}><BrowseEditorsPage /></RoleGuard>} />
-        <Route path="/payments" element={<RoleGuard role={role}><PaymentsPage role={role} /></RoleGuard>} />
+        <Route path="/payments" element={<RoleGuard role={role}><PayrollPage /></RoleGuard>} />
         <Route path="/attendance" element={<RoleGuard role={role}><AttendancePage role={role} /></RoleGuard>} />
         <Route path="/departments" element={<RoleGuard role={role}><DepartmentsPage role={role} /></RoleGuard>} />
         <Route path="/team-dashboard" element={<RoleGuard role={role}><TeamDashboardPage role={role} /></RoleGuard>} />

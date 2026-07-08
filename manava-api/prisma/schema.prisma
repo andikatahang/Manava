@@ -609,9 +609,13 @@ model Payslip {
   editor_name          String
   period_start         DateTime      @db.Date
   period_end           DateTime      @db.Date
+  working_days         Int           @default(0) // weekdays in the period
+  absent_days          Int           @default(0) // unpaid no-shows (no approved leave, no attendance)
   base_salary          Int
-  attendance_deduction Int           @default(0)
-  project_bonus        Int           @default(0)
+  attendance_deduction Int           @default(0) // (base_salary / working_days) * absent_days
+  overtime_minutes     Int           @default(0) // summed minutes clocked past scheduled clock-out
+  overtime_pay         Int           @default(0)
+  project_bonus        Int           @default(0) // HR-entered, not auto-derived (SoS module is dormant)
   reimbursement_total  Int           @default(0)
   net_salary           Int
   status               PayslipStatus @default(draft)
@@ -619,6 +623,7 @@ model Payslip {
 
   editor Editor @relation(fields: [editor_id], references: [editor_id], onDelete: Cascade)
 
+  @@unique([editor_id, period_start])
   @@index([status])
   @@index([period_start])
 }

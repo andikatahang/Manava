@@ -1,19 +1,21 @@
 // Layanan Mandiri (ESS) — semuanya data asli milik akun yang login:
 // absensi dari /attendance (kalender + statistik), cuti dari /leave-requests
-// (pengajuan + riwayat), gaji menampilkan keadaan payroll yang belum aktif.
+// (pengajuan + riwayat), gaji dari /payroll/mine (slip yang sudah difinalisasi).
 
 import { useMemo, useState } from 'react'
-import { Calendar, CheckCircle2, Clock, Plus, Wallet, TrendingUp } from 'lucide-react'
+import { Calendar, CheckCircle2, Clock, Plus, Wallet, TrendingUp, UserX } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
 import { Drawer } from '../../components/ui/Drawer'
-import { formatDate } from '../../lib/utils'
+import { formatDate, formatCurrency } from '../../lib/utils'
 import type { UserRole } from '../../types'
 import { useMe } from '../../hooks/queries/useMe'
 import { useAttendanceRecords, useAttendanceToday } from '../../hooks/queries/useAttendance'
 import { useLeaveRequests, useLeaveRequestMutations } from '../../hooks/queries/useLeaveRequests'
 import { ROUTES_TO_LABEL, type RequesterRole } from '../../lib/leaveRequests'
 import type { Attendance } from '../../lib/attendance'
+import { STATUS_LABELS as PAYSLIP_STATUS_LABELS, type Payslip, type PayslipStatus } from '../../lib/payroll'
+import { useMyPayslips } from '../../hooks/queries/usePayroll'
 import { CalendarCard, DayDetailBody, StatStrip } from '../attendance/AttendanceTab'
 import { MyKpiScore } from './MyKpiScore'
 
@@ -52,7 +54,7 @@ export default function ESSPage({ role }: { role: UserRole }) {
       {tab === 'absensi' && <MyAttendance />}
       {tab === 'cuti' && <MyLeave role={role} />}
       {tab === 'kpi' && <MyKpiScore />}
-      {tab === 'gaji' && <PayslipPlaceholder />}
+      {tab === 'gaji' && <MyPayslips />}
     </div>
   )
 }
@@ -236,16 +238,88 @@ function MyLeave({ role }: { role: UserRole }) {
   )
 }
 
-// ── Slip gaji: payroll belum diaktifkan — tidak ada data dummy ────────────────
+// ── Slip gaji: daftar milik sendiri dari /payroll/mine (draft HR disembunyikan)
 
-function PayslipPlaceholder() {
+const PAYSLIP_STATUS_CHIP: Record<PayslipStatus, string> = {
+  draft:     'bg-amber-50 text-amber-700 border-amber-200',
+  finalized: 'bg-navy-50 text-navy border-navy/15',
+  paid:      'bg-emerald-50 text-emerald-700 border-emerald-200',
+  voided:    'bg-red-50 text-red-700 border-red-200',
+}
+
+function MyPayslips() {
+  const { data: slips = [], isLoading, error } = useMyPayslips()
+  const [detail, setDetail] = useState<Payslip | null>(null)
+
+  if (isLoading) {
+    return <div className="card text-center py-14 max-w-2xl"><p className="text-sm text-navy/50">Memuat slip gaji…</p></div>
+  }
+  if (error) {
+    return <div className="card text-center py-14 max-w-2xl"><p className="text-sm text-red-600">Gagal memuat slip gaji.</p></div>
+  }
+  if (slips.length === 0) {
+    return (
+      <div className="card text-center py-14 max-w-2xl">
+        <Wallet className="w-10 h-10 mx-auto mb-3 text-navy/20" />
+        <p className="text-sm font-semibold text-navy">Belum ada slip gaji</p>
+        <p className="text-xs text-navy/50 mt-1">Slip gaji akan muncul di sini setelah HR memproses payroll.</p>
+      </div>
+    )
+  }
+
   return (
-    <div className="card text-center py-14 max-w-2xl">
-      <Wallet className="w-10 h-10 mx-auto mb-3 text-navy/20" />
-      <p className="text-sm font-semibold text-navy">Slip gaji belum tersedia</p>
-      <p className="text-xs text-navy/50 mt-1">
-        Modul payroll belum diaktifkan. Slip gaji akan muncul di sini setelah HR memproses payroll pertama.
-      </p>
+    <div className="space-y-3 max-w-2xl">
+      {slips.map(s => (
+        <button
+          key={s.payslip_id}
+          onClick={() => setDetail(s)}
+          className="w-full text-left flex items-center gap-3 px-4 py-3.5 rounded-xl border border-border bg-white hover:border-navy/20 transition-colors"
+        >
+          <div className="w-9 h-9 rounded-xl bg-navy-50 flex items-center justify-center shrink-0">
+            <Wallet className="w-4 h-4 text-navy" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-navy">
+              {formatDate(s.period_start)} – {formatDate(s.period_end)}
+            </p>
+            <p className="text-xs text-navy/50">
+              {s.absent_days > 0 && <span className="inline-flex items-center gap-1 mr-2"><UserX className="w-3 h-3" />{s.absent_days} hari bolong</span>}
+              Net {formatCurrency(s.net_salary)}
+            </p>
+          </div>
+          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border shrink-0 ${PAYSLIP_STATUS_CHIP[s.status]}`}>
+            {PAYSLIP_STATUS_LABELS[s.status]}
+          </span>
+        </button>
+      ))}
+
+      <Modal open={!!detail} onClose={() => setDetail(null)} title={detail ? `Slip Gaji — ${formatDate(detail.period_start)}` : ''} size="md">
+        {detail && (
+          <div className="space-y-3 text-[13px]">
+            <PayslipRow label="Periode" value={`${formatDate(detail.period_start)} – ${formatDate(detail.period_end)}`} />
+            <PayslipRow label="Hari Kerja" value={`${detail.working_days} hari`} />
+            <PayslipRow label="Hari Bolong" value={`${detail.absent_days} hari`} />
+            <PayslipRow label="Gaji Pokok" value={formatCurrency(detail.base_salary)} />
+            <PayslipRow label="Potongan Absen" value={`-${formatCurrency(detail.attendance_deduction)}`} tone="text-red-600" />
+            <PayslipRow label="Lembur" value={`+${formatCurrency(detail.overtime_pay)}`} tone="text-emerald-700" />
+            <PayslipRow label="Bonus" value={`+${formatCurrency(detail.project_bonus)}`} tone="text-emerald-700" />
+            <PayslipRow label="Reimbursement" value={`+${formatCurrency(detail.reimbursement_total)}`} tone="text-emerald-700" />
+            <div className="border-t border-border pt-3 flex items-center justify-between">
+              <span className="text-sm font-semibold text-navy">Net Salary</span>
+              <span className="text-lg font-bold text-navy">{formatCurrency(detail.net_salary)}</span>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </div>
+  )
+}
+
+function PayslipRow({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-navy/55">{label}</span>
+      <span className={`font-medium ${tone ?? 'text-navy'}`}>{value}</span>
     </div>
   )
 }

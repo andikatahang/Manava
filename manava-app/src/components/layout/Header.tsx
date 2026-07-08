@@ -17,7 +17,7 @@ const pageTitles: Record<string, string> = {
   '/recruitment': 'Rekrutmen & Onboarding',
   '/projects': 'Proyek',
   '/contracts': 'Kontrak & Brief',
-  '/payments': 'Escrow & Pembayaran',
+  '/payments': 'Payroll',
   '/attendance': 'Presensi & Cuti',
   '/performance': 'KPI Kinerja',
   '/disputes': 'Penyelesaian Sengketa',

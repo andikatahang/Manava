@@ -18,6 +18,7 @@ import { attendanceRouter } from './modules/attendance/routes.js'
 import { projectsRouter } from './modules/projects/routes.js'
 import { applicationsRouter } from './modules/applications/routes.js'
 import { kpiRouter } from './modules/kpi/routes.js'
+import { payrollRouter } from './modules/payroll/routes.js'
 
 const app = express()
 
@@ -42,6 +43,7 @@ app.use('/api/v1/attendance', attendanceRouter)
 app.use('/api/v1/projects', projectsRouter)
 app.use('/api/v1/applications', applicationsRouter)
 app.use('/api/v1/kpi', kpiRouter)
+app.use('/api/v1/payroll', payrollRouter)
 
 // Fallback for unknown routes
 app.use((_req, res) => {

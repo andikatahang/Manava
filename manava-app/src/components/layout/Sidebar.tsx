@@ -6,7 +6,7 @@ import logoDark from '../../assets/logo-dark.png'
 import {
   LayoutDashboard, Users, Briefcase, UserCheck,
   Settings, ChevronLeft, ChevronDown, LogOut, Shield, X, User, Home,
-  Cog, Building2, Search,
+  Cog, Building2, Search, Wallet,
 } from 'lucide-react'
 
 // A nav item either navigates directly (`to`) or expands into sub-pages
@@ -40,6 +40,7 @@ const navByRole: Record<UserRole, NavItem[]> = {
         { to: '/departments?tab=offboarding', tab: 'offboarding', label: 'Offboarding' },
       ],
     },
+    { to: '/payments', icon: Wallet, label: 'Payroll' },
     { to: '/ess', icon: UserCheck, label: 'Layanan Mandiri' },
   ],
   admin_manager: [
