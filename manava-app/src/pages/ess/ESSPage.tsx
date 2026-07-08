@@ -34,11 +34,15 @@ function monthKey(d: Date): string {
 
 export default function ESSPage({ role }: { role: UserRole }) {
   const [tab, setTab] = useState<Tab>('absensi')
+  // Payroll is scoped to the Editor model (only editors have base_salary) —
+  // Admin Manager has no payslip data at all, so hide the tab rather than
+  // show a permanently-failing fetch.
+  const tabs = role === 'editor' ? TABS : TABS.filter(t => t.id !== 'gaji')
 
   return (
     <div className="space-y-6">
       <div className="flex gap-1 bg-white border border-border rounded-xl p-1 w-fit">
-        {TABS.map(({ id, label, icon: Icon }) => (
+        {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
