@@ -1,21 +1,23 @@
 import { useSearchParams } from 'react-router-dom'
-import { Users, Clock, BarChart2, Briefcase } from 'lucide-react'
+import { Users, Clock, BarChart2, Briefcase, FileText } from 'lucide-react'
 import { TeamPresensiTab } from '../attendance/TeamPresensiTab'
 import PerformancePage from '../performance/PerformancePage'
 import ProjectsPage from '../projects/ProjectsPage'
 import DepartmentsPage from '../departments/DepartmentsPage'
+import ReportGenerateForm from './ReportGenerateForm'
 import type { UserRole } from '../../types'
 
 // One dashboard that consolidates the Admin Manager's department surfaces:
 // team roster, Presensi (kehadiran anggota + persetujuan cuti), KPI Tim,
 // and Proyek Tim.
-type Tab = 'anggota' | 'presensi' | 'kpi' | 'proyek'
+type Tab = 'anggota' | 'presensi' | 'kpi' | 'proyek' | 'laporan'
 
 const TABS: { key: Tab; label: string; icon: typeof Users }[] = [
   { key: 'anggota',  label: 'Anggota',   icon: Users },
   { key: 'presensi', label: 'Presensi',  icon: Clock },
   { key: 'kpi',      label: 'KPI Tim',   icon: BarChart2 },
   { key: 'proyek',   label: 'Proyek Tim', icon: Briefcase },
+  { key: 'laporan',  label: 'Laporan',    icon: FileText },
 ]
 
 export default function TeamDashboardPage({ role }: { role: UserRole }) {
@@ -47,6 +49,7 @@ export default function TeamDashboardPage({ role }: { role: UserRole }) {
       {tab === 'presensi' && <TeamPresensiTab role={role} />}
       {tab === 'kpi'      && <PerformancePage role={role} embedded />}
       {tab === 'proyek'   && <ProjectsPage role={role} />}
+      {tab === 'laporan'  && <ReportGenerateForm />}
     </div>
   )
 }

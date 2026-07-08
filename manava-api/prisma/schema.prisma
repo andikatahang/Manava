@@ -291,6 +291,7 @@ model AdminManager {
 
   user        User?        @relation(fields: [user_id], references: [user_id], onDelete: SetNull)
   departments Department[]
+  reports     DepartmentReport[]
 }
 
 model Department {
@@ -302,6 +303,7 @@ model Department {
 
   manager AdminManager       @relation(fields: [manager_id], references: [id], onDelete: Restrict)
   members DepartmentMember[]
+  reports DepartmentReport[]
 
   @@index([manager_id])
 }
@@ -713,6 +715,37 @@ model JobApplication {
 
   @@index([status])
   @@index([email])
+}
+
+// ─── Department Reporting ────────────────────────────────────────────────────
+
+// Monthly department activity report submitted by Admin Manager to HR Admin.
+// Snapshot of key metrics for a given period: attendance, KPI, leave, warnings.
+model DepartmentReport {
+  id              String   @id @default(cuid())
+  department_id   String
+  manager_id      String
+  period          String   // "2026-07" format
+
+  // Snapshot of aggregated metrics at submission time (immutable)
+  attendance_summary  Json   // { total_days, present_count, late_count, absent_count, present_pct, late_pct, absent_pct }
+  kpi_summary         Json   // { avg_kpi, excellent_count, good_count, needs_count }
+  leave_summary       Json   // { approved_count, rejected_count, pending_count }
+  warning_summary     Json   // { total_count, ringan_count, sedang_count, berat_count }
+
+  // Manager's optional notes/highlights for the period
+  manager_notes   String?
+
+  submitted_at    DateTime @default(now())
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  department      Department @relation(fields: [department_id], references: [id], onDelete: Cascade)
+  manager         AdminManager @relation(fields: [manager_id], references: [id], onDelete: Cascade)
+
+  @@unique([department_id, period])
+  @@index([manager_id])
+  @@index([period])
 }
 
 model Applicant {

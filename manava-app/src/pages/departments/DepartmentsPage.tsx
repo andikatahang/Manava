@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Building2, Plus, Check, Pencil, BarChart2,
-  Clock, AlertOctagon, UserX, Award, ArrowLeft, UserMinus,
+  Clock, AlertOctagon, UserX, Award, ArrowLeft, UserMinus, FileText,
 } from 'lucide-react'
 import { Modal } from '../../components/ui/Modal'
 import {
@@ -16,6 +16,8 @@ import { IssueWarningForEditor, EditorDetailInfo, EditorAvatar } from './EditorA
 import { TeamPresensiTab } from '../attendance/TeamPresensiTab'
 import WarningPage from '../warning/WarningPage'
 import OffboardingPage from '../offboarding/OffboardingPage'
+import ReportListView from '../reports/ReportListView'
+import ReportDetailView from '../reports/ReportDetailView'
 import { useMonthlyKpi } from '../../hooks/queries/useKpi'
 import { KpiTrendChart } from '../performance/KpiTrendChart'
 import { KpiRecommendationCard } from './KpiRecommendationCard'
@@ -31,13 +33,14 @@ const SPEC_LABELS: Record<string, string> = {
   motion_graphics: 'Motion Graphics',
 }
 
-type HrTab = 'departemen' | 'presensi' | 'peringatan' | 'offboarding'
+type HrTab = 'departemen' | 'presensi' | 'peringatan' | 'offboarding' | 'laporan'
 
 const HR_TABS: { id: HrTab; label: string; icon: typeof Building2 }[] = [
   { id: 'departemen', label: 'Departemen', icon: Building2 },
   { id: 'presensi', label: 'Presensi', icon: Clock },
   { id: 'peringatan', label: 'Peringatan', icon: AlertOctagon },
   { id: 'offboarding', label: 'Offboarding', icon: UserX },
+  { id: 'laporan', label: 'Laporan', icon: FileText },
 ]
 
 export default function DepartmentsPage({ role, embedded = false }: { role: UserRole; embedded?: boolean }) {
@@ -58,6 +61,7 @@ function HrDepartmentDashboard() {
   // A department is a "draft" between creation and its first save — HR must add
   // at least one editor before it can be kept.
   const [draftId, setDraftId] = useState<string | null>(null)
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
 
   // Departments arrive with manager + editor rows joined, so no fixture
   // lookups are needed; the editors list feeds the "Tambah Editor" picker.
@@ -161,6 +165,8 @@ function HrDepartmentDashboard() {
       {tab === 'presensi' && <TeamPresensiTab role="hr_admin" />}
       {tab === 'peringatan' && <WarningPage role="hr_admin" />}
       {tab === 'offboarding' && <OffboardingPage />}
+      {tab === 'laporan' && selectedReportId && <ReportDetailView reportId={selectedReportId} onBack={() => setSelectedReportId(null)} />}
+      {tab === 'laporan' && !selectedReportId && <ReportListView onSelectReport={setSelectedReportId} />}
 
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Tambah Departemen" size="md">
         <DepartmentBasicForm

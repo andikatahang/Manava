@@ -1,7 +1,7 @@
 # Multi-stage build for the manava-app frontend.
 # Stage 1 builds the Vite bundle; stage 2 serves the static output via Nginx.
 
-FROM node:20-alpine AS build
+FROM node:20-slim AS build
 WORKDIR /app
 # Vite reads VITE_* env vars at build time — must be passed as ARG.
 ARG VITE_API_BASE_URL=http://localhost:4000
