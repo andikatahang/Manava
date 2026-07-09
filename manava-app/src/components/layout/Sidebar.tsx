@@ -54,7 +54,7 @@ const navByRole: Record<UserRole, NavItem[]> = {
         { to: '/team-dashboard?tab=klaim', tab: 'klaim', label: 'Persetujuan Klaim Dana' },
         { to: '/team-dashboard?tab=kpi', tab: 'kpi', label: 'Tren Kinerja & Target' },
         { to: '/team-dashboard?tab=proyek', tab: 'proyek', label: 'Alokasi Proyek' },
-        { to: '/team-dashboard?tab=laporan', tab: 'laporan', label: 'Draft Laporan Bulanan' },
+        { to: '/team-dashboard?tab=laporan', tab: 'laporan', label: 'Generate Laporan Bulanan' },
       ],
     },
     { to: '/ess', icon: UserCheck, label: 'Layanan Mandiri' },

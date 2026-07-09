@@ -735,7 +735,8 @@ model DepartmentReport {
   leave_summary       Json   // { approved_count, rejected_count, pending_count }
   warning_summary     Json   // { total_count, ringan_count, sedang_count, berat_count }
   reimbursement_summary Json? // { approved_count, approved_total, pending_count }
-  editor_reports        Json? // snapshot laporan individual editor yang dikonsolidasi
+  editor_reports        Json? // rincian per-karyawan (presensi & cuti + proyek) saat digenerate
+  ai_narrative          String? // narasi ringkasan berbantuan AI saat laporan digenerate
 
   // Manager's optional notes/highlights for the period
   manager_notes   String?

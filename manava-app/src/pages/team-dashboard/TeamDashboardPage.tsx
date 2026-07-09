@@ -20,7 +20,7 @@ const TABS: { key: Tab; label: string; icon: typeof Users }[] = [
   { key: 'klaim',    label: 'Persetujuan Klaim Dana',  icon: Receipt },
   { key: 'kpi',      label: 'Tren Kinerja & Target',   icon: BarChart2 },
   { key: 'proyek',   label: 'Alokasi Proyek', icon: Briefcase },
-  { key: 'laporan',  label: 'Draft Laporan Bulanan',  icon: FileText },
+  { key: 'laporan',  label: 'Generate Laporan Bulanan',  icon: FileText },
 ]
 
 export default function TeamDashboardPage({ role }: { role: UserRole }) {
@@ -58,11 +58,11 @@ export default function TeamDashboardPage({ role }: { role: UserRole }) {
           <AutoAggregationSummary />
           <div className="card space-y-4">
             <div className="border-b border-border pb-4">
-              <h3 className="text-lg font-bold text-navy">Draft Laporan Bulanan Departemen</h3>
+              <h3 className="text-lg font-bold text-navy">Laporan Bulanan Departemen</h3>
               <p className="text-sm text-navy/60 mt-1">
-                Laporan bulanan individual dari editor departemen Anda dikonsolidasikan dengan agregasi
-                otomatis sistem (presensi, cuti, KPI, klaim dana) menjadi satu laporan departemen.
-                Review draft di bawah, lalu teruskan ke HR Admin sebagai dasar review kinerja dan finalisasi payroll.
+                Tekan tombol generate — sistem meng-agregasi presensi &amp; cuti serta proyek setiap
+                karyawan departemen secara otomatis dan AI menyusun narasi ringkasannya. Review draft,
+                lalu teruskan ke HR Admin sebagai dasar review kinerja dan finalisasi payroll.
               </p>
             </div>
             <ReportGenerateForm />

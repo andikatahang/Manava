@@ -22,10 +22,10 @@ import {
   computeReimbursementSummary,
   computeEditorSnapshot,
 } from './aggregator.js'
+import { buildAiNarrative } from './ai.js'
 import type {
-  DepartmentReportData, DraftReportData, ReportStatus, EditorReportData, EditorReportStatus,
+  DepartmentReportData, DraftReportData, ReportStatus, EditorReportData,
   AttendanceSummary, KpiSummary, LeaveSummary, WarningSummary, ReimbursementSummary,
-  EditorReportKpi, EditorReportAttendance, EditorReportLeave, EditorReportProject,
 } from './types.js'
 
 export const reportsRouter = Router()
@@ -72,155 +72,42 @@ async function computeSummaries(departmentId: string, period: string) {
   return { attendance, kpi, leave, warnings, reimbursement }
 }
 
-function formatEditorReport(r: {
-  report_id: string
-  user_id: string
-  period: string
-  status: string
-  kpi_summary: unknown
-  attendance_summary: unknown
-  leave_summary: unknown
-  project_summary: unknown
-  editor_notes: string | null
-  submitted_at: Date
-}, editorName: string, department: string): EditorReportData {
-  return {
-    report_id: r.report_id,
-    user_id: r.user_id,
-    editor_name: editorName,
-    department,
-    period: r.period,
-    status: r.status as EditorReportStatus,
-    kpi_summary: r.kpi_summary as EditorReportKpi,
-    attendance_summary: r.attendance_summary as EditorReportAttendance,
-    leave_summary: r.leave_summary as EditorReportLeave,
-    project_summary: r.project_summary as EditorReportProject[],
-    editor_notes: r.editor_notes,
-    submitted_at: r.submitted_at.toISOString(),
-  }
-}
-
-/** Laporan editor tersubmit untuk sebuah departemen+periode, siap konsolidasi. */
+/**
+ * Rincian per-karyawan (presensi & cuti + proyek) untuk seluruh editor
+ * departemen — dihitung otomatis oleh sistem saat laporan digenerate,
+ * tanpa input dari editor.
+ */
 async function departmentEditorReports(departmentId: string, period: string): Promise<EditorReportData[]> {
   const members = await prisma.departmentMember.findMany({
     where: { department_id: departmentId },
-    select: { editor: { select: { user_id: true, full_name: true, department: true } } },
+    select: { editor: { select: { user_id: true } } },
   })
-  const byUser = new Map(members.map(m => [m.editor.user_id, m.editor]))
-  const reports = await prisma.editorReport.findMany({
-    where: { user_id: { in: Array.from(byUser.keys()) }, period },
-    orderBy: { submitted_at: 'asc' },
-  })
-  return reports.map(r => {
-    const e = byUser.get(r.user_id)!
-    return formatEditorReport(r, e.full_name, e.department)
-  })
-}
-
-/**
- * GET /api/v1/reports/my-draft?period=YYYY-MM
- * Editor: draft laporan bulanan individual (Summary Bulanan Karyawan),
- * di-agregasi otomatis dari data harian miliknya. Jika sudah dikirim,
- * kembalikan snapshot tersimpan.
- */
-reportsRouter.get(
-  '/my-draft',
-  authenticate,
-  requireRole('editor'),
-  asyncHandler(async (req, res) => {
-    const period = typeof req.query.period === 'string' && PERIOD_REGEX.test(req.query.period)
-      ? req.query.period
-      : currentPeriod()
-    const userId = req.user!.sub
-
-    const existing = await prisma.editorReport.findUnique({
-      where: { user_id_period: { user_id: userId, period } },
-    })
-    if (existing) {
-      const editor = await prisma.editor.findUnique({ where: { user_id: userId } })
-      return res.json(ok(formatEditorReport(existing, editor?.full_name ?? '', editor?.department ?? '')))
-    }
-
-    const { start, end } = periodBounds(period)
-    const snap = await computeEditorSnapshot(userId, start, end)
-    if (!snap) return res.status(404).json(fail('Data editor tidak ditemukan'))
-
-    const draft: EditorReportData = {
-      report_id: null,
-      user_id: userId,
-      editor_name: snap.editor_name,
-      department: snap.department,
-      period,
-      status: 'draft',
-      kpi_summary: snap.kpi,
-      attendance_summary: snap.attendance,
-      leave_summary: snap.leave,
-      project_summary: snap.projects,
-      editor_notes: null,
-      submitted_at: null,
-    }
-    return res.json(ok(draft))
-  }),
-)
-
-/**
- * POST /api/v1/reports/submit
- * Editor mengirim laporan bulanannya ke Admin Manager (snapshot dibekukan).
- */
-reportsRouter.post(
-  '/submit',
-  authenticate,
-  requireRole('editor'),
-  validateBody(forwardReportSchema.extend({ editor_notes: z.string().optional() }).omit({ manager_notes: true })),
-  asyncHandler(async (req, res) => {
-    const { period, editor_notes } = req.body as { period: string; editor_notes?: string }
-    const userId = req.user!.sub
-
-    const existing = await prisma.editorReport.findUnique({
-      where: { user_id_period: { user_id: userId, period } },
-    })
-    if (existing) {
-      return res.status(409).json(fail(`Laporan periode ${period} sudah dikirim ke Admin Manager`))
-    }
-
-    const { start, end } = periodBounds(period)
-    const snap = await computeEditorSnapshot(userId, start, end)
-    if (!snap) return res.status(404).json(fail('Data editor tidak ditemukan'))
-
-    const created = await prisma.editorReport.create({
-      data: {
-        user_id: userId,
+  const { start, end } = periodBounds(period)
+  const snapshots = await Promise.all(
+    members.map(async m => {
+      const snap = await computeEditorSnapshot(m.editor.user_id, start, end)
+      if (!snap) return null
+      const report: EditorReportData = {
+        report_id: null,
+        user_id: m.editor.user_id,
+        editor_name: snap.editor_name,
+        department: snap.department,
         period,
-        status: 'submitted',
-        kpi_summary: snap.kpi as object,
-        attendance_summary: snap.attendance as object,
-        leave_summary: snap.leave as object,
-        project_summary: snap.projects as unknown as object,
-        editor_notes: editor_notes || null,
-      },
-    })
-    return res.status(201).json(ok(formatEditorReport(created, snap.editor_name, snap.department)))
-  }),
-)
-
-/**
- * GET /api/v1/reports/editor-reports?period=YYYY-MM
- * Admin Manager: laporan individual yang masuk dari editor departemennya.
- */
-reportsRouter.get(
-  '/editor-reports',
-  authenticate,
-  requireRole('admin_manager'),
-  asyncHandler(async (req, res) => {
-    const period = typeof req.query.period === 'string' && PERIOD_REGEX.test(req.query.period)
-      ? req.query.period
-      : currentPeriod()
-    const ctx = await managerDepartment(req.user!.sub)
-    if (!ctx) return res.status(403).json(fail('Manager tidak memiliki departemen'))
-    const reports = await departmentEditorReports(ctx.department.id, period)
-    return res.json(ok(reports, { total: reports.length }))
-  }),
-)
+        status: 'draft',
+        kpi_summary: snap.kpi,
+        attendance_summary: snap.attendance,
+        leave_summary: snap.leave,
+        project_summary: snap.projects,
+        editor_notes: null,
+        submitted_at: null,
+      }
+      return report
+    }),
+  )
+  return snapshots
+    .filter((s): s is EditorReportData => s !== null)
+    .sort((a, b) => a.editor_name.localeCompare(b.editor_name))
+}
 
 /**
  * GET /api/v1/reports/draft?period=YYYY-MM
@@ -266,11 +153,15 @@ reportsRouter.get(
         editor_reports: existing.status === 'forwarded'
           ? (existing.editor_reports as unknown as EditorReportData[] | null)
           : editorReports,
+        ai_narrative: existing.ai_narrative,
       }
       return res.json(ok(response))
     }
 
     const { attendance, kpi, leave, warnings, reimbursement } = await computeSummaries(department.id, period)
+    const narrative = await buildAiNarrative(
+      department.name, period, attendance, leave, reimbursement, editorReports,
+    )
     const response: DraftReportData = {
       department_id: department.id,
       department_name: department.name,
@@ -285,6 +176,7 @@ reportsRouter.get(
       warning_summary: warnings,
       reimbursement_summary: reimbursement,
       editor_reports: editorReports,
+      ai_narrative: narrative.text,
     }
     return res.json(ok(response))
   }),
@@ -321,6 +213,9 @@ reportsRouter.post(
     const editorReports = await departmentEditorReports(department.id, period)
 
     const { attendance, kpi, leave, warnings, reimbursement } = await computeSummaries(department.id, period)
+    const narrative = await buildAiNarrative(
+      department.name, period, attendance, leave, reimbursement, editorReports,
+    )
     const data = {
       attendance_summary: attendance as object,
       kpi_summary: kpi as object,
@@ -328,6 +223,7 @@ reportsRouter.post(
       warning_summary: warnings as object,
       reimbursement_summary: reimbursement as object,
       editor_reports: editorReports as unknown as object,
+      ai_narrative: narrative.text,
       manager_notes: manager_notes || null,
       status: 'forwarded',
       forwarded_at: new Date(),
@@ -354,11 +250,6 @@ reportsRouter.post(
             manager: { select: { full_name: true } },
           },
         })
-
-    await prisma.editorReport.updateMany({
-      where: { report_id: { in: editorReports.map(r => r.report_id).filter((id): id is string => !!id) } },
-      data: { status: 'consolidated' },
-    })
 
     return res.status(201).json(ok(formatReportResponse(report)))
   }),
@@ -487,6 +378,7 @@ function formatReportResponse(report: {
   warning_summary: unknown
   reimbursement_summary: unknown
   editor_reports: unknown
+  ai_narrative: string | null
   manager_notes: string | null
   submitted_at: Date
   created_at: Date
@@ -507,6 +399,7 @@ function formatReportResponse(report: {
     warning_summary: report.warning_summary as WarningSummary,
     reimbursement_summary: report.reimbursement_summary as ReimbursementSummary | null,
     editor_reports: report.editor_reports as EditorReportData[] | null,
+    ai_narrative: report.ai_narrative,
     manager_notes: report.manager_notes,
     submitted_at: report.submitted_at.toISOString(),
     created_at: report.created_at.toISOString(),

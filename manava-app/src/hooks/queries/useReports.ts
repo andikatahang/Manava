@@ -4,29 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import type {
   DepartmentReportData, DraftReportData, ForwardReportRequest, ReportListResponse,
-  EditorReportData,
 } from '../../types'
-
-/**
- * Draft laporan bulanan individual milik editor yang login (Summary Bulanan
- * Karyawan) — agregasi otomatis; jika sudah dikirim, snapshot tersimpan.
- */
-export function useMyReportDraft(period: string) {
-  return useQuery({
-    queryKey: ['reports', 'my-draft', period],
-    queryFn: () => api<EditorReportData>(`/reports/my-draft?period=${period}`),
-    enabled: !!period,
-  })
-}
-
-/** Laporan editor yang masuk ke Admin Manager untuk periode tertentu. */
-export function useEditorReports(period: string) {
-  return useQuery({
-    queryKey: ['reports', 'editor-reports', period],
-    queryFn: () => api<EditorReportData[]>(`/reports/editor-reports?period=${period}`),
-    enabled: !!period,
-  })
-}
 
 /**
  * Fetch list of department reports
@@ -52,11 +30,11 @@ export function useReports(filters?: { period?: string; department_id?: string; 
  * Draft laporan bulanan departemen (Admin Manager) — di-agregasi otomatis
  * oleh sistem dari aktivitas harian editor.
  */
-export function useDraftReport(period: string) {
+export function useDraftReport(period: string, enabled = true) {
   return useQuery({
     queryKey: ['reports', 'draft', period],
     queryFn: () => api<DraftReportData>(`/reports/draft?period=${period}`),
-    enabled: !!period,
+    enabled: !!period && enabled,
   })
 }
 
@@ -89,15 +67,5 @@ export function useReportMutations() {
     },
   })
 
-  // Editor mengirim laporan bulanannya ke Admin Manager
-  const submitMyReport = useMutation({
-    mutationFn: async (data: { period: string; editor_notes?: string }) => {
-      return api<EditorReportData>('/reports/submit', { method: 'POST', body: data })
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reports'] })
-    },
-  })
-
-  return { forwardReport, submitMyReport }
+  return { forwardReport }
 }

@@ -19,9 +19,8 @@ import { useMyPayslips } from '../../hooks/queries/usePayroll'
 import { CalendarCard, DayDetailBody, StatStrip } from '../attendance/AttendanceTab'
 import { MyKpiScore } from './MyKpiScore'
 import { MyReimbursements } from './MyReimbursements'
-import { MyMonthlyReport } from './MyMonthlyReport'
 
-type Tab = 'absensi' | 'cuti' | 'klaim' | 'kpi' | 'gaji' | 'laporan'
+type Tab = 'absensi' | 'cuti' | 'klaim' | 'kpi' | 'gaji'
 
 const TABS: { id: Tab; label: string; icon: typeof Clock }[] = [
   { id: 'absensi', label: 'Absensi', icon: Clock },
@@ -29,7 +28,6 @@ const TABS: { id: Tab; label: string; icon: typeof Clock }[] = [
   { id: 'klaim', label: 'Klaim Dana Operasional', icon: Wallet },
   { id: 'kpi', label: 'Indeks Kepuasan Klien', icon: TrendingUp },
   { id: 'gaji', label: 'Slip Gaji', icon: Wallet },
-  { id: 'laporan', label: 'Laporan Bulanan', icon: CheckCircle2 },
 ]
 
 function monthKey(d: Date): string {
@@ -42,7 +40,7 @@ export default function ESSPage({ role }: { role: UserRole }) {
   // Admin Manager has no payslip data at all, so hide the tab rather than
   // show a permanently-failing fetch.
   // Klaim dana operasional hanya untuk editor (data producer level operasional).
-  const tabs = role === 'editor' ? TABS : TABS.filter(t => t.id !== 'gaji' && t.id !== 'klaim' && t.id !== 'laporan')
+  const tabs = role === 'editor' ? TABS : TABS.filter(t => t.id !== 'gaji' && t.id !== 'klaim')
 
   return (
     <div className="space-y-6">
@@ -63,7 +61,6 @@ export default function ESSPage({ role }: { role: UserRole }) {
       {tab === 'absensi' && <MyAttendance />}
       {tab === 'cuti' && <MyLeave role={role} />}
       {tab === 'klaim' && <MyReimbursements />}
-      {tab === 'laporan' && <MyMonthlyReport />}
       {tab === 'kpi' && <MyKpiScore />}
       {tab === 'gaji' && <MyPayslips />}
     </div>

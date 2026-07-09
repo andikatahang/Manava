@@ -105,6 +105,7 @@ export interface DepartmentReportData {
   warning_summary: WarningSummary
   reimbursement_summary: ReimbursementSummary | null
   editor_reports: EditorReportData[] | null
+  ai_narrative: string | null
   manager_notes: string | null
   submitted_at: string
   created_at: string
@@ -131,6 +132,7 @@ export interface DraftReportData {
   warning_summary: WarningSummary
   reimbursement_summary: ReimbursementSummary | null
   editor_reports: EditorReportData[] | null
+  ai_narrative: string | null
 }
 
 export interface ReportListResponse {
