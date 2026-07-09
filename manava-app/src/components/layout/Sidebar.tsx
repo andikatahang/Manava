@@ -6,7 +6,7 @@ import logoDark from '../../assets/logo-dark.png'
 import {
   LayoutDashboard, Users, Briefcase, UserCheck,
   Settings, ChevronLeft, ChevronDown, LogOut, Shield, X, User, Home,
-  Cog, Building2, Search, Wallet,
+  Cog, Building2, Search, Wallet, FileText,
 } from 'lucide-react'
 
 // A nav item either navigates directly (`to`) or expands into sub-pages
@@ -46,6 +46,7 @@ const navByRole: Record<UserRole, NavItem[]> = {
   ],
   admin_manager: [
     { to: '/dashboard', icon: Home, label: 'Dashboard Taktis' },
+    { to: '/laporan-bulanan', icon: FileText, label: 'Laporan Bulanan' },
     {
       to: '/team-dashboard', icon: Building2, label: 'Manajemen Tim',
       children: [
@@ -54,7 +55,6 @@ const navByRole: Record<UserRole, NavItem[]> = {
         { to: '/team-dashboard?tab=klaim', tab: 'klaim', label: 'Persetujuan Klaim Dana' },
         { to: '/team-dashboard?tab=kpi', tab: 'kpi', label: 'Tren Kinerja & Target' },
         { to: '/team-dashboard?tab=proyek', tab: 'proyek', label: 'Alokasi Proyek' },
-        { to: '/team-dashboard?tab=laporan', tab: 'laporan', label: 'Generate Laporan Bulanan' },
       ],
     },
     { to: '/ess', icon: UserCheck, label: 'Layanan Mandiri' },

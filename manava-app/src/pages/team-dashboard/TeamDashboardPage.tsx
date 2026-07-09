@@ -1,18 +1,16 @@
 import { useSearchParams } from 'react-router-dom'
-import { Users, Clock, BarChart2, Briefcase, FileText, Receipt } from 'lucide-react'
+import { Users, Clock, BarChart2, Briefcase, Receipt } from 'lucide-react'
 import { TeamPresensiTab } from '../attendance/TeamPresensiTab'
 import PerformancePage from '../performance/PerformancePage'
 import ProjectsPage from '../projects/ProjectsPage'
 import DepartmentsPage from '../departments/DepartmentsPage'
-import ReportGenerateForm from './ReportGenerateForm'
 import { TeamReimbursements } from './TeamReimbursements'
-import { AutoAggregationSummary } from './AutoAggregationSummary'
 import type { UserRole } from '../../types'
 
 // One dashboard that consolidates the Admin Manager's department surfaces:
 // team roster, Presensi (kehadiran anggota + persetujuan cuti), KPI Tim,
 // and Proyek Tim.
-type Tab = 'anggota' | 'presensi' | 'klaim' | 'kpi' | 'proyek' | 'laporan'
+type Tab = 'anggota' | 'presensi' | 'klaim' | 'kpi' | 'proyek'
 
 const TABS: { key: Tab; label: string; icon: typeof Users }[] = [
   { key: 'anggota',  label: 'Rapor Performa & Evaluasi',   icon: Users },
@@ -20,8 +18,8 @@ const TABS: { key: Tab; label: string; icon: typeof Users }[] = [
   { key: 'klaim',    label: 'Persetujuan Klaim Dana',  icon: Receipt },
   { key: 'kpi',      label: 'Tren Kinerja & Target',   icon: BarChart2 },
   { key: 'proyek',   label: 'Alokasi Proyek', icon: Briefcase },
-  { key: 'laporan',  label: 'Generate Laporan Bulanan',  icon: FileText },
 ]
+
 
 export default function TeamDashboardPage({ role }: { role: UserRole }) {
   // Tab lives in the URL (?tab=) so the sidebar sub-navigation can deep-link.
@@ -53,22 +51,6 @@ export default function TeamDashboardPage({ role }: { role: UserRole }) {
       {tab === 'klaim'    && <TeamReimbursements />}
       {tab === 'kpi'      && <PerformancePage role={role} embedded />}
       {tab === 'proyek'   && <ProjectsPage role={role} />}
-      {tab === 'laporan'  && (
-        <div className="space-y-6">
-          <AutoAggregationSummary />
-          <div className="card space-y-4">
-            <div className="border-b border-border pb-4">
-              <h3 className="text-lg font-bold text-navy">Laporan Bulanan Departemen</h3>
-              <p className="text-sm text-navy/60 mt-1">
-                Tekan tombol generate — sistem meng-agregasi presensi &amp; cuti serta proyek setiap
-                karyawan departemen secara otomatis dan AI menyusun narasi ringkasannya. Review draft,
-                lalu teruskan ke HR Admin sebagai dasar review kinerja dan finalisasi payroll.
-              </p>
-            </div>
-            <ReportGenerateForm />
-          </div>
-        </div>
-      )}
     </div>
   )
 }

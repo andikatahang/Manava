@@ -62,7 +62,7 @@ export default function ReportDetailView({ reportId, onBack }: ReportDetailViewP
       </div>
 
       {/* Report Content — formal letterhead document */}
-      <div id="report-content" className="report-doc bg-white mx-auto max-w-[820px] shadow-card sm:p-10 p-6 print:shadow-none print:p-0">
+      <div id="report-content" className="report-doc bg-white mx-auto w-full max-w-[210mm] min-h-[297mm] shadow-card box-border p-6 sm:p-[16mm] print:shadow-none">
         {/* Letterhead */}
         <div className="flex items-start justify-between pb-5 border-b-[3px] border-navy">
           <div className="flex items-center gap-3">
@@ -261,10 +261,48 @@ export default function ReportDetailView({ reportId, onBack }: ReportDetailViewP
       {/* Print Styles */}
       <style>{`
         @media print {
-          @page { size: A4; margin: 16mm 14mm; }
-          body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .no-print { display: none !important; }
-          .report-doc { box-shadow: none !important; max-width: none !important; }
+          @page { size: A4; margin: 0; }
+
+          html,
+          body,
+          #root {
+            width: 210mm !important;
+            min-width: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          .no-print,
+          aside,
+          header,
+          nav {
+            display: none !important;
+          }
+
+          #report-content,
+          #report-content * {
+            visibility: visible !important;
+          }
+
+          #report-content {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 210mm !important;
+            max-width: 210mm !important;
+            min-height: 297mm !important;
+            margin: 0 !important;
+            padding: 16mm 14mm !important;
+            box-shadow: none !important;
+            border: 0 !important;
+          }
         }
       `}</style>
     </div>
