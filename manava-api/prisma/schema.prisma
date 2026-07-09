@@ -235,6 +235,7 @@ model User {
   attendance      AttendanceRecord[] @relation("AttendanceUser")
   attendance_adjustments AttendanceRecord[] @relation("AttendanceAdjuster")
   reimbursement_claims ReimbursementClaim[]
+  editor_reports       EditorReport[]
 
   @@index([role])
 }
@@ -734,6 +735,7 @@ model DepartmentReport {
   leave_summary       Json   // { approved_count, rejected_count, pending_count }
   warning_summary     Json   // { total_count, ringan_count, sedang_count, berat_count }
   reimbursement_summary Json? // { approved_count, approved_total, pending_count }
+  editor_reports        Json? // snapshot laporan individual editor yang dikonsolidasi
 
   // Manager's optional notes/highlights for the period
   manager_notes   String?
@@ -751,6 +753,31 @@ model DepartmentReport {
 
   @@unique([department_id, period])
   @@index([manager_id])
+  @@index([period])
+}
+
+// ─── Editor Monthly Report (Summary Bulanan Karyawan) ───────────────────────
+// Level operasional: editor generate laporan bulanan individual (KPI, presensi,
+// cuti, rekap proyek) lalu mengirimkannya ke Admin Manager departemennya.
+// Admin Manager mengkonsolidasi semua laporan editor menjadi satu
+// DepartmentReport untuk HR Admin.
+model EditorReport {
+  report_id    String    @id @default(cuid())
+  user_id      String
+  period       String    // "YYYY-MM"
+  status       String    @default("submitted") // submitted | consolidated
+  kpi_summary        Json  // { avg_client_rating, completion_rate, manager_rating, kpi_average }
+  attendance_summary Json  // { total_days, present, late, absent, leave }
+  leave_summary      Json  // { cuti_approved, izin_approved, pending }
+  project_summary    Json  // [{ title, status }]
+  editor_notes String?
+  submitted_at DateTime  @default(now())
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  user User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@unique([user_id, period])
   @@index([period])
 }
 

@@ -60,7 +60,8 @@ export default function TeamDashboardPage({ role }: { role: UserRole }) {
             <div className="border-b border-border pb-4">
               <h3 className="text-lg font-bold text-navy">Draft Laporan Bulanan Departemen</h3>
               <p className="text-sm text-navy/60 mt-1">
-                Sistem meng-agregasi aktivitas harian editor (presensi, cuti, KPI, peringatan) secara otomatis.
+                Laporan bulanan individual dari editor departemen Anda dikonsolidasikan dengan agregasi
+                otomatis sistem (presensi, cuti, KPI, klaim dana) menjadi satu laporan departemen.
                 Review draft di bawah, lalu teruskan ke HR Admin sebagai dasar review kinerja dan finalisasi payroll.
               </p>
             </div>

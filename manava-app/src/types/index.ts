@@ -343,6 +343,40 @@ export interface ReimbursementSummary {
   pending_count: number
 }
 
+// Laporan bulanan individual editor (Summary Bulanan Karyawan):
+// draft (agregasi otomatis) → submitted (dikirim ke Admin Manager) → consolidated
+export type EditorReportStatus = 'draft' | 'submitted' | 'consolidated'
+
+export interface EditorReportData {
+  report_id: string | null
+  user_id: string
+  editor_name: string
+  department: string
+  period: string
+  status: EditorReportStatus
+  kpi_summary: {
+    avg_client_rating: number
+    completion_rate: number
+    manager_rating: number
+    kpi_average: number
+  }
+  attendance_summary: {
+    total_days: number
+    present: number
+    late: number
+    absent: number
+    leave: number
+  }
+  leave_summary: {
+    cuti_approved: number
+    izin_approved: number
+    pending: number
+  }
+  project_summary: Array<{ title: string; status: string }>
+  editor_notes: string | null
+  submitted_at: string | null
+}
+
 // Siklus MIS laporan: draft (agregasi otomatis) → forwarded (diteruskan ke HR Admin)
 export type ReportStatus = 'draft' | 'forwarded'
 
@@ -360,6 +394,7 @@ export interface DepartmentReportData {
   leave_summary: LeaveSummary
   warning_summary: WarningSummary
   reimbursement_summary: ReimbursementSummary | null
+  editor_reports: EditorReportData[] | null
   manager_notes: string | null
   submitted_at: string
   created_at: string
@@ -385,6 +420,7 @@ export interface DraftReportData {
   leave_summary: LeaveSummary
   warning_summary: WarningSummary
   reimbursement_summary: ReimbursementSummary | null
+  editor_reports: EditorReportData[] | null
 }
 
 export interface ReportListResponse {

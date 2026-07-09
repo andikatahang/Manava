@@ -20,10 +20,12 @@ import {
   computeLeaveSummary,
   computeWarningSummary,
   computeReimbursementSummary,
+  computeEditorSnapshot,
 } from './aggregator.js'
 import type {
-  DepartmentReportData, DraftReportData, ReportStatus,
+  DepartmentReportData, DraftReportData, ReportStatus, EditorReportData, EditorReportStatus,
   AttendanceSummary, KpiSummary, LeaveSummary, WarningSummary, ReimbursementSummary,
+  EditorReportKpi, EditorReportAttendance, EditorReportLeave, EditorReportProject,
 } from './types.js'
 
 export const reportsRouter = Router()
@@ -70,6 +72,156 @@ async function computeSummaries(departmentId: string, period: string) {
   return { attendance, kpi, leave, warnings, reimbursement }
 }
 
+function formatEditorReport(r: {
+  report_id: string
+  user_id: string
+  period: string
+  status: string
+  kpi_summary: unknown
+  attendance_summary: unknown
+  leave_summary: unknown
+  project_summary: unknown
+  editor_notes: string | null
+  submitted_at: Date
+}, editorName: string, department: string): EditorReportData {
+  return {
+    report_id: r.report_id,
+    user_id: r.user_id,
+    editor_name: editorName,
+    department,
+    period: r.period,
+    status: r.status as EditorReportStatus,
+    kpi_summary: r.kpi_summary as EditorReportKpi,
+    attendance_summary: r.attendance_summary as EditorReportAttendance,
+    leave_summary: r.leave_summary as EditorReportLeave,
+    project_summary: r.project_summary as EditorReportProject[],
+    editor_notes: r.editor_notes,
+    submitted_at: r.submitted_at.toISOString(),
+  }
+}
+
+/** Laporan editor tersubmit untuk sebuah departemen+periode, siap konsolidasi. */
+async function departmentEditorReports(departmentId: string, period: string): Promise<EditorReportData[]> {
+  const members = await prisma.departmentMember.findMany({
+    where: { department_id: departmentId },
+    select: { editor: { select: { user_id: true, full_name: true, department: true } } },
+  })
+  const byUser = new Map(members.map(m => [m.editor.user_id, m.editor]))
+  const reports = await prisma.editorReport.findMany({
+    where: { user_id: { in: Array.from(byUser.keys()) }, period },
+    orderBy: { submitted_at: 'asc' },
+  })
+  return reports.map(r => {
+    const e = byUser.get(r.user_id)!
+    return formatEditorReport(r, e.full_name, e.department)
+  })
+}
+
+/**
+ * GET /api/v1/reports/my-draft?period=YYYY-MM
+ * Editor: draft laporan bulanan individual (Summary Bulanan Karyawan),
+ * di-agregasi otomatis dari data harian miliknya. Jika sudah dikirim,
+ * kembalikan snapshot tersimpan.
+ */
+reportsRouter.get(
+  '/my-draft',
+  authenticate,
+  requireRole('editor'),
+  asyncHandler(async (req, res) => {
+    const period = typeof req.query.period === 'string' && PERIOD_REGEX.test(req.query.period)
+      ? req.query.period
+      : currentPeriod()
+    const userId = req.user!.sub
+
+    const existing = await prisma.editorReport.findUnique({
+      where: { user_id_period: { user_id: userId, period } },
+    })
+    if (existing) {
+      const editor = await prisma.editor.findUnique({ where: { user_id: userId } })
+      return res.json(ok(formatEditorReport(existing, editor?.full_name ?? '', editor?.department ?? '')))
+    }
+
+    const { start, end } = periodBounds(period)
+    const snap = await computeEditorSnapshot(userId, start, end)
+    if (!snap) return res.status(404).json(fail('Data editor tidak ditemukan'))
+
+    const draft: EditorReportData = {
+      report_id: null,
+      user_id: userId,
+      editor_name: snap.editor_name,
+      department: snap.department,
+      period,
+      status: 'draft',
+      kpi_summary: snap.kpi,
+      attendance_summary: snap.attendance,
+      leave_summary: snap.leave,
+      project_summary: snap.projects,
+      editor_notes: null,
+      submitted_at: null,
+    }
+    return res.json(ok(draft))
+  }),
+)
+
+/**
+ * POST /api/v1/reports/submit
+ * Editor mengirim laporan bulanannya ke Admin Manager (snapshot dibekukan).
+ */
+reportsRouter.post(
+  '/submit',
+  authenticate,
+  requireRole('editor'),
+  validateBody(forwardReportSchema.extend({ editor_notes: z.string().optional() }).omit({ manager_notes: true })),
+  asyncHandler(async (req, res) => {
+    const { period, editor_notes } = req.body as { period: string; editor_notes?: string }
+    const userId = req.user!.sub
+
+    const existing = await prisma.editorReport.findUnique({
+      where: { user_id_period: { user_id: userId, period } },
+    })
+    if (existing) {
+      return res.status(409).json(fail(`Laporan periode ${period} sudah dikirim ke Admin Manager`))
+    }
+
+    const { start, end } = periodBounds(period)
+    const snap = await computeEditorSnapshot(userId, start, end)
+    if (!snap) return res.status(404).json(fail('Data editor tidak ditemukan'))
+
+    const created = await prisma.editorReport.create({
+      data: {
+        user_id: userId,
+        period,
+        status: 'submitted',
+        kpi_summary: snap.kpi as object,
+        attendance_summary: snap.attendance as object,
+        leave_summary: snap.leave as object,
+        project_summary: snap.projects as unknown as object,
+        editor_notes: editor_notes || null,
+      },
+    })
+    return res.status(201).json(ok(formatEditorReport(created, snap.editor_name, snap.department)))
+  }),
+)
+
+/**
+ * GET /api/v1/reports/editor-reports?period=YYYY-MM
+ * Admin Manager: laporan individual yang masuk dari editor departemennya.
+ */
+reportsRouter.get(
+  '/editor-reports',
+  authenticate,
+  requireRole('admin_manager'),
+  asyncHandler(async (req, res) => {
+    const period = typeof req.query.period === 'string' && PERIOD_REGEX.test(req.query.period)
+      ? req.query.period
+      : currentPeriod()
+    const ctx = await managerDepartment(req.user!.sub)
+    if (!ctx) return res.status(403).json(fail('Manager tidak memiliki departemen'))
+    const reports = await departmentEditorReports(ctx.department.id, period)
+    return res.json(ok(reports, { total: reports.length }))
+  }),
+)
+
 /**
  * GET /api/v1/reports/draft?period=YYYY-MM
  * Admin Manager: draft laporan bulanan departemen, di-agregasi otomatis
@@ -95,6 +247,7 @@ reportsRouter.get(
     const existing = await prisma.departmentReport.findUnique({
       where: { department_id_period: { department_id: department.id, period } },
     })
+    const editorReports = await departmentEditorReports(department.id, period)
 
     if (existing) {
       const response: DraftReportData = {
@@ -110,6 +263,9 @@ reportsRouter.get(
         leave_summary: existing.leave_summary as unknown as LeaveSummary,
         warning_summary: existing.warning_summary as unknown as WarningSummary,
         reimbursement_summary: existing.reimbursement_summary as unknown as ReimbursementSummary | null,
+        editor_reports: existing.status === 'forwarded'
+          ? (existing.editor_reports as unknown as EditorReportData[] | null)
+          : editorReports,
       }
       return res.json(ok(response))
     }
@@ -128,6 +284,7 @@ reportsRouter.get(
       leave_summary: leave,
       warning_summary: warnings,
       reimbursement_summary: reimbursement,
+      editor_reports: editorReports,
     }
     return res.json(ok(response))
   }),
@@ -159,6 +316,10 @@ reportsRouter.post(
       return res.status(409).json(fail(`Laporan periode ${period} sudah diteruskan ke HR Admin`))
     }
 
+    // Konsolidasi: snapshot semua laporan individual editor periode ini ikut
+    // dibekukan ke dalam laporan departemen, lalu ditandai 'consolidated'.
+    const editorReports = await departmentEditorReports(department.id, period)
+
     const { attendance, kpi, leave, warnings, reimbursement } = await computeSummaries(department.id, period)
     const data = {
       attendance_summary: attendance as object,
@@ -166,6 +327,7 @@ reportsRouter.post(
       leave_summary: leave as object,
       warning_summary: warnings as object,
       reimbursement_summary: reimbursement as object,
+      editor_reports: editorReports as unknown as object,
       manager_notes: manager_notes || null,
       status: 'forwarded',
       forwarded_at: new Date(),
@@ -192,6 +354,11 @@ reportsRouter.post(
             manager: { select: { full_name: true } },
           },
         })
+
+    await prisma.editorReport.updateMany({
+      where: { report_id: { in: editorReports.map(r => r.report_id).filter((id): id is string => !!id) } },
+      data: { status: 'consolidated' },
+    })
 
     return res.status(201).json(ok(formatReportResponse(report)))
   }),
@@ -319,6 +486,7 @@ function formatReportResponse(report: {
   leave_summary: unknown
   warning_summary: unknown
   reimbursement_summary: unknown
+  editor_reports: unknown
   manager_notes: string | null
   submitted_at: Date
   created_at: Date
@@ -338,6 +506,7 @@ function formatReportResponse(report: {
     leave_summary: report.leave_summary as LeaveSummary,
     warning_summary: report.warning_summary as WarningSummary,
     reimbursement_summary: report.reimbursement_summary as ReimbursementSummary | null,
+    editor_reports: report.editor_reports as EditorReportData[] | null,
     manager_notes: report.manager_notes,
     submitted_at: report.submitted_at.toISOString(),
     created_at: report.created_at.toISOString(),

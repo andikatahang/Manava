@@ -168,7 +168,7 @@ export default function ReportDetailView({ reportId, onBack }: ReportDetailViewP
         </Section>
 
         {/* Section 4: Warnings */}
-        <Section index="04" title="Peringatan Kerja" isLast={!report.manager_notes}>
+        <Section index="04" title="Peringatan Kerja" isLast={false}>
           <MetricTable
             rows={[
               ['Total Peringatan Diterbitkan', String(report.warning_summary.total_count)],
@@ -179,9 +179,41 @@ export default function ReportDetailView({ reportId, onBack }: ReportDetailViewP
           />
         </Section>
 
-        {/* Section 5: Manager Notes */}
+        {/* Section 5: Konsolidasi laporan individual editor */}
+        <Section index="05" title="Laporan Individual Editor (Konsolidasi)" isLast={!report.manager_notes}>
+          {(report.editor_reports?.length ?? 0) === 0 ? (
+            <p className="text-sm text-navy/50">Tidak ada laporan individual editor pada periode ini.</p>
+          ) : (
+            <table className="w-full text-[12.5px] border-collapse">
+              <thead>
+                <tr className="border-y border-black/[0.08] text-left text-navy/50">
+                  <th className="py-2 pr-2 font-semibold">Editor</th>
+                  <th className="py-2 px-2 font-semibold text-center">Skor KPI</th>
+                  <th className="py-2 px-2 font-semibold text-center">Hadir</th>
+                  <th className="py-2 px-2 font-semibold text-center">Terlambat</th>
+                  <th className="py-2 px-2 font-semibold text-center">Cuti Disetujui</th>
+                  <th className="py-2 pl-2 font-semibold text-center">Proyek</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/[0.05] text-navy">
+                {(report.editor_reports ?? []).map(r => (
+                  <tr key={r.report_id ?? r.user_id}>
+                    <td className="py-2 pr-2 font-semibold">{r.editor_name}</td>
+                    <td className="py-2 px-2 text-center font-bold">{r.kpi_summary.kpi_average.toFixed(1)}</td>
+                    <td className="py-2 px-2 text-center">{r.attendance_summary.present} hari</td>
+                    <td className="py-2 px-2 text-center">{r.attendance_summary.late}</td>
+                    <td className="py-2 px-2 text-center">{r.leave_summary.cuti_approved + r.leave_summary.izin_approved}</td>
+                    <td className="py-2 pl-2 text-center">{r.project_summary.length}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Section>
+
+        {/* Section 6: Manager Notes */}
         {report.manager_notes && (
-          <Section index="05" title="Catatan Manajer" isLast>
+          <Section index="06" title="Catatan Manajer" isLast>
             <div className="border-l-[3px] border-navy/20 pl-4 py-1 text-sm text-navy/80 leading-relaxed whitespace-pre-wrap italic">
               {report.manager_notes}
             </div>

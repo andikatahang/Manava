@@ -3,7 +3,79 @@
 import { prisma } from '../../lib/prisma.js'
 import type {
   AttendanceSummary, KpiSummary, LeaveSummary, WarningSummary, ReimbursementSummary,
+  EditorReportKpi, EditorReportAttendance, EditorReportLeave, EditorReportProject,
 } from './types.js'
+
+/**
+ * Snapshot laporan bulanan individual seorang editor (KPI, presensi, cuti,
+ * rekap proyek) — dihitung otomatis dari data harian.
+ */
+export async function computeEditorSnapshot(
+  userId: string,
+  periodStart: Date,
+  periodEnd: Date,
+): Promise<{
+  editor_name: string
+  department: string
+  kpi: EditorReportKpi
+  attendance: EditorReportAttendance
+  leave: EditorReportLeave
+  projects: EditorReportProject[]
+} | null> {
+  const editor = await prisma.editor.findUnique({
+    where: { user_id: userId },
+    include: { metrics: true },
+  })
+  if (!editor) return null
+
+  const [records, leaves, projects] = await Promise.all([
+    prisma.attendanceRecord.findMany({
+      where: { user_id: userId, date: { gte: periodStart, lte: periodEnd } },
+    }),
+    prisma.leaveRequest.findMany({
+      where: { requester_id: userId, created_at: { gte: periodStart, lte: periodEnd } },
+    }),
+    prisma.project.findMany({
+      where: {
+        editor_id: editor.editor_id,
+        OR: [
+          { created_at: { gte: periodStart, lte: periodEnd } },
+          { status: { in: ['in_progress', 'in_review', 'revision'] } },
+        ],
+      },
+      orderBy: { created_at: 'desc' },
+      take: 10,
+      select: { title: true, status: true },
+    }),
+  ])
+
+  const count = (s: string) => records.filter(r => r.status === s).length
+  const approved = leaves.filter(l => l.status === 'approved')
+
+  return {
+    editor_name: editor.full_name,
+    department: editor.department,
+    kpi: {
+      avg_client_rating: editor.metrics?.avg_client_rating ?? 0,
+      completion_rate: editor.metrics?.completion_rate ?? 0,
+      manager_rating: editor.metrics?.manager_rating ?? 0,
+      kpi_average: editor.metrics?.kpi_average ?? 0,
+    },
+    attendance: {
+      total_days: records.length,
+      present: count('present'),
+      late: count('late'),
+      absent: count('absent'),
+      leave: count('leave'),
+    },
+    leave: {
+      cuti_approved: approved.filter(l => l.leave_type === 'cuti').length,
+      izin_approved: approved.filter(l => l.leave_type === 'izin').length,
+      pending: leaves.filter(l => l.status === 'pending').length,
+    },
+    projects: projects.map(p => ({ title: p.title, status: p.status })),
+  }
+}
 
 /**
  * Compute attendance metrics untuk departemen dalam periode tertentu

@@ -108,6 +108,50 @@ export default function ReportGenerateForm({ onSuccess }: { onSuccess?: () => vo
         </div>
       )}
 
+      {/* Laporan individual editor yang masuk — bahan konsolidasi */}
+      {draft && (
+        <div className="rounded-[12px] border border-black/[0.06] bg-[#fbfbfb] overflow-hidden">
+          <div className="px-4 py-3 border-b border-black/[0.05] flex items-center justify-between">
+            <p className="text-[12px] font-bold text-[#021526]">
+              Laporan Editor Masuk ({draft.editor_reports?.length ?? 0})
+            </p>
+            <p className="text-[11px] text-[#596074]">
+              Dikonsolidasikan otomatis saat laporan diteruskan ke HR Admin
+            </p>
+          </div>
+          {(draft.editor_reports?.length ?? 0) === 0 ? (
+            <p className="px-4 py-5 text-[12.5px] text-[#596074]">
+              Belum ada editor yang mengirim laporan bulanan untuk periode ini.
+            </p>
+          ) : (
+            <table className="w-full text-[12.5px]">
+              <thead>
+                <tr className="text-left text-[10.5px] font-semibold uppercase tracking-[0.12em] text-[#596074] bg-[#021526]/[0.02]">
+                  <th className="px-4 py-2">Editor</th>
+                  <th className="px-4 py-2 text-center">Skor KPI</th>
+                  <th className="px-4 py-2 text-center">Hadir</th>
+                  <th className="px-4 py-2 text-center">Cuti Disetujui</th>
+                  <th className="px-4 py-2">Dikirim</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/[0.05]">
+                {(draft.editor_reports ?? []).map(r => (
+                  <tr key={r.report_id ?? r.user_id}>
+                    <td className="px-4 py-2.5 font-semibold text-[#021526]">{r.editor_name}</td>
+                    <td className="px-4 py-2.5 text-center font-bold text-[#021526]">{r.kpi_summary.kpi_average.toFixed(1)}</td>
+                    <td className="px-4 py-2.5 text-center text-[#021526]">{r.attendance_summary.present} hari</td>
+                    <td className="px-4 py-2.5 text-center text-[#021526]">{r.leave_summary.cuti_approved + r.leave_summary.izin_approved}</td>
+                    <td className="px-4 py-2.5 text-[#596074]">
+                      {r.submitted_at ? new Date(r.submitted_at).toLocaleDateString('id-ID') : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
       {isForwarded && draft?.manager_notes && (
         <div className="p-3 rounded-lg bg-[#021526]/[0.03] border border-black/[0.06] text-[13px] text-navy/80">
           <span className="font-semibold text-navy">Catatan manajer: </span>{draft.manager_notes}
