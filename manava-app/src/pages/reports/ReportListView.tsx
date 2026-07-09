@@ -95,7 +95,8 @@ export default function ReportListView({ onSelectReport }: ReportListProps) {
               <th className="px-5 py-3">Departemen</th>
               <th className="px-5 py-3">Manajer</th>
               <th className="px-5 py-3">Periode</th>
-              <th className="px-5 py-3">Dikirim</th>
+              <th className="px-5 py-3">Status</th>
+              <th className="px-5 py-3">Diteruskan</th>
               <th className="px-5 py-3 text-right">Aksi</th>
             </tr>
           </thead>
@@ -111,8 +112,19 @@ export default function ReportListView({ onSelectReport }: ReportListProps) {
                 <td className="px-5 py-3.5 text-navy/70">
                   {formatPeriod(report.period)}
                 </td>
+                <td className="px-5 py-3.5">
+                  {report.status === 'forwarded' ? (
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[10.5px] font-semibold text-emerald-700">
+                      Menunggu Review HR
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-[10.5px] font-semibold text-amber-700">
+                      Draft
+                    </span>
+                  )}
+                </td>
                 <td className="px-5 py-3.5 text-[11px] text-navy/50">
-                  {formatRelativeDate(new Date(report.submitted_at))}
+                  {formatRelativeDate(new Date(report.forwarded_at ?? report.submitted_at))}
                 </td>
                 <td className="px-5 py-3.5 text-right">
                   <button

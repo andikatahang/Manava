@@ -234,6 +234,7 @@ model User {
   received_warnings Warning[] @relation("WarningTarget")
   attendance      AttendanceRecord[] @relation("AttendanceUser")
   attendance_adjustments AttendanceRecord[] @relation("AttendanceAdjuster")
+  reimbursement_claims ReimbursementClaim[]
 
   @@index([role])
 }
@@ -732,9 +733,14 @@ model DepartmentReport {
   kpi_summary         Json   // { avg_kpi, excellent_count, good_count, needs_count }
   leave_summary       Json   // { approved_count, rejected_count, pending_count }
   warning_summary     Json   // { total_count, ringan_count, sedang_count, berat_count }
+  reimbursement_summary Json? // { approved_count, approved_total, pending_count }
 
   // Manager's optional notes/highlights for the period
   manager_notes   String?
+
+  // MIS lifecycle: draft (agregasi otomatis, belum dikirim) → forwarded (diteruskan ke HR Admin)
+  status          String    @default("draft")
+  forwarded_at    DateTime?
 
   submitted_at    DateTime @default(now())
   created_at      DateTime @default(now())
@@ -746,6 +752,26 @@ model DepartmentReport {
   @@unique([department_id, period])
   @@index([manager_id])
   @@index([period])
+}
+
+// ─── Reimbursement (Klaim Dana Operasional Proyek) ──────────────────────────
+// Editor mengajukan klaim; Admin Manager departemen menyetujui/menolak.
+// Total klaim disetujui masuk ke agregasi laporan bulanan departemen.
+model ReimbursementClaim {
+  claim_id    String    @id @default(cuid())
+  user_id     String
+  amount      Int       // rupiah
+  purpose     String
+  status      String    @default("pending") // pending | approved | rejected
+  decided_by  String?   // user_id pemberi keputusan
+  decided_at  DateTime?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  user User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([status])
 }
 
 model Applicant {

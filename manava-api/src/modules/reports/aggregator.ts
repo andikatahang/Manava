@@ -2,7 +2,7 @@
 
 import { prisma } from '../../lib/prisma.js'
 import type {
-  AttendanceSummary, KpiSummary, LeaveSummary, WarningSummary,
+  AttendanceSummary, KpiSummary, LeaveSummary, WarningSummary, ReimbursementSummary,
 } from './types.js'
 
 /**
@@ -163,6 +163,36 @@ export async function computeLeaveSummary(
     pending_count: pending.length,
     cuti_approved: cutiApproved,
     izin_approved: izinApproved,
+  }
+}
+
+/**
+ * Compute reimbursement metrics (SUM klaim disetujui) untuk departemen
+ * dalam periode tertentu
+ */
+export async function computeReimbursementSummary(
+  departmentId: string,
+  periodStart: Date,
+  periodEnd: Date,
+): Promise<ReimbursementSummary> {
+  const members = await prisma.departmentMember.findMany({
+    where: { department_id: departmentId },
+    select: { editor: { select: { user_id: true } } },
+  })
+  const userIds = members.map(m => m.editor.user_id)
+
+  const claims = await prisma.reimbursementClaim.findMany({
+    where: {
+      user_id: { in: userIds },
+      created_at: { gte: periodStart, lte: periodEnd },
+    },
+  })
+
+  const approved = claims.filter(c => c.status === 'approved')
+  return {
+    approved_count: approved.length,
+    approved_total: approved.reduce((sum, c) => sum + c.amount, 0),
+    pending_count: claims.filter(c => c.status === 'pending').length,
   }
 }
 

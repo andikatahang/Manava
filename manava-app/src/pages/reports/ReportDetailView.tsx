@@ -93,7 +93,14 @@ export default function ReportDetailView({ reportId, onBack }: ReportDetailViewP
             <MetaRow label="Departemen" value={report.department_name} />
             <MetaRow label="Manajer Departemen" value={report.manager_name} />
             <MetaRow label="Periode Laporan" value={formatPeriod(report.period)} />
-            <MetaRow label="Tanggal Diterbitkan" value={formatDate(report.submitted_at)} last />
+            <MetaRow label="Status" value={report.status === 'forwarded' ? 'Diteruskan ke HR Admin' : 'Draft'} />
+            {report.reimbursement_summary && (
+              <MetaRow
+                label="Klaim Dana Disetujui"
+                value={`Rp${report.reimbursement_summary.approved_total.toLocaleString('id-ID')} (${report.reimbursement_summary.approved_count} klaim)`}
+              />
+            )}
+            <MetaRow label="Tanggal Diteruskan" value={formatDate(report.forwarded_at ?? report.submitted_at)} last />
           </tbody>
         </table>
 
