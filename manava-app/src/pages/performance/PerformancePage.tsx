@@ -238,7 +238,8 @@ export default function PerformancePage({ role }: { role: UserRole; embedded?: b
   const meQuery = useMe()
   const editorsQuery = useEditors()
   const departmentsQuery = useDepartments()
-  const kpiTrendQuery = useMonthlyKpi()
+  // Agregat KPI departemen hanya untuk level taktis/strategis (editor: 403).
+  const kpiTrendQuery = useMonthlyKpi(role !== 'editor')
   const scopedEditors = useMemo(() => {
     const editors = editorsQuery.data ?? []
     if (role !== 'admin_manager') return editors

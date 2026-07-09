@@ -38,11 +38,40 @@ const FILES_AS: Record<string, 'editor' | 'admin_manager'> = {
   admin_manager: 'admin_manager',
 }
 
+// Daftar user_id editor pada departemen yang dikelola seorang admin manager.
+async function managedEditorUserIds(managerUserId: string): Promise<string[]> {
+  const manager = await prisma.adminManager.findUnique({
+    where: { user_id: managerUserId },
+    select: {
+      departments: {
+        select: { members: { select: { editor: { select: { user_id: true } } } } },
+      },
+    },
+  })
+  if (!manager) return []
+  return manager.departments.flatMap(d => d.members.map(m => m.editor.user_id))
+}
+
+// Scoping per level MIS:
+//   editor        → hanya pengajuan miliknya sendiri (data operasional pribadi)
+//   admin_manager → pengajuan editor di departemennya + pengajuan miliknya
+//   hr_admin/superadmin → semua (rekap strategis)
 leaveRequestsRouter.get(
   '/',
   authenticate,
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const viewer = req.user!
+    let where: Record<string, unknown> = {}
+
+    if (viewer.role === 'editor') {
+      where = { requester_id: viewer.sub }
+    } else if (viewer.role === 'admin_manager') {
+      const teamIds = await managedEditorUserIds(viewer.sub)
+      where = { requester_id: { in: [...teamIds, viewer.sub] } }
+    }
+
     const leaves = await prisma.leaveRequest.findMany({
+      where,
       orderBy: { created_at: 'desc' },
     })
     res.json(ok(leaves, { total: leaves.length }))
@@ -98,6 +127,13 @@ async function transition(
   const canApprove = CAN_APPROVE[req.user!.role] ?? []
   if (!canApprove.includes(leave.requester_role)) {
     return res.status(403).json(fail('Not allowed to action this request'))
+  }
+  // Admin manager hanya boleh memutuskan pengajuan editor di departemennya sendiri.
+  if (req.user!.role === 'admin_manager') {
+    const teamIds = await managedEditorUserIds(req.user!.sub)
+    if (!teamIds.includes(leave.requester_id)) {
+      return res.status(403).json(fail('Pengajuan ini bukan dari editor di departemen Anda'))
+    }
   }
   if (leave.status !== 'pending') {
     return res.status(409).json(fail('Permohonan sudah diputuskan'))
