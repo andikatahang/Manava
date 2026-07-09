@@ -26,6 +26,7 @@ import WarningPage from './pages/warning/WarningPage'
 import OffboardingPage from './pages/offboarding/OffboardingPage'
 import SettingsPage from './pages/settings/SettingsPage'
 import AuditTrailPage from './pages/audit/AuditTrailPage'
+import MonthlyReportPage from './pages/monthly-report/MonthlyReportPage'
 
 // Only the active roles have entries — disabled roles (mediator, finance)
 // fall through to the superadmin fallback but their accounts can't log in at
@@ -35,11 +36,11 @@ const ALLOWED_PATHS: Record<UserRole, string[]> = {
     '/dashboard', '/users', '/system', '/audit', '/payments', '/settings', '/profile',
   ],
   hr_admin: [
-    '/dashboard', '/recruitment', '/attendance', '/departments', '/payments', '/performance',
+    '/dashboard', '/recruitment', '/attendance', '/departments', '/payments',
     '/warning', '/offboarding', '/ess', '/settings', '/profile',
   ],
   admin_manager: [
-    '/dashboard', '/team-dashboard', '/attendance', '/departments', '/performance', '/projects',
+    '/dashboard', '/team-dashboard', '/laporan-bulanan', '/attendance', '/departments', '/performance', '/projects',
     '/ess', '/warning', '/settings', '/profile',
   ],
   editor: [
@@ -126,6 +127,7 @@ function AppRoutes() {
         <Route path="/attendance" element={<RoleGuard role={role}><AttendancePage role={role} /></RoleGuard>} />
         <Route path="/departments" element={<RoleGuard role={role}><DepartmentsPage role={role} /></RoleGuard>} />
         <Route path="/team-dashboard" element={<RoleGuard role={role}><TeamDashboardPage role={role} /></RoleGuard>} />
+        <Route path="/laporan-bulanan" element={<RoleGuard role={role}><MonthlyReportPage /></RoleGuard>} />
         <Route path="/performance" element={<RoleGuard role={role}><PerformancePage role={role} /></RoleGuard>} />
         <Route path="/audit" element={<RoleGuard role={role}><AuditTrailPage /></RoleGuard>} />
         <Route path="/ess" element={<RoleGuard role={role}><ESSPage role={role} /></RoleGuard>} />

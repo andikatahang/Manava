@@ -234,6 +234,8 @@ model User {
   received_warnings Warning[] @relation("WarningTarget")
   attendance      AttendanceRecord[] @relation("AttendanceUser")
   attendance_adjustments AttendanceRecord[] @relation("AttendanceAdjuster")
+  reimbursement_claims ReimbursementClaim[]
+  editor_reports       EditorReport[]
 
   @@index([role])
 }
@@ -732,9 +734,16 @@ model DepartmentReport {
   kpi_summary         Json   // { avg_kpi, excellent_count, good_count, needs_count }
   leave_summary       Json   // { approved_count, rejected_count, pending_count }
   warning_summary     Json   // { total_count, ringan_count, sedang_count, berat_count }
+  reimbursement_summary Json? // { approved_count, approved_total, pending_count }
+  editor_reports        Json? // rincian per-karyawan (presensi & cuti + proyek) saat digenerate
+  ai_narrative          String? // narasi ringkasan berbantuan AI saat laporan digenerate
 
   // Manager's optional notes/highlights for the period
   manager_notes   String?
+
+  // MIS lifecycle: draft (agregasi otomatis, belum dikirim) → forwarded (diteruskan ke HR Admin)
+  status          String    @default("draft")
+  forwarded_at    DateTime?
 
   submitted_at    DateTime @default(now())
   created_at      DateTime @default(now())
@@ -746,6 +755,51 @@ model DepartmentReport {
   @@unique([department_id, period])
   @@index([manager_id])
   @@index([period])
+}
+
+// ─── Editor Monthly Report (Summary Bulanan Karyawan) ───────────────────────
+// Level operasional: editor generate laporan bulanan individual (KPI, presensi,
+// cuti, rekap proyek) lalu mengirimkannya ke Admin Manager departemennya.
+// Admin Manager mengkonsolidasi semua laporan editor menjadi satu
+// DepartmentReport untuk HR Admin.
+model EditorReport {
+  report_id    String    @id @default(cuid())
+  user_id      String
+  period       String    // "YYYY-MM"
+  status       String    @default("submitted") // submitted | consolidated
+  kpi_summary        Json  // { avg_client_rating, completion_rate, manager_rating, kpi_average }
+  attendance_summary Json  // { total_days, present, late, absent, leave }
+  leave_summary      Json  // { cuti_approved, izin_approved, pending }
+  project_summary    Json  // [{ title, status }]
+  editor_notes String?
+  submitted_at DateTime  @default(now())
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  user User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@unique([user_id, period])
+  @@index([period])
+}
+
+// ─── Reimbursement (Klaim Dana Operasional Proyek) ──────────────────────────
+// Editor mengajukan klaim; Admin Manager departemen menyetujui/menolak.
+// Total klaim disetujui masuk ke agregasi laporan bulanan departemen.
+model ReimbursementClaim {
+  claim_id    String    @id @default(cuid())
+  user_id     String
+  amount      Int       // rupiah
+  purpose     String
+  status      String    @default("pending") // pending | approved | rejected
+  decided_by  String?   // user_id pemberi keputusan
+  decided_at  DateTime?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  user User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([status])
 }
 
 model Applicant {

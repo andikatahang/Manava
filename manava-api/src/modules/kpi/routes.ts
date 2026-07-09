@@ -31,6 +31,8 @@ interface DeptMonthPoint {
 kpiRouter.get(
   '/monthly',
   authenticate,
+  // Agregat departemen = informasi taktis/strategis; editor cukup KPI pribadi (/my-trend).
+  requireRole('admin_manager', 'hr_admin', 'superadmin'),
   asyncHandler(async (req, res) => {
     const viewer = req.user!
     const rows = await prisma.kpiSnapshot.findMany({
@@ -106,6 +108,8 @@ function weekBucket(d: Date): string {
 kpiRouter.get(
   '/reviews-trend',
   authenticate,
+  // Tren rating lintas editor hanya untuk level taktis/strategis.
+  requireRole('admin_manager', 'hr_admin', 'superadmin'),
   asyncHandler(async (req, res) => {
     const viewer = req.user!
     const granularity = req.query.granularity === 'week' ? 'week' : 'day'

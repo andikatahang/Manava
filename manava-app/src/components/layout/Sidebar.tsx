@@ -6,7 +6,7 @@ import logoDark from '../../assets/logo-dark.png'
 import {
   LayoutDashboard, Users, Briefcase, UserCheck,
   Settings, ChevronLeft, ChevronDown, LogOut, Shield, X, User, Home,
-  Cog, Building2, Search, Wallet,
+  Cog, Building2, Search, Wallet, FileText,
 } from 'lucide-react'
 
 // A nav item either navigates directly (`to`) or expands into sub-pages
@@ -29,37 +29,40 @@ const navByRole: Record<UserRole, NavItem[]> = {
     { to: '/audit', icon: Shield, label: 'Jejak Audit' },
   ],
   hr_admin: [
-    { to: '/dashboard', icon: Home, label: 'Home' },
-    { to: '/recruitment', icon: Users, label: 'Rekrutmen & ATS' },
+    { to: '/dashboard', icon: Home, label: 'Dashboard Strategis' },
+    { to: '/recruitment', icon: Users, label: 'Pipeline Talent & Rekrutmen' },
     {
-      to: '/departments', icon: Building2, label: 'Dashboard Departemen',
+      to: '/departments', icon: Building2, label: 'Rekapitulasi Organisasi',
       children: [
-        { to: '/departments?tab=departemen', tab: 'departemen', label: 'Departemen' },
-        { to: '/departments?tab=presensi', tab: 'presensi', label: 'Presensi' },
-        { to: '/departments?tab=peringatan', tab: 'peringatan', label: 'Peringatan' },
-        { to: '/departments?tab=offboarding', tab: 'offboarding', label: 'Offboarding' },
+        { to: '/departments?tab=departemen', tab: 'departemen', label: 'Struktur Departemen' },
+        { to: '/departments?tab=presensi', tab: 'presensi', label: 'Rekap Kehadiran' },
+        { to: '/departments?tab=peringatan', tab: 'peringatan', label: 'Indikator Peringatan' },
+        { to: '/departments?tab=offboarding', tab: 'offboarding', label: 'Analisis Turnover' },
+        { to: '/departments?tab=laporan', tab: 'laporan', label: 'Laporan Eksekutif' },
       ],
     },
-    { to: '/payments', icon: Wallet, label: 'Payroll' },
+    { to: '/payments', icon: Wallet, label: 'Manajemen Payroll & Budget' },
     { to: '/ess', icon: UserCheck, label: 'Layanan Mandiri' },
   ],
   admin_manager: [
-    { to: '/dashboard', icon: Home, label: 'Home' },
+    { to: '/dashboard', icon: Home, label: 'Dashboard Taktis' },
+    { to: '/laporan-bulanan', icon: FileText, label: 'Laporan Bulanan' },
     {
-      to: '/team-dashboard', icon: Building2, label: 'Dashboard Departemen',
+      to: '/team-dashboard', icon: Building2, label: 'Manajemen Tim',
       children: [
-        { to: '/team-dashboard?tab=anggota', tab: 'anggota', label: 'Anggota' },
-        { to: '/team-dashboard?tab=presensi', tab: 'presensi', label: 'Presensi' },
-        { to: '/team-dashboard?tab=kpi', tab: 'kpi', label: 'KPI Tim' },
-        { to: '/team-dashboard?tab=proyek', tab: 'proyek', label: 'Proyek Tim' },
+        { to: '/team-dashboard?tab=anggota', tab: 'anggota', label: 'Rapor Performa & Evaluasi' },
+        { to: '/team-dashboard?tab=presensi', tab: 'presensi', label: 'Dashboard Ketersediaan Tim' },
+        { to: '/team-dashboard?tab=klaim', tab: 'klaim', label: 'Persetujuan Klaim Dana' },
+        { to: '/team-dashboard?tab=kpi', tab: 'kpi', label: 'Tren Kinerja & Target' },
+        { to: '/team-dashboard?tab=proyek', tab: 'proyek', label: 'Alokasi Proyek' },
       ],
     },
     { to: '/ess', icon: UserCheck, label: 'Layanan Mandiri' },
   ],
   editor: [
-    { to: '/dashboard', icon: Home, label: 'Home' },
+    { to: '/dashboard', icon: Home, label: 'Dashboard Operasional' },
     { to: '/projects', icon: Briefcase, label: 'Proyek Saya' },
-    { to: '/ess', icon: UserCheck, label: 'Layanan Mandiri' },
+    { to: '/ess', icon: UserCheck, label: 'Data Pribadi & Absensi' },
   ],
   client: [
     { to: '/dashboard', icon: Home, label: 'Home' },

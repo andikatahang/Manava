@@ -323,6 +323,63 @@ export interface WarningSummary {
   repeat_offenders: Array<{ name: string; count: number }>
 }
 
+// Klaim Dana Operasional Proyek (reimbursement)
+export type ReimbursementStatus = 'pending' | 'approved' | 'rejected'
+
+export interface ReimbursementClaim {
+  claim_id: string
+  user_id: string
+  user_name: string
+  amount: number
+  purpose: string
+  status: ReimbursementStatus
+  decided_at: string | null
+  created_at: string
+}
+
+export interface ReimbursementSummary {
+  approved_count: number
+  approved_total: number
+  pending_count: number
+}
+
+// Laporan bulanan individual editor (Summary Bulanan Karyawan):
+// draft (agregasi otomatis) → submitted (dikirim ke Admin Manager) → consolidated
+export type EditorReportStatus = 'draft' | 'submitted' | 'consolidated'
+
+export interface EditorReportData {
+  report_id: string | null
+  user_id: string
+  editor_name: string
+  department: string
+  period: string
+  status: EditorReportStatus
+  kpi_summary: {
+    avg_client_rating: number
+    completion_rate: number
+    manager_rating: number
+    kpi_average: number
+  }
+  attendance_summary: {
+    total_days: number
+    present: number
+    late: number
+    absent: number
+    leave: number
+  }
+  leave_summary: {
+    cuti_approved: number
+    izin_approved: number
+    pending: number
+  }
+  project_summary: Array<{ title: string; status: string }>
+  editor_notes: string | null
+  submitted_at: string | null
+}
+
+// Siklus MIS laporan: draft (agregasi otomatis) → forwarded (diteruskan ke HR Admin)
+export type ReportStatus = 'draft' | 'forwarded'
+
 export interface DepartmentReportData {
   id: string
   department_id: string
@@ -330,19 +387,42 @@ export interface DepartmentReportData {
   manager_id: string
   manager_name: string
   period: string
+  status: ReportStatus
+  forwarded_at: string | null
   attendance_summary: AttendanceSummary
   kpi_summary: KpiSummary
   leave_summary: LeaveSummary
   warning_summary: WarningSummary
+  reimbursement_summary: ReimbursementSummary | null
+  editor_reports: EditorReportData[] | null
+  ai_narrative: string | null
   manager_notes: string | null
   submitted_at: string
   created_at: string
   updated_at: string
 }
 
-export interface CreateReportRequest {
+export interface ForwardReportRequest {
   period: string
   manager_notes?: string
+}
+
+// Draft otomatis dari GET /reports/draft — belum tentu tersimpan di DB
+export interface DraftReportData {
+  department_id: string
+  department_name: string
+  period: string
+  status: ReportStatus
+  persisted: boolean
+  forwarded_at: string | null
+  manager_notes: string | null
+  attendance_summary: AttendanceSummary
+  kpi_summary: KpiSummary
+  leave_summary: LeaveSummary
+  warning_summary: WarningSummary
+  reimbursement_summary: ReimbursementSummary | null
+  editor_reports: EditorReportData[] | null
+  ai_narrative: string | null
 }
 
 export interface ReportListResponse {
@@ -350,5 +430,7 @@ export interface ReportListResponse {
   department_name: string
   manager_name: string
   period: string
+  status: ReportStatus
+  forwarded_at: string | null
   submitted_at: string
 }

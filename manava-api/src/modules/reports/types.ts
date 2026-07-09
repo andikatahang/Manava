@@ -38,6 +38,58 @@ export interface WarningSummary {
   repeat_offenders: Array<{ name: string; count: number }>
 }
 
+// ── Laporan bulanan individual editor (Summary Bulanan Karyawan) ────────────
+export type EditorReportStatus = 'draft' | 'submitted' | 'consolidated'
+
+export interface EditorReportKpi {
+  avg_client_rating: number
+  completion_rate: number
+  manager_rating: number
+  kpi_average: number
+}
+
+export interface EditorReportAttendance {
+  total_days: number
+  present: number
+  late: number
+  absent: number
+  leave: number
+}
+
+export interface EditorReportLeave {
+  cuti_approved: number
+  izin_approved: number
+  pending: number
+}
+
+export interface EditorReportProject {
+  title: string
+  status: string
+}
+
+export interface EditorReportData {
+  report_id: string | null
+  user_id: string
+  editor_name: string
+  department: string
+  period: string
+  status: EditorReportStatus
+  kpi_summary: EditorReportKpi
+  attendance_summary: EditorReportAttendance
+  leave_summary: EditorReportLeave
+  project_summary: EditorReportProject[]
+  editor_notes: string | null
+  submitted_at: string | null
+}
+
+export interface ReimbursementSummary {
+  approved_count: number
+  approved_total: number
+  pending_count: number
+}
+
+export type ReportStatus = 'draft' | 'forwarded'
+
 export interface DepartmentReportData {
   id: string
   department_id: string
@@ -45,10 +97,15 @@ export interface DepartmentReportData {
   manager_id: string
   manager_name: string
   period: string
+  status: ReportStatus
+  forwarded_at: string | null
   attendance_summary: AttendanceSummary
   kpi_summary: KpiSummary
   leave_summary: LeaveSummary
   warning_summary: WarningSummary
+  reimbursement_summary: ReimbursementSummary | null
+  editor_reports: EditorReportData[] | null
+  ai_narrative: string | null
   manager_notes: string | null
   submitted_at: string
   created_at: string
@@ -60,10 +117,30 @@ export interface CreateReportRequest {
   manager_notes?: string
 }
 
+// Draft otomatis (agregasi live) — belum tentu tersimpan di DB
+export interface DraftReportData {
+  department_id: string
+  department_name: string
+  period: string
+  status: ReportStatus
+  persisted: boolean
+  forwarded_at: string | null
+  manager_notes: string | null
+  attendance_summary: AttendanceSummary
+  kpi_summary: KpiSummary
+  leave_summary: LeaveSummary
+  warning_summary: WarningSummary
+  reimbursement_summary: ReimbursementSummary | null
+  editor_reports: EditorReportData[] | null
+  ai_narrative: string | null
+}
+
 export interface ReportListResponse {
   id: string
   department_name: string
   manager_name: string
   period: string
+  status: ReportStatus
+  forwarded_at: string | null
   submitted_at: string
 }

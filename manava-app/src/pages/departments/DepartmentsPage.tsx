@@ -36,11 +36,11 @@ const SPEC_LABELS: Record<string, string> = {
 type HrTab = 'departemen' | 'presensi' | 'peringatan' | 'offboarding' | 'laporan'
 
 const HR_TABS: { id: HrTab; label: string; icon: typeof Building2 }[] = [
-  { id: 'departemen', label: 'Departemen', icon: Building2 },
-  { id: 'presensi', label: 'Presensi', icon: Clock },
-  { id: 'peringatan', label: 'Peringatan', icon: AlertOctagon },
-  { id: 'offboarding', label: 'Offboarding', icon: UserX },
-  { id: 'laporan', label: 'Laporan', icon: FileText },
+  { id: 'departemen', label: 'Struktur Departemen', icon: Building2 },
+  { id: 'presensi', label: 'Rekap Kehadiran', icon: Clock },
+  { id: 'peringatan', label: 'Indikator Peringatan', icon: AlertOctagon },
+  { id: 'offboarding', label: 'Analisis Turnover', icon: UserX },
+  { id: 'laporan', label: 'Laporan Eksekutif', icon: FileText },
 ]
 
 export default function DepartmentsPage({ role, embedded = false }: { role: UserRole; embedded?: boolean }) {
