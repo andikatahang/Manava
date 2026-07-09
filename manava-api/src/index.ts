@@ -20,6 +20,7 @@ import { applicationsRouter } from './modules/applications/routes.js'
 import { kpiRouter } from './modules/kpi/routes.js'
 import { payrollRouter } from './modules/payroll/routes.js'
 import { reportsRouter } from './modules/reports/routes.js'
+import { reimbursementsRouter } from './modules/reimbursements/routes.js'
 
 const app = express()
 
@@ -46,6 +47,7 @@ app.use('/api/v1/applications', applicationsRouter)
 app.use('/api/v1/kpi', kpiRouter)
 app.use('/api/v1/payroll', payrollRouter)
 app.use('/api/v1/reports', reportsRouter)
+app.use('/api/v1/reimbursements', reimbursementsRouter)
 
 // Fallback for unknown routes
 app.use((_req, res) => {
