@@ -7,7 +7,10 @@
 // - Staf DENGAN review: metrics.avg_client_rating & editor.rating = rata-rata
 //   seluruh review; kpi_average dihitung ulang dengan formula standar.
 //   Snapshot bulan yang punya review ikut dikoreksi ke rata-rata bulan itu.
-// - Staf TANPA review: tidak disentuh (riwayat seed tetap untuk demo).
+// - Staf dengan proyek yang sudah berakhir: completion_rate = selesai ÷
+//   (selesai + batal) × 100 dari proyek nyata.
+// - Staf tanpa review DAN tanpa proyek berakhir: tidak disentuh
+//   (riwayat seed tetap untuk demo).
 //
 // Jalankan: npx tsx scripts/reconcile-kpi.ts
 
@@ -23,14 +26,25 @@ async function main() {
   let fixedSnapshots = 0
 
   for (const editor of editors) {
-    const reviews = await prisma.review.findMany({
-      where: { project: { editor_id: editor.editor_id } },
-      select: { rating: true, created_at: true },
-    })
-    if (reviews.length === 0) continue
+    const [reviews, completedCount, cancelledCount] = await Promise.all([
+      prisma.review.findMany({
+        where: { project: { editor_id: editor.editor_id } },
+        select: { rating: true, created_at: true },
+      }),
+      prisma.project.count({ where: { editor_id: editor.editor_id, status: 'completed' } }),
+      prisma.project.count({ where: { editor_id: editor.editor_id, status: 'cancelled' } }),
+    ])
+    const concluded = completedCount + cancelledCount
+    if (reviews.length === 0 && concluded === 0) continue
 
-    const avgClientRating = round2(reviews.reduce((s, r) => s + r.rating, 0) / reviews.length)
-    const completionRate = editor.metrics?.completion_rate ?? editor.completion_rate
+    const avgClientRating =
+      reviews.length > 0
+        ? round2(reviews.reduce((s, r) => s + r.rating, 0) / reviews.length)
+        : round2(editor.metrics?.avg_client_rating ?? editor.rating)
+    const completionRate =
+      concluded > 0
+        ? Math.round((completedCount / concluded) * 100)
+        : (editor.metrics?.completion_rate ?? editor.completion_rate)
     const managerRating = editor.metrics?.manager_rating ?? 3
     const kpiAverage = round2((avgClientRating + (completionRate / 100) * 5 + managerRating) / 3)
     const band = bandOf(kpiAverage)
@@ -38,7 +52,12 @@ async function main() {
     await prisma.$transaction([
       prisma.editorMetrics.upsert({
         where: { editor_id: editor.editor_id },
-        update: { avg_client_rating: avgClientRating, kpi_average: kpiAverage, performance_band: band },
+        update: {
+          avg_client_rating: avgClientRating,
+          completion_rate: completionRate,
+          kpi_average: kpiAverage,
+          performance_band: band,
+        },
         create: {
           editor_id: editor.editor_id,
           editor_name: editor.full_name,
@@ -51,12 +70,13 @@ async function main() {
       }),
       prisma.editor.update({
         where: { editor_id: editor.editor_id },
-        data: { rating: avgClientRating, performance_band: band },
+        data: { rating: avgClientRating, completion_rate: completionRate, performance_band: band },
       }),
     ])
     fixedEditors += 1
     console.log(
-      `${editor.full_name} (${editor.editor_id}): rating ${avgClientRating}, KPI ${kpiAverage} (${reviews.length} review)`,
+      `${editor.full_name} (${editor.editor_id}): rating ${avgClientRating}, completion ${completionRate}% ` +
+        `(${completedCount}/${concluded} proyek), KPI ${kpiAverage} (${reviews.length} review)`,
     )
 
     // Koreksi snapshot untuk bulan-bulan yang benar-benar punya review.

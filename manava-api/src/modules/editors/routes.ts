@@ -8,6 +8,7 @@ import { asyncHandler } from '../../utils/asyncHandler.js'
 import { prisma } from '../../lib/prisma.js'
 import { ok, fail } from '../../lib/response.js'
 import { HttpError } from '../../middleware/errorHandler.js'
+import { realCompletionRate } from '../projects/service.js'
 
 export const editorsRouter = Router()
 
@@ -118,14 +119,17 @@ editorsRouter.patch(
     const avg_client_rating = round2(
       reviewAgg._avg.rating ?? editor.metrics?.avg_client_rating ?? editor.rating,
     )
-    const completion_rate = editor.metrics?.completion_rate ?? editor.completion_rate
+    const completion_rate = await realCompletionRate(
+      editor.editor_id,
+      editor.metrics?.completion_rate ?? editor.completion_rate,
+    )
     const kpi_average = round2((avg_client_rating + (completion_rate / 100) * 5 + manager_rating) / 3)
     const performance_band = bandOf(kpi_average)
 
     const [metrics] = await prisma.$transaction([
       prisma.editorMetrics.upsert({
         where: { editor_id: editor.editor_id },
-        update: { avg_client_rating, manager_rating, kpi_average, performance_band },
+        update: { avg_client_rating, completion_rate, manager_rating, kpi_average, performance_band },
         create: {
           editor_id: editor.editor_id,
           editor_name: editor.full_name,
@@ -136,10 +140,10 @@ editorsRouter.patch(
           performance_band,
         },
       }),
-      // Keep the denormalized band on the editor row in sync for list views.
+      // Keep the denormalized fields on the editor row in sync for list views.
       prisma.editor.update({
         where: { editor_id: editor.editor_id },
-        data: { performance_band },
+        data: { rating: avg_client_rating, completion_rate, performance_band },
       }),
     ])
     return res.json(ok(metrics))

@@ -518,7 +518,7 @@ export async function completeProject(projectId: string, viewer: Viewer) {
   }
 
   const clientName = await fullNameOf(viewer.sub)
-  return prisma.$transaction(async tx => {
+  const result = await prisma.$transaction(async tx => {
     const completed = await tx.project.update({
       where: { project_id: projectId },
       data: { status: 'completed', completed_at: new Date() },
@@ -553,6 +553,10 @@ export async function completeProject(projectId: string, viewer: Viewer) {
     })
     return completed
   })
+
+  // Proyek yang berakhir mengubah tingkat penyelesaian → KPI ikut bergeser.
+  await recomputeEditorKpi(project.editor_id)
+  return result
 }
 
 // ── Ulasan klien → KPI editor ────────────────────────────────────────────────
@@ -597,6 +601,19 @@ export async function submitReview(
   return review
 }
 
+// Tingkat penyelesaian dihitung dari proyek NYATA yang sudah berakhir:
+// completed ÷ (completed + cancelled) × 100. Proyek yang masih berjalan
+// tidak ikut dihitung agar staf dengan banyak pekerjaan aktif tidak
+// terhukum. Fallback ke nilai lama hanya untuk staf tanpa proyek berakhir.
+export async function realCompletionRate(editorId: string, fallback: number): Promise<number> {
+  const [completed, cancelled] = await Promise.all([
+    prisma.project.count({ where: { editor_id: editorId, status: 'completed' } }),
+    prisma.project.count({ where: { editor_id: editorId, status: 'cancelled' } }),
+  ])
+  const concluded = completed + cancelled
+  return concluded > 0 ? Math.round((completed / concluded) * 100) : fallback
+}
+
 // Rata-rata rating klien dihitung ulang dari seluruh review proyek editor,
 // lalu KPI = (client + completion% × 5 + manager) / 3 — formula yang sama
 // dengan Manager Assessment di modules/editors.
@@ -613,7 +630,10 @@ async function recomputeEditorKpi(editorId: string): Promise<void> {
     _count: true,
   })
   const avgClientRating = round2(agg._avg.rating ?? editor.rating)
-  const completionRate = editor.metrics?.completion_rate ?? editor.completion_rate
+  const completionRate = await realCompletionRate(
+    editorId,
+    editor.metrics?.completion_rate ?? editor.completion_rate,
+  )
   // Netral (3.0) untuk editor yang belum pernah dinilai manajernya.
   const managerRating = editor.metrics?.manager_rating ?? 3
   const kpiAverage = round2((avgClientRating + (completionRate / 100) * 5 + managerRating) / 3)
@@ -636,6 +656,7 @@ async function recomputeEditorKpi(editorId: string): Promise<void> {
       where: { editor_id: editorId },
       update: {
         avg_client_rating: avgClientRating,
+        completion_rate: completionRate,
         kpi_average: kpiAverage,
         performance_band: band,
       },
@@ -651,13 +672,17 @@ async function recomputeEditorKpi(editorId: string): Promise<void> {
     }),
     prisma.editor.update({
       where: { editor_id: editorId },
-      data: { rating: avgClientRating, performance_band: band },
+      data: { rating: avgClientRating, completion_rate: completionRate, performance_band: band },
     }),
     // Snapshot bulan berjalan ikut diperbarui agar grafik tren KPI langsung
     // mencerminkan ulasan terbaru.
     prisma.kpiSnapshot.upsert({
       where: { editor_id_period: { editor_id: editorId, period } },
-      update: { avg_client_rating: monthClientRating, kpi_average: monthKpiAverage },
+      update: {
+        avg_client_rating: monthClientRating,
+        completion_rate: completionRate,
+        kpi_average: monthKpiAverage,
+      },
       create: {
         editor_id: editorId,
         department: editor.department,
