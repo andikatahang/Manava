@@ -17,7 +17,7 @@ export function useReimbursementMutations() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['reimbursements'] })
 
   const submit = useMutation({
-    mutationFn: (data: { amount: number; purpose: string }) =>
+    mutationFn: (data: { amount: number; purpose: string; proof_name: string; proof_data: string }) =>
       api<ReimbursementClaim>('/reimbursements', { method: 'POST', body: data }),
     onSuccess: invalidate,
   })

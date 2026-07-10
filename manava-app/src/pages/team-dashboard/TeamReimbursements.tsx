@@ -5,6 +5,7 @@ import { Check, X, Receipt } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
 import { formatCurrency, formatDate } from '../../lib/utils'
 import { useReimbursements, useReimbursementMutations } from '../../hooks/queries/useReimbursements'
+import { ProofButton } from '../ess/ProofViewer'
 import type { ReimbursementClaim } from '../../types'
 
 export function TeamReimbursements() {
@@ -81,6 +82,7 @@ function ClaimTable({ claims, actions }: {
             <th className="px-4 py-3">Staf</th>
             <th className="px-4 py-3">Keperluan</th>
             <th className="px-4 py-3 text-right">Nominal</th>
+            <th className="px-4 py-3">Bukti</th>
             <th className="px-4 py-3">Diajukan</th>
             <th className="px-4 py-3">{actions ? 'Aksi' : 'Status'}</th>
           </tr>
@@ -91,6 +93,9 @@ function ClaimTable({ claims, actions }: {
               <td className="px-4 py-3 font-semibold text-navy whitespace-nowrap">{c.user_name}</td>
               <td className="px-4 py-3 text-navy/80">{c.purpose}</td>
               <td className="px-4 py-3 text-right font-semibold text-navy whitespace-nowrap">{formatCurrency(c.amount)}</td>
+              <td className="px-4 py-3 whitespace-nowrap">
+                {c.has_proof ? <ProofButton claimId={c.claim_id} proofName={c.proof_name} /> : <span className="text-navy/30 text-[11.5px]">—</span>}
+              </td>
               <td className="px-4 py-3 text-navy/60 whitespace-nowrap">{formatDate(c.created_at)}</td>
               <td className="px-4 py-3">
                 {actions ? actions(c.claim_id) : <StatusBadge status={c.status} />}

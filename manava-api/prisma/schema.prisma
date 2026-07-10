@@ -914,6 +914,11 @@ model ReimbursementClaim {
   user_id     String
   amount      Int       // rupiah
   purpose     String
+  // Bukti pengeluaran (nota/kwitansi) — wajib saat pengajuan; nullable hanya
+  // untuk kompatibilitas baris lama. Disimpan sebagai data URL (pola cv_data).
+  proof_name  String?
+  proof_mime  String?
+  proof_data  String?   // data URL: data:image/<jpeg|png|webp>;base64,<...>
   status      String    @default("pending") // pending | approved | rejected
   decided_by  String?   // user_id pemberi keputusan
   decided_at  DateTime?

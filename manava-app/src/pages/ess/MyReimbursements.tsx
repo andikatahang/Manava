@@ -2,7 +2,8 @@
 // keputusan ada di Admin Manager departemen. Riwayat di sini milik sendiri.
 
 import { useState } from 'react'
-import { Plus, Receipt, AlertCircle } from 'lucide-react'
+import { Plus, Receipt, AlertCircle, Paperclip } from 'lucide-react'
+import { ProofButton } from './ProofViewer'
 import { Modal } from '../../components/ui/Modal'
 import { StatusBadge } from '../../components/ui/Badge'
 import { formatCurrency, formatDate } from '../../lib/utils'
@@ -15,7 +16,28 @@ export function MyReimbursements() {
   const [modal, setModal] = useState(false)
   const [amount, setAmount] = useState('')
   const [purpose, setPurpose] = useState('')
+  const [proof, setProof] = useState<{ name: string; data: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const MAX_PROOF_BYTES = 5 * 1024 * 1024
+  function handleFile(file: File | undefined) {
+    setError(null)
+    if (!file) { setProof(null); return }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setError('Bukti harus berupa gambar JPG, PNG, atau WebP')
+      setProof(null)
+      return
+    }
+    if (file.size > MAX_PROOF_BYTES) {
+      setError('Ukuran bukti maksimal 5MB')
+      setProof(null)
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => setProof({ name: file.name, data: reader.result as string })
+    reader.onerror = () => setError('Gagal membaca file bukti')
+    reader.readAsDataURL(file)
+  }
 
   const claims = claimsQuery.data ?? []
 
@@ -30,13 +52,18 @@ export function MyReimbursements() {
       setError('Jelaskan keperluan klaim (min. 5 karakter)')
       return
     }
+    if (!proof) {
+      setError('Unggah foto bukti (nota/kwitansi) terlebih dahulu')
+      return
+    }
     submit.mutate(
-      { amount: value, purpose: purpose.trim() },
+      { amount: value, purpose: purpose.trim(), proof_name: proof.name, proof_data: proof.data },
       {
         onSuccess: () => {
           setModal(false)
           setAmount('')
           setPurpose('')
+          setProof(null)
         },
         onError: err => setError(err instanceof ApiError ? err.message : 'Gagal mengajukan klaim'),
       },
@@ -78,6 +105,7 @@ export function MyReimbursements() {
                 <th className="px-4 py-3">Tanggal</th>
                 <th className="px-4 py-3">Keperluan</th>
                 <th className="px-4 py-3 text-right">Nominal</th>
+                <th className="px-4 py-3">Bukti</th>
                 <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
@@ -87,6 +115,9 @@ export function MyReimbursements() {
                   <td className="px-4 py-3 text-navy/70 whitespace-nowrap">{formatDate(c.created_at)}</td>
                   <td className="px-4 py-3 text-navy">{c.purpose}</td>
                   <td className="px-4 py-3 text-right font-semibold text-navy whitespace-nowrap">{formatCurrency(c.amount)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {c.has_proof ? <ProofButton claimId={c.claim_id} proofName={c.proof_name} /> : <span className="text-navy/30 text-[11.5px]">—</span>}
+                  </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={c.status} />
                   </td>
@@ -119,6 +150,24 @@ export function MyReimbursements() {
               placeholder="cth. Lisensi plugin retouching untuk proyek klien A"
               className="w-full px-3 py-2 rounded-lg border border-black/10 text-[13px] text-navy focus:outline-none focus:ring-2 focus:ring-[#D0F100]"
             />
+          </div>
+          <div>
+            <label className="block text-[12px] font-semibold text-navy mb-1.5">
+              Bukti Nota / Kwitansi <span className="text-red-500">*</span>
+            </label>
+            <label className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-dashed border-black/15 text-[12.5px] text-navy/60 cursor-pointer hover:border-[#D0F100] hover:bg-[#D0F100]/5 transition-colors">
+              <Paperclip className="w-4 h-4 shrink-0" />
+              <span className="truncate">{proof ? proof.name : 'Pilih gambar (JPG/PNG/WebP, maks. 5MB)'}</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={e => handleFile(e.target.files?.[0])}
+              />
+            </label>
+            {proof && (
+              <img src={proof.data} alt="Pratinjau bukti" className="mt-2 max-h-40 rounded-lg border border-black/[0.06]" />
+            )}
           </div>
           {error && (
             <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">

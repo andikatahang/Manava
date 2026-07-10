@@ -347,6 +347,8 @@ export interface ReimbursementClaim {
   amount: number
   purpose: string
   status: ReimbursementStatus
+  has_proof: boolean
+  proof_name: string | null
   decided_at: string | null
   created_at: string
 }
