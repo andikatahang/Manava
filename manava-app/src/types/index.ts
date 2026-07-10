@@ -62,12 +62,26 @@ export interface Applicant {
   avatar?: string
 }
 
+export type WorkType = 'fulltime' | 'parttime'
+export type WorkSystem = 'remote' | 'hybrid' | 'onsite'
+
 export interface JobPosting {
   job_id: string
   title: string
+  department: string | null
+  position: string | null
+  work_type: WorkType | null
+  work_system: WorkSystem | null
+  description: string | null
+  min_gpa: number | null
+  min_education: string | null
+  required_skills: string[]
+  required_experience: string | null
   specialization: string[]
   status: 'open' | 'closed'
+  created_by_id: string | null
   created_at: string
+  updated_at?: string
   applicant_count: number
 }
 

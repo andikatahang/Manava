@@ -4,13 +4,26 @@
 // for the same email.
 
 import { api, apiBlob } from './api'
+import type { JobPosting } from '../types'
 
 export type ApplicationStatus = 'new' | 'interview' | 'approved' | 'rejected'
 
 // Profile fields are AI-extracted from the CV (nullable — a CV may not
 // state them); the applicant only types name/email/phone.
+// Slim job info embedded in application list/detail responses.
+export interface ApplicationJobInfo {
+  job_id: string
+  title: string
+  department: string | null
+  position: string | null
+  work_type: WorkType | null
+  work_system: WorkSystem | null
+}
+
 export interface JobApplication {
   application_id: string
+  job_id: string | null
+  job: ApplicationJobInfo | null
   full_name: string
   email: string
   age: number | null
@@ -35,6 +48,7 @@ export interface JobApplication {
 }
 
 export interface SubmitApplicationInput {
+  job_id?: string
   full_name: string
   email: string
   phone: string
@@ -49,8 +63,9 @@ export interface VacancyCriterion {
   value: string
 }
 
-export function fetchVacancyCriteria(): Promise<VacancyCriterion[]> {
-  return api<VacancyCriterion[]>('/applications/criteria')
+export function fetchVacancyCriteria(jobId?: string): Promise<VacancyCriterion[]> {
+  const suffix = jobId ? `?job_id=${encodeURIComponent(jobId)}` : ''
+  return api<VacancyCriterion[]>(`/applications/criteria${suffix}`)
 }
 
 // ── Recruitment on/off switch ─────────────────────────────────────────────
@@ -67,6 +82,52 @@ export function fetchRecruitmentStatus(): Promise<RecruitmentSetting> {
 
 export function updateRecruitmentStatus(is_open: boolean): Promise<RecruitmentSetting> {
   return api<RecruitmentSetting>('/applications/recruitment-status', { method: 'PATCH', body: { is_open } })
+}
+
+// ── Job postings ───────────────────────────────────────────────────────────
+
+export type WorkType = 'fulltime' | 'parttime'
+export type WorkSystem = 'remote' | 'hybrid' | 'onsite'
+
+export interface JobPostingInput {
+  title: string
+  department?: string | null
+  position?: string | null
+  work_type?: WorkType | null
+  work_system?: WorkSystem | null
+  description?: string | null
+  min_gpa?: number | null
+  min_education?: string | null
+  required_skills?: string[]
+  required_experience?: string | null
+  specialization: string[]
+  status?: 'open' | 'closed'
+}
+
+// HR view — every posting including the closed ones.
+export function fetchJobPostings(): Promise<JobPosting[]> {
+  return api<JobPosting[]>('/job-postings?include_closed=true')
+}
+
+// Public /apply view — open postings only (server default).
+export function fetchOpenJobPostings(): Promise<JobPosting[]> {
+  return api<JobPosting[]>('/job-postings')
+}
+
+export function createJobPosting(input: JobPostingInput): Promise<JobPosting> {
+  return api<JobPosting>('/job-postings', { method: 'POST', body: input })
+}
+
+export function updateJobPosting(id: string, input: Partial<JobPostingInput>): Promise<JobPosting> {
+  return api<JobPosting>(`/job-postings/${id}`, { method: 'PATCH', body: input })
+}
+
+export function updateJobPostingStatus(id: string, status: 'open' | 'closed'): Promise<JobPosting> {
+  return api<JobPosting>(`/job-postings/${id}/status`, { method: 'PATCH', body: { status } })
+}
+
+export function deleteJobPosting(id: string): Promise<{ deleted: string }> {
+  return api<{ deleted: string }>(`/job-postings/${id}`, { method: 'DELETE' })
 }
 
 // Editor account auto-created when HR approves a candidate.

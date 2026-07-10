@@ -36,6 +36,7 @@ export function ApplicantCard({ application, statusLabel, onDetail }: ApplicantC
         {/* Details */}
         <div className="content">
           <h3 className="name">{application.full_name}</h3>
+          {application.job && <p className="job">Melamar: {application.job.title}</p>}
           <p className="email">{application.email}</p>
           <p className="meta">
             {application.education ?? 'Pendidikan tidak terdeteksi'}
@@ -137,6 +138,14 @@ const StyledWrapper = styled.div`
     letter-spacing: -0.01em;
     color: #021526;
     line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .job {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #0050f8;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;

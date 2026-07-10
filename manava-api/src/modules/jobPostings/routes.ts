@@ -70,7 +70,10 @@ jobPostingsRouter.get(
   '/:id',
   asyncHandler(async (req, res) => {
     const job = await getJobPosting(req.params.id)
-    if (!job) return res.status(404).json(fail('Lowongan tidak ditemukan'))
+    if (!job) {
+      res.status(404).json(fail('Lowongan tidak ditemukan'))
+      return
+    }
     const criteria = mapJobPostingToCriteria(job)
     res.json(ok({ job, criteria }))
   }),

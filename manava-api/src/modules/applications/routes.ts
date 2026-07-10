@@ -40,6 +40,8 @@ const CV_DATA_URL_RE =
 // Public list/detail fields — cv_data is excluded (streamed via /:id/cv).
 const LIST_SELECT = {
   application_id: true,
+  job_id: true,
+  job: { select: { job_id: true, title: true, department: true, position: true, work_type: true, work_system: true } },
   full_name: true,
   email: true,
   age: true,
@@ -68,10 +70,31 @@ const HR_ROLES = ['hr_admin', 'superadmin'] as const
 // ── 0. Public vacancy criteria ───────────────────────────────────────────────
 
 // Criteria shown on the /apply form — same values the screening evaluates
-// server-side at submission (the form itself shows no AI result).
-applicationsRouter.get('/criteria', (_req, res) => {
-  res.json(ok(CRITERIA_DESCRIPTION))
-})
+// server-side at submission (the form itself shows no AI result). With
+// ?job_id= the criteria come from that job posting instead of the defaults.
+applicationsRouter.get(
+  '/criteria',
+  asyncHandler(async (req, res) => {
+    const jobId = typeof req.query.job_id === 'string' ? req.query.job_id : undefined
+    if (!jobId) return res.json(ok(CRITERIA_DESCRIPTION))
+
+    const job = await prisma.jobPosting.findUnique({
+      where: { job_id: jobId },
+      select: { min_education: true, min_gpa: true, required_skills: true, required_experience: true },
+    })
+    if (!job) return res.json(ok(CRITERIA_DESCRIPTION))
+
+    const skills = job.required_skills.length > 0 ? job.required_skills.join(', ') : null
+    const criteria = [
+      { label: 'Umur', value: '18–35 tahun' },
+      { label: 'Pendidikan', value: `Minimal ${job.min_education ?? 'D3'}` },
+      { label: 'IPK', value: `Minimal ${(job.min_gpa ?? 3.0).toFixed(2)}` },
+      ...(skills ? [{ label: 'Keahlian', value: `Minimal satu dari: ${skills}` }] : []),
+      ...(job.required_experience ? [{ label: 'Pengalaman', value: job.required_experience }] : []),
+    ]
+    return res.json(ok(criteria))
+  }),
+)
 
 // ── 0b. Recruitment on/off switch ────────────────────────────────────────────
 // Public GET so the /apply form knows whether to show itself; PATCH is HR-only.

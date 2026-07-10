@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Users, Clock, CalendarPlus, CheckCircle2, UserCheck, Megaphone } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Users, Clock, CalendarPlus, CheckCircle2, UserCheck, Megaphone, Briefcase } from 'lucide-react'
 import type { UserRole } from '../../types'
 import {
   STATUS_LABELS,
@@ -18,8 +18,18 @@ export default function RecruitmentPage(_props: { role: UserRole }) {
   const { data: apps = [], isLoading, error } = useApplications()
   // HR lands on the actionable queue ("new") instead of every status mixed.
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>('new')
+  // Filter by the job the candidate applied to ('none' = legacy, no job link).
+  const [jobFilter, setJobFilter] = useState<string | 'all'>('all')
 
-  const visible = statusFilter === 'all' ? apps : apps.filter(a => a.status === statusFilter)
+  const byStatus = statusFilter === 'all' ? apps : apps.filter(a => a.status === statusFilter)
+  const visible = jobFilter === 'all'
+    ? byStatus
+    : byStatus.filter(a => (jobFilter === 'none' ? !a.job_id : a.job_id === jobFilter))
+
+  // Job chips derive from the applications themselves — only jobs that
+  // actually have applicants show up as filters.
+  const jobOptions = [...new Map(apps.filter(a => a.job).map(a => [a.job!.job_id, a.job!])).values()]
+  const hasUnlinked = apps.some(a => !a.job_id)
 
   const countByStatus: Record<ApplicationStatus, number> = {
     new:       apps.filter(a => a.status === 'new').length,
@@ -34,6 +44,14 @@ export default function RecruitmentPage(_props: { role: UserRole }) {
 
   return (
     <div className="space-y-6">
+
+      {/* Manage postings entry point */}
+      <div className="flex justify-end">
+        <Link to="/recruitment/jobs"
+          className="inline-flex items-center gap-2 text-[13px] font-semibold text-navy border border-black/10 hover:border-navy/30 bg-white rounded-xl px-4 py-2 transition-colors">
+          <Briefcase className="w-4 h-4" /> Kelola Lowongan
+        </Link>
+      </div>
 
       <RecruitmentToggle />
 
@@ -76,6 +94,31 @@ export default function RecruitmentPage(_props: { role: UserRole }) {
           />
         ))}
       </div>
+
+      {/* Job filter chips — shown once applicants are linked to postings */}
+      {(jobOptions.length > 0) && (
+        <div className="flex gap-2 flex-wrap items-center">
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-navy/40">
+            <Briefcase className="w-3.5 h-3.5" /> Lowongan
+          </span>
+          <FilterChip active={jobFilter === 'all'} onClick={() => setJobFilter('all')} label="Semua" />
+          {jobOptions.map(j => (
+            <FilterChip
+              key={j.job_id}
+              active={jobFilter === j.job_id}
+              onClick={() => setJobFilter(jobFilter === j.job_id ? 'all' : j.job_id)}
+              label={j.title}
+            />
+          ))}
+          {hasUnlinked && (
+            <FilterChip
+              active={jobFilter === 'none'}
+              onClick={() => setJobFilter(jobFilter === 'none' ? 'all' : 'none')}
+              label="Tanpa lowongan"
+            />
+          )}
+        </div>
+      )}
 
       {/* Card grid */}
       {isLoading ? (

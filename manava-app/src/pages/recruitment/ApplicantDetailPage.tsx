@@ -138,6 +138,13 @@ export default function ApplicantDetailPage() {
         <div className="space-y-5">
           <section className="card p-5 space-y-5">
             <h2 className="text-sm font-semibold text-navy">Data Lamaran</h2>
+            {app.job && (
+              <p className="text-[13px] text-navy/70 bg-navy/[0.04] border border-navy/10 rounded-xl px-4 py-2.5">
+                Melamar untuk <span className="font-semibold text-navy">{app.job.title}</span>
+                {app.job.department ? ` · ${app.job.department}` : ''}
+                {app.job.position ? ` · ${app.job.position}` : ''}
+              </p>
+            )}
             <div className="grid sm:grid-cols-2 gap-x-5 gap-y-3 text-sm">
               <Fact icon={<Mail className="w-4 h-4" />} label="Email" value={app.email} />
               <Fact icon={<Phone className="w-4 h-4" />} label="No. Handphone" value={app.phone} />

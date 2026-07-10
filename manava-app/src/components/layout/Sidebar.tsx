@@ -31,6 +31,7 @@ const navByRole: Record<UserRole, NavItem[]> = {
   hr_admin: [
     { to: '/dashboard', icon: Home, label: 'Dashboard Strategis' },
     { to: '/recruitment', icon: Users, label: 'Pipeline Talent & Rekrutmen' },
+    { to: '/recruitment/jobs', icon: Briefcase, label: 'Kelola Lowongan' },
     {
       to: '/departments', icon: Building2, label: 'Rekapitulasi Organisasi',
       children: [
