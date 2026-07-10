@@ -8,7 +8,13 @@ import {
   generatePayslips,
   payPayslip,
   voidPayslip,
+  createPaymentBatch,
+  processPaymentBatch,
+  fetchPaymentBatches,
+  fetchPayrollSettings,
+  updatePayrollSettings,
   type PayslipListParams,
+  type PayrollSettings,
 } from '../../lib/payroll'
 
 const KEY = ['payroll']
@@ -43,4 +49,30 @@ export function usePayrollMutations() {
   const voidSlip = useMutation({ mutationFn: voidPayslip, onSuccess: invalidate })
 
   return { generate, adjust, finalize, pay, voidSlip }
+}
+
+export function usePaymentBatches() {
+  return useQuery({ queryKey: [...KEY, 'batches'], queryFn: fetchPaymentBatches })
+}
+
+export function useBatchMutations() {
+  const qc = useQueryClient()
+  const invalidate = () => qc.invalidateQueries({ queryKey: KEY })
+
+  const create = useMutation({ mutationFn: createPaymentBatch, onSuccess: invalidate })
+  const process = useMutation({ mutationFn: processPaymentBatch, onSuccess: invalidate })
+
+  return { create, process }
+}
+
+export function usePayrollSettings() {
+  return useQuery({ queryKey: [...KEY, 'settings'], queryFn: fetchPayrollSettings })
+}
+
+export function usePayrollSettingsMutation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: Partial<PayrollSettings>) => updatePayrollSettings(data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  })
 }

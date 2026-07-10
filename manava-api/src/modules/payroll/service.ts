@@ -2,6 +2,7 @@ import type { Editor } from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
 import { HttpError } from '../../middleware/errorHandler.js'
 import { getSettings, dateKeyOf, parseHM, minutesOfDay } from '../attendance/service.js'
+import { calculateTax } from './taxCalculator.js'
 
 // Simple 8h/day, 1.5x overtime premium — adjustable once real payroll policy
 // is defined; there is no labor-law-certified calculation here (demo scale).
@@ -105,11 +106,41 @@ export async function generatePayslipForEditor(editor: Editor, period: string) {
     return { payslip: existing, regenerated: false }
   }
 
+  // Get attendance inputs
   const inputs = await computePayrollInputs(editor, start, end)
+
+  // Get payroll settings (upsert default if not exists)
+  const settings = await prisma.payrollSettings.upsert({
+    where: { id: 'default' },
+    update: {},
+    create: { id: 'default' },
+  })
+
+  // Calculate presensi penalty
+  const presensi_penalty = inputs.absentDays * settings.presensi_penalty_per_day
+
+  // Calculate gross (before deductions)
   const project_bonus = existing?.project_bonus ?? 0
   const reimbursement_total = existing?.reimbursement_total ?? 0
-  const net_salary =
-    editor.base_salary - inputs.attendanceDeduction + inputs.overtimePay + project_bonus + reimbursement_total
+  const gross_salary = editor.base_salary + inputs.overtimePay + project_bonus + reimbursement_total
+
+  // Calculate tax & BPJS
+  const taxCalc = calculateTax(gross_salary, settings)
+
+  // Calculate total deductions
+  const total_deductions =
+    inputs.attendanceDeduction +
+    presensi_penalty +
+    taxCalc.pph21_tax +
+    taxCalc.bpjs_kesehatan +
+    taxCalc.bpjs_tk_jkk +
+    taxCalc.bpjs_tk_jkm +
+    taxCalc.bpjs_tk_jht +
+    taxCalc.bpjs_tk_jp
+
+  // Calculate net salary — deductions can exceed gross for heavy absence;
+  // clamp at 0 so a payslip never asks the employee to pay the company.
+  const net_salary = Math.max(0, gross_salary - total_deductions)
 
   const data = {
     editor_id: editor.editor_id,
@@ -124,6 +155,15 @@ export async function generatePayslipForEditor(editor: Editor, period: string) {
     overtime_pay: inputs.overtimePay,
     project_bonus,
     reimbursement_total,
+    presensi_penalty,
+    pph21_tax: taxCalc.pph21_tax,
+    bpjs_kesehatan: taxCalc.bpjs_kesehatan,
+    bpjs_tk_jkk: taxCalc.bpjs_tk_jkk,
+    bpjs_tk_jkm: taxCalc.bpjs_tk_jkm,
+    bpjs_tk_jht: taxCalc.bpjs_tk_jht,
+    bpjs_tk_jp: taxCalc.bpjs_tk_jp,
+    gross_salary,
+    total_deductions,
     net_salary,
   }
 

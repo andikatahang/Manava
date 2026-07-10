@@ -86,6 +86,234 @@ payrollRouter.get(
   }),
 )
 
+// ── 5. Payroll Settings ──────────────────────────────────────────────────────
+payrollRouter.get(
+  '/settings',
+  authenticate,
+  requireRole(...HR_ROLES),
+  asyncHandler(async (_req, res) => {
+    const settings = await prisma.payrollSettings.upsert({
+      where: { id: 'default' },
+      update: {},
+      create: { id: 'default' },
+    })
+    res.json(ok(settings))
+  }),
+)
+
+const settingsUpdateSchema = z.object({
+  bpjs_kesehatan_rate: z.number().min(0).max(1).optional(),
+  bpjs_tk_jkk_rate: z.number().min(0).max(1).optional(),
+  bpjs_tk_jkm_rate: z.number().min(0).max(1).optional(),
+  bpjs_tk_jht_rate: z.number().min(0).max(1).optional(),
+  bpjs_tk_jp_rate: z.number().min(0).max(1).optional(),
+  pph21_bracket_1_limit: z.number().int().min(0).optional(),
+  pph21_bracket_1_rate: z.number().min(0).max(1).optional(),
+  pph21_bracket_2_limit: z.number().int().min(0).optional(),
+  pph21_bracket_2_rate: z.number().min(0).max(1).optional(),
+  pph21_bracket_3_rate: z.number().min(0).max(1).optional(),
+  presensi_penalty_per_day: z.number().int().min(0).optional(),
+})
+
+payrollRouter.patch(
+  '/settings',
+  authenticate,
+  requireRole('superadmin', 'hr_admin'),
+  validateBody(settingsUpdateSchema),
+  asyncHandler(async (req, res) => {
+    const settings = await prisma.payrollSettings.update({
+      where: { id: 'default' },
+      data: req.body,
+    })
+    res.json(ok(settings))
+  }),
+)
+
+// ── 6. Payment Batch ─────────────────────────────────────────────────────────
+payrollRouter.post(
+  '/batch/create',
+  authenticate,
+  requireRole(...HR_ROLES),
+  validateBody(z.object({ period: z.string().regex(PERIOD_RE) })),
+  asyncHandler(async (req, res) => {
+    const { period } = req.body
+
+    // Get all finalized payslips for the period
+    const [year, month] = period.split('-').map(Number)
+    const period_start = new Date(Date.UTC(year, month - 1, 1))
+
+    const payslips = await prisma.payslip.findMany({
+      where: {
+        period_start,
+        status: 'finalized',
+        payment_status: 'pending',
+      },
+      include: { editor: { select: { bank_account_no: true, bank_name: true } } },
+    })
+
+    if (payslips.length === 0) {
+      return res.status(400).json(fail('Tidak ada slip gaji yang siap dibayar'))
+    }
+
+    // Check bank accounts
+    const missingBank = payslips.filter(p => !p.editor.bank_account_no)
+    if (missingBank.length > 0) {
+      return res.status(400).json(fail(
+        `${missingBank.length} editor belum melengkapi data rekening bank`
+      ))
+    }
+
+    const total_amount = payslips.reduce((sum, p) => sum + p.net_salary, 0)
+
+    const batch = await prisma.paymentBatch.create({
+      data: {
+        period,
+        total_amount,
+        payslip_count: payslips.length,
+        created_by: req.user!.sub,
+      },
+    })
+
+    // Link payslips to batch
+    await prisma.payslip.updateMany({
+      where: { payslip_id: { in: payslips.map(p => p.payslip_id) } },
+      data: { payment_batch_id: batch.batch_id, payment_status: 'processing' },
+    })
+
+    return res.status(201).json(ok(batch))
+  }),
+)
+
+payrollRouter.post(
+  '/batch/:id/process',
+  authenticate,
+  requireRole(...HR_ROLES),
+  asyncHandler(async (req, res) => {
+    const batch = await prisma.paymentBatch.findUnique({
+      where: { batch_id: req.params.id },
+      include: { payslips: true },
+    })
+    if (!batch) return res.status(404).json(fail('Batch tidak ditemukan'))
+    if (batch.status !== 'pending') {
+      return res.status(409).json(fail('Batch sudah diproses'))
+    }
+
+    // Simulate payment processing (in real system, this would call bank API)
+    await new Promise(resolve => setTimeout(resolve, 2000))
+
+    const now = new Date()
+    await prisma.$transaction([
+      prisma.paymentBatch.update({
+        where: { batch_id: batch.batch_id },
+        data: { status: 'completed', processed_at: now },
+      }),
+      prisma.payslip.updateMany({
+        where: { payment_batch_id: batch.batch_id },
+        data: {
+          payment_status: 'completed',
+          paid_at: now,
+          status: 'paid',
+          payment_reference: `BATCH-${batch.batch_id.slice(0, 8).toUpperCase()}`,
+        },
+      }),
+    ])
+
+    return res.json(ok({ batch_id: batch.batch_id, status: 'completed' }))
+  }),
+)
+
+payrollRouter.get(
+  '/batch',
+  authenticate,
+  requireRole(...HR_ROLES),
+  asyncHandler(async (_req, res) => {
+    const batches = await prisma.paymentBatch.findMany({
+      orderBy: { created_at: 'desc' },
+      take: 50,
+    })
+    res.json(ok(batches, { total: batches.length }))
+  }),
+)
+
+payrollRouter.get(
+  '/batch/:id/export',
+  authenticate,
+  requireRole(...HR_ROLES),
+  asyncHandler(async (req, res) => {
+    const batch = await prisma.paymentBatch.findUnique({
+      where: { batch_id: req.params.id },
+      include: {
+        payslips: {
+          include: {
+            editor: {
+              select: {
+                bank_name: true,
+                bank_account_no: true,
+                bank_account_name: true,
+              },
+            },
+          },
+        },
+      },
+    })
+    if (!batch) return res.status(404).json(fail('Batch tidak ditemukan'))
+
+    // Generate CSV
+    const header = 'No,Nama,Rekening,Bank,Jumlah,Referensi\n'
+    const rows = batch.payslips.map((p, i) =>
+      `${i + 1},"${p.editor_name}","${p.editor.bank_account_no}","${p.editor.bank_name}",${p.net_salary},"${p.payment_reference ?? '-'}"`
+    ).join('\n')
+
+    res.setHeader('Content-Type', 'text/csv')
+    res.setHeader('Content-Disposition', `attachment; filename="payroll-${batch.period}.csv"`)
+    return res.send(header + rows)
+  }),
+)
+
+// ── 7. Tax Report ────────────────────────────────────────────────────────────
+payrollRouter.get(
+  '/reports/tax',
+  authenticate,
+  requireRole(...HR_ROLES),
+  asyncHandler(async (req, res) => {
+    const { period } = req.query as { period?: string }
+    if (!period || !PERIOD_RE.test(period)) {
+      return res.status(400).json(fail('Parameter period (YYYY-MM) wajib'))
+    }
+
+    const [year, month] = period.split('-').map(Number)
+    const period_start = new Date(Date.UTC(year!, month! - 1, 1))
+
+    const payslips = await prisma.payslip.findMany({
+      where: { period_start, status: { not: 'voided' } },
+      select: {
+        editor_id: true,
+        editor_name: true,
+        gross_salary: true,
+        pph21_tax: true,
+        bpjs_kesehatan: true,
+        bpjs_tk_jkk: true,
+        bpjs_tk_jkm: true,
+        bpjs_tk_jht: true,
+        bpjs_tk_jp: true,
+        net_salary: true,
+      },
+      orderBy: { editor_name: 'asc' },
+    })
+
+    const totals = {
+      total_gross: payslips.reduce((s, p) => s + p.gross_salary, 0),
+      total_pph21: payslips.reduce((s, p) => s + p.pph21_tax, 0),
+      total_bpjs_kesehatan: payslips.reduce((s, p) => s + p.bpjs_kesehatan, 0),
+      total_bpjs_tk: payslips.reduce((s, p) => s + p.bpjs_tk_jkk + p.bpjs_tk_jkm + p.bpjs_tk_jht + p.bpjs_tk_jp, 0),
+      total_net: payslips.reduce((s, p) => s + p.net_salary, 0),
+      employee_count: payslips.length,
+    }
+
+    return res.json(ok({ period, payslips, totals }))
+  }),
+)
+
 payrollRouter.get(
   '/:id',
   authenticate,
@@ -126,12 +354,42 @@ payrollRouter.patch(
 
     const project_bonus = body.project_bonus ?? slip.project_bonus
     const reimbursement_total = body.reimbursement_total ?? slip.reimbursement_total
-    const net_salary =
-      slip.base_salary - slip.attendance_deduction + slip.overtime_pay + project_bonus + reimbursement_total
+
+    // Recalculate gross and net with tax/BPJS
+    const settings = await prisma.payrollSettings.upsert({
+      where: { id: 'default' },
+      update: {},
+      create: { id: 'default' },
+    })
+
+    const gross_salary = slip.base_salary + slip.overtime_pay + project_bonus + reimbursement_total
+    const taxCalc = (await import('./taxCalculator.js')).calculateTax(gross_salary, settings)
+    const total_deductions =
+      slip.attendance_deduction +
+      slip.presensi_penalty +
+      taxCalc.pph21_tax +
+      taxCalc.bpjs_kesehatan +
+      taxCalc.bpjs_tk_jkk +
+      taxCalc.bpjs_tk_jkm +
+      taxCalc.bpjs_tk_jht +
+      taxCalc.bpjs_tk_jp
+    const net_salary = gross_salary - total_deductions
 
     const updated = await prisma.payslip.update({
       where: { payslip_id: slip.payslip_id },
-      data: { project_bonus, reimbursement_total, net_salary },
+      data: {
+        project_bonus,
+        reimbursement_total,
+        gross_salary,
+        total_deductions,
+        net_salary,
+        pph21_tax: taxCalc.pph21_tax,
+        bpjs_kesehatan: taxCalc.bpjs_kesehatan,
+        bpjs_tk_jkk: taxCalc.bpjs_tk_jkk,
+        bpjs_tk_jkm: taxCalc.bpjs_tk_jkm,
+        bpjs_tk_jht: taxCalc.bpjs_tk_jht,
+        bpjs_tk_jp: taxCalc.bpjs_tk_jp,
+      },
     })
     return res.json(ok(updated))
   }),

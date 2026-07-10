@@ -110,6 +110,20 @@ enum PayslipStatus {
   voided
 }
 
+enum PaymentStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
+enum BatchStatus {
+  pending
+  processing
+  completed
+  failed
+}
+
 enum AttendanceStatus {
   present
   late
@@ -271,6 +285,10 @@ model Editor {
   active_projects  Int             @default(0)
   performance_band PerformanceBand @default(good)
   avatar           String?
+  bank_name        String?
+  bank_account_no  String?
+  bank_account_name String?
+  npwp             String?
   created_at       DateTime        @default(now())
   updated_at       DateTime        @updatedAt
 
@@ -630,15 +648,39 @@ model Payslip {
   overtime_pay         Int           @default(0)
   project_bonus        Int           @default(0) // HR-entered, not auto-derived (SoS module is dormant)
   reimbursement_total  Int           @default(0)
+
+  // Tax & statutory deductions
+  pph21_tax            Int           @default(0)
+  bpjs_kesehatan       Int           @default(0)  // health insurance (1%)
+  bpjs_tk_jkk          Int           @default(0)  // work accident insurance (0.24%)
+  bpjs_tk_jkm          Int           @default(0)  // death insurance (0.3%)
+  bpjs_tk_jht          Int           @default(0)  // old age savings (2%)
+  bpjs_tk_jp           Int           @default(0)  // pension (1%)
+
+  // New: presensi penalty
+  presensi_penalty     Int           @default(0)  // -100k per absent day
+
+  // Recalculated totals
+  gross_salary         Int           @default(0)  // base + overtime + bonus + reimbursement
+  total_deductions     Int           @default(0)  // attendance + presensi_penalty + tax + bpjs
   net_salary           Int
   status               PayslipStatus @default(draft)
   generated_at         DateTime      @default(now())
 
+  // Bank payment tracking
+  payment_status       PaymentStatus @default(pending)
+  payment_batch_id     String?
+  paid_at              DateTime?
+  payment_reference    String?
+
   editor Editor @relation(fields: [editor_id], references: [editor_id], onDelete: Cascade)
+  payment_batch PaymentBatch? @relation(fields: [payment_batch_id], references: [batch_id])
 
   @@unique([editor_id, period_start])
   @@index([status])
   @@index([period_start])
+  @@index([payment_batch_id])
+  @@index([payment_status])
 }
 
 model EscrowAccount {
@@ -666,6 +708,47 @@ model Transaction {
   project Project @relation(fields: [project_id], references: [project_id], onDelete: Cascade)
 
   @@index([project_id])
+  @@index([status])
+}
+
+// ─── Payroll Settings & Payment Batches ────────────────────────────────────────
+
+model PayrollSettings {
+  id                String   @id @default("default")
+
+  // BPJS rates (percentage of gross salary)
+  bpjs_kesehatan_rate      Float  @default(0.01)   // 1% employee
+  bpjs_tk_jkk_rate         Float  @default(0.0024) // 0.24% employee
+  bpjs_tk_jkm_rate         Float  @default(0.003)  // 0.3% employee
+  bpjs_tk_jht_rate         Float  @default(0.02)   // 2% employee
+  bpjs_tk_jp_rate          Float  @default(0.01)   // 1% employee
+
+  // PPh21 tax brackets (monthly)
+  pph21_bracket_1_limit    Int    @default(5000000)   // up to 5M
+  pph21_bracket_1_rate     Float  @default(0.05)      // 5%
+  pph21_bracket_2_limit    Int    @default(50000000)  // 5M - 50M
+  pph21_bracket_2_rate     Float  @default(0.15)      // 15%
+  pph21_bracket_3_rate     Float  @default(0.25)      // 25% above 50M
+
+  // Presensi penalty
+  presensi_penalty_per_day Int    @default(100000)   // Rp100k per absent day
+
+  updated_at               DateTime @updatedAt
+}
+
+model PaymentBatch {
+  batch_id          String        @id @default(cuid())
+  period            String        // "YYYY-MM"
+  total_amount      Int
+  payslip_count     Int
+  status            BatchStatus   @default(pending)
+  created_by        String
+  created_at        DateTime      @default(now())
+  processed_at      DateTime?
+
+  payslips          Payslip[]
+
+  @@index([period])
   @@index([status])
 }
 

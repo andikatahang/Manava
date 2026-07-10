@@ -308,10 +308,25 @@ function MyPayslips() {
             <PayslipRow label="Hari Kerja" value={`${detail.working_days} hari`} />
             <PayslipRow label="Hari Bolong" value={`${detail.absent_days} hari`} />
             <PayslipRow label="Gaji Pokok" value={formatCurrency(detail.base_salary)} />
-            <PayslipRow label="Potongan Absen" value={`-${formatCurrency(detail.attendance_deduction)}`} tone="text-red-600" />
             <PayslipRow label="Lembur" value={`+${formatCurrency(detail.overtime_pay)}`} tone="text-emerald-700" />
             <PayslipRow label="Bonus" value={`+${formatCurrency(detail.project_bonus)}`} tone="text-emerald-700" />
             <PayslipRow label="Reimbursement" value={`+${formatCurrency(detail.reimbursement_total)}`} tone="text-emerald-700" />
+            <PayslipRow label="Gaji Bruto" value={formatCurrency(detail.gross_salary)} />
+            <PayslipRow label="Potongan Absen" value={`-${formatCurrency(detail.attendance_deduction)}`} tone="text-red-600" />
+            {detail.presensi_penalty > 0 && (
+              <PayslipRow label="Denda Presensi" value={`-${formatCurrency(detail.presensi_penalty)}`} tone="text-red-600" />
+            )}
+            <PayslipRow label="PPh 21" value={`-${formatCurrency(detail.pph21_tax)}`} tone="text-red-600" />
+            <PayslipRow label="BPJS Kesehatan" value={`-${formatCurrency(detail.bpjs_kesehatan)}`} tone="text-red-600" />
+            <PayslipRow
+              label="BPJS Ketenagakerjaan"
+              value={`-${formatCurrency(detail.bpjs_tk_jkk + detail.bpjs_tk_jkm + detail.bpjs_tk_jht + detail.bpjs_tk_jp)}`}
+              tone="text-red-600"
+            />
+            <PayslipRow label="Total Potongan" value={`-${formatCurrency(detail.total_deductions)}`} tone="text-red-600" />
+            {detail.payment_reference && (
+              <PayslipRow label="Referensi Pembayaran" value={detail.payment_reference} tone="text-emerald-700" />
+            )}
             <div className="border-t border-border pt-3 flex items-center justify-between">
               <span className="text-sm font-semibold text-navy">Net Salary</span>
               <span className="text-lg font-bold text-navy">{formatCurrency(detail.net_salary)}</span>
