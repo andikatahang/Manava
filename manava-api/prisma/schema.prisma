@@ -228,6 +228,7 @@ model User {
   editor        Editor?
   admin_manager AdminManager?
   leave_requests LeaveRequest[]
+  decided_leave_requests LeaveRequest[] @relation("LeaveDecider")
   refresh_tokens RefreshToken[]
   messages      Message[]
   issued_warnings Warning[] @relation("WarningIssuer")
@@ -402,14 +403,22 @@ model LeaveRequest {
   leave_type     LeaveType
   start_date     DateTime      @db.Date
   end_date       DateTime      @db.Date
+  reason         String?       // Optional context from requester (max 500 chars validated at API layer)
   status         LeaveStatus   @default(pending)
+  // Audit trail: who decided and when (populated on approve/reject)
+  decided_by_id  String?
+  decided_by_name String?
+  decided_at     DateTime?
+  decision_note  String?       // Optional note from approver explaining the decision
   created_at     DateTime      @default(now())
   updated_at     DateTime      @updatedAt
 
-  requester User @relation(fields: [requester_id], references: [user_id], onDelete: Cascade)
+  requester  User  @relation(fields: [requester_id], references: [user_id], onDelete: Cascade)
+  decided_by User? @relation("LeaveDecider", fields: [decided_by_id], references: [user_id], onDelete: SetNull)
 
   @@index([status])
   @@index([requester_id])
+  @@index([decided_by_id])
 }
 
 model Warning {
