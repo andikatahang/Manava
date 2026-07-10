@@ -95,6 +95,14 @@ export async function computePayrollInputs(
   return { workingDays, absentDays, attendanceDeduction, overtimeMinutes, overtimePay }
 }
 
+async function sumApprovedReimbursements(userId: string, periodStart: Date, periodEnd: Date): Promise<number> {
+  const result = await prisma.reimbursementClaim.aggregate({
+    where: { user_id: userId, status: 'approved', decided_at: { gte: periodStart, lte: periodEnd } },
+    _sum: { amount: true },
+  })
+  return result._sum.amount ?? 0
+}
+
 // Regenerating an already-finalized/paid payslip would silently overwrite a
 // reconciled record — only draft (or not-yet-existing) payslips are recomputed.
 export async function generatePayslipForEditor(editor: Editor, period: string) {
@@ -121,7 +129,10 @@ export async function generatePayslipForEditor(editor: Editor, period: string) {
 
   // Calculate gross (before deductions)
   const project_bonus = existing?.project_bonus ?? 0
-  const reimbursement_total = existing?.reimbursement_total ?? 0
+  // Reimbursement is only a real feature for the editor role today (see
+  // reimbursements module) — sum their approved claims decided within the
+  // period as the payslip default; HR can still override via PATCH.
+  const reimbursement_total = existing?.reimbursement_total ?? (await sumApprovedReimbursements(editor.user_id, start, end))
   const gross_salary = editor.base_salary + inputs.overtimePay + project_bonus + reimbursement_total
 
   // Calculate tax & BPJS
