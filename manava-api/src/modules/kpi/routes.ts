@@ -269,34 +269,47 @@ kpiRouter.get(
         return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
       }
 
-      const countsByMonth = new Map<string, { reviewCount: number; projectIds: Set<string> }>()
+      const countsByMonth = new Map<string, { reviewCount: number; ratingSum: number; projectIds: Set<string> }>()
 
       for (const p of projects) {
         // Hitung reviews per bulan (berdasarkan tanggal review)
         for (const r of p.reviews) {
           const period = monthBucket(r.created_at)
-          const cur = countsByMonth.get(period) ?? { reviewCount: 0, projectIds: new Set() }
+          const cur = countsByMonth.get(period) ?? { reviewCount: 0, ratingSum: 0, projectIds: new Set() }
           cur.reviewCount += 1
+          cur.ratingSum += r.rating
           cur.projectIds.add(p.project_id)
           countsByMonth.set(period, cur)
         }
         // Jika project completed, masukkan ke bulan completion
         if (p.completed_at) {
           const period = monthBucket(p.completed_at)
-          const cur = countsByMonth.get(period) ?? { reviewCount: 0, projectIds: new Set() }
+          const cur = countsByMonth.get(period) ?? { reviewCount: 0, ratingSum: 0, projectIds: new Set() }
           cur.projectIds.add(p.project_id)
           countsByMonth.set(period, cur)
         }
       }
 
-      const points: MyKpiTrendPoint[] = snapshots.map(s => {
-        const counts = countsByMonth.get(s.period) ?? { reviewCount: 0, projectIds: new Set() }
+      // Rating klien per bulan dihitung LANGSUNG dari review nyata — snapshot
+      // hanya dipakai untuk kpi_average/completion/manager yang memang tidak
+      // punya sumber lain. Bulan bersnapshot tapi tanpa review → rating null
+      // (jujur: tidak ada ulasan), bukan angka snapshot yang bisa berasal dari
+      // seed dan menyesatkan rata-rata.
+      const snapshotByPeriod = new Map(snapshots.map(s => [s.period, s]))
+      const periods = Array.from(
+        new Set([...snapshotByPeriod.keys(), ...countsByMonth.keys()]),
+      ).sort()
+
+      const points: MyKpiTrendPoint[] = periods.map(period => {
+        const snap = snapshotByPeriod.get(period)
+        const counts = countsByMonth.get(period) ?? { reviewCount: 0, ratingSum: 0, projectIds: new Set<string>() }
         return {
-          period: s.period,
-          kpi_average: s.kpi_average,
-          avg_client_rating: s.avg_client_rating,
-          completion_rate: s.completion_rate,
-          manager_rating: s.manager_rating,
+          period,
+          kpi_average: snap?.kpi_average ?? null,
+          avg_client_rating:
+            counts.reviewCount > 0 ? Math.round((counts.ratingSum / counts.reviewCount) * 100) / 100 : null,
+          completion_rate: snap?.completion_rate ?? null,
+          manager_rating: snap?.manager_rating ?? null,
           review_count: counts.reviewCount,
           project_count: counts.projectIds.size,
         }

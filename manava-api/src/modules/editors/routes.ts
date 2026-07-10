@@ -71,7 +71,7 @@ const ratingSchema = z.object({
   manager_rating: z.number().min(1).max(5),
 })
 
-const round1 = (n: number) => Math.round(n * 10) / 10
+const round2 = (n: number) => Math.round(n * 100) / 100
 
 // KPI = (client rating + completion-rate-as-5-scale + manager rating) / 3 —
 // same formula the seed uses; the band follows the combined average.
@@ -108,17 +108,24 @@ editorsRouter.patch(
       }
     }
 
-    // Base the recompute on current metrics; fall back to the editor row for
-    // editors that never got a metrics row (e.g. fresh recruits).
-    const avg_client_rating = editor.metrics?.avg_client_rating ?? editor.rating
+    // Rating klien dihitung ulang dari review nyata — nilai metrics lama bisa
+    // basi (mis. angka seed yang tak pernah direkonsiliasi dengan review).
+    // Fallback ke metrics/editor row hanya untuk staf tanpa review sama sekali.
+    const reviewAgg = await prisma.review.aggregate({
+      where: { project: { editor_id: editor.editor_id } },
+      _avg: { rating: true },
+    })
+    const avg_client_rating = round2(
+      reviewAgg._avg.rating ?? editor.metrics?.avg_client_rating ?? editor.rating,
+    )
     const completion_rate = editor.metrics?.completion_rate ?? editor.completion_rate
-    const kpi_average = round1((avg_client_rating + (completion_rate / 100) * 5 + manager_rating) / 3)
+    const kpi_average = round2((avg_client_rating + (completion_rate / 100) * 5 + manager_rating) / 3)
     const performance_band = bandOf(kpi_average)
 
     const [metrics] = await prisma.$transaction([
       prisma.editorMetrics.upsert({
         where: { editor_id: editor.editor_id },
-        update: { manager_rating, kpi_average, performance_band },
+        update: { avg_client_rating, manager_rating, kpi_average, performance_band },
         create: {
           editor_id: editor.editor_id,
           editor_name: editor.full_name,

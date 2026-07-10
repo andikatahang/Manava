@@ -94,12 +94,21 @@ export function MyKpiScore() {
     return sortDirection === 'asc' ? result : -result
   })
 
-  const avgClientRating = data.length > 0
-    ? Math.round((data.reduce((sum: number, d: typeof data[0]) => sum + (d.avg_client_rating || 0), 0) / data.filter((d: typeof data[0]) => d.avg_client_rating).length) * 100) / 100
-    : 0
-
   const totalProjects = data.reduce((sum: number, d: typeof data[0]) => sum + d.project_count, 0)
   const totalReviews = data.reduce((sum: number, d: typeof data[0]) => sum + d.review_count, 0)
+
+  // Rata-rata berbobot jumlah ulasan per periode — bukan rata-rata dari
+  // rata-rata periode, yang bias saat jumlah ulasan tiap periode berbeda.
+  const ratingPoints = data.reduce(
+    (sum: number, d: typeof data[0]) =>
+      d.avg_client_rating !== null ? sum + d.avg_client_rating * d.review_count : sum,
+    0,
+  )
+  const ratedReviews = data.reduce(
+    (sum: number, d: typeof data[0]) => (d.avg_client_rating !== null ? sum + d.review_count : sum),
+    0,
+  )
+  const avgClientRating = ratedReviews > 0 ? Math.round((ratingPoints / ratedReviews) * 100) / 100 : 0
 
   const SortHeader = ({ column, label }: { column: SortColumn; label: string }) => (
     <button

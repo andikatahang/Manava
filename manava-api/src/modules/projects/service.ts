@@ -26,7 +26,7 @@ const DEFAULT_EXCLUDED_SCOPE =
   'Perubahan konsep besar, penambahan materi/scene baru, atau permintaan di luar deskripsi brief '
   + '(terklasifikasi MAJOR — dapat dikenakan biaya tambahan).'
 
-const round1 = (n: number) => Math.round(n * 10) / 10
+const round2 = (n: number) => Math.round(n * 100) / 100
 
 async function fullNameOf(userId: string): Promise<string> {
   const user = await prisma.user.findUnique({
@@ -612,13 +612,24 @@ async function recomputeEditorKpi(editorId: string): Promise<void> {
     _avg: { rating: true },
     _count: true,
   })
-  const avgClientRating = round1(agg._avg.rating ?? editor.rating)
+  const avgClientRating = round2(agg._avg.rating ?? editor.rating)
   const completionRate = editor.metrics?.completion_rate ?? editor.completion_rate
   // Netral (3.0) untuk editor yang belum pernah dinilai manajernya.
   const managerRating = editor.metrics?.manager_rating ?? 3
-  const kpiAverage = round1((avgClientRating + (completionRate / 100) * 5 + managerRating) / 3)
+  const kpiAverage = round2((avgClientRating + (completionRate / 100) * 5 + managerRating) / 3)
   const band = kpiAverage >= 4.5 ? 'excellent' : kpiAverage >= 3.5 ? 'good' : 'needs_improvement'
   const period = new Date().toISOString().slice(0, 7) // "YYYY-MM"
+
+  // Snapshot bulan berjalan menyimpan rata-rata review BULAN INI saja —
+  // beda dari EditorMetrics yang menyimpan rata-rata sepanjang masa. Tanpa
+  // pemisahan ini, grafik bulanan menampilkan angka lifetime di setiap bulan.
+  const monthStart = new Date(`${period}-01T00:00:00.000Z`)
+  const monthAgg = await prisma.review.aggregate({
+    where: { project: { editor_id: editorId }, created_at: { gte: monthStart } },
+    _avg: { rating: true },
+  })
+  const monthClientRating = round2(monthAgg._avg.rating ?? avgClientRating)
+  const monthKpiAverage = round2((monthClientRating + (completionRate / 100) * 5 + managerRating) / 3)
 
   await prisma.$transaction([
     prisma.editorMetrics.upsert({
@@ -646,15 +657,15 @@ async function recomputeEditorKpi(editorId: string): Promise<void> {
     // mencerminkan ulasan terbaru.
     prisma.kpiSnapshot.upsert({
       where: { editor_id_period: { editor_id: editorId, period } },
-      update: { avg_client_rating: avgClientRating, kpi_average: kpiAverage },
+      update: { avg_client_rating: monthClientRating, kpi_average: monthKpiAverage },
       create: {
         editor_id: editorId,
         department: editor.department,
         period,
-        avg_client_rating: avgClientRating,
+        avg_client_rating: monthClientRating,
         completion_rate: completionRate,
         manager_rating: managerRating,
-        kpi_average: kpiAverage,
+        kpi_average: monthKpiAverage,
       },
     }),
   ])
