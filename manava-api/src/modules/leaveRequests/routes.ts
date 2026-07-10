@@ -16,11 +16,16 @@ const createSchema = z
     leave_type: z.enum(['cuti', 'izin']),
     start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format tanggal YYYY-MM-DD'),
     end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format tanggal YYYY-MM-DD'),
+    reason: z.string().max(500, 'Alasan tidak boleh melebihi 500 karakter').optional(),
   })
   .refine(d => d.start_date <= d.end_date, {
     message: 'Tanggal selesai harus setelah tanggal mulai',
     path: ['end_date'],
   })
+
+const decisionSchema = z.object({
+  decision_note: z.string().max(500, 'Catatan keputusan tidak boleh melebihi 500 karakter').optional(),
+})
 
 // Approval routing per CLAUDE.md — requests travel one level up:
 //   editor request → admin_manager approves
@@ -96,6 +101,7 @@ leaveRequestsRouter.post(
         leave_type: body.leave_type,
         start_date: new Date(body.start_date),
         end_date: new Date(body.end_date),
+        reason: body.reason || null,
       },
     })
     return res.status(201).json(ok(created))
@@ -106,6 +112,7 @@ leaveRequestsRouter.patch(
   '/:id/approve',
   authenticate,
   requireRole('admin_manager', 'hr_admin', 'superadmin'),
+  validateBody(decisionSchema),
   asyncHandler((req, res, next) => transition(req, res, next, 'approved')),
 )
 
@@ -113,6 +120,7 @@ leaveRequestsRouter.patch(
   '/:id/reject',
   authenticate,
   requireRole('admin_manager', 'hr_admin', 'superadmin'),
+  validateBody(decisionSchema),
   asyncHandler((req, res, next) => transition(req, res, next, 'rejected')),
 )
 
@@ -122,6 +130,7 @@ async function transition(
   _next: import('express').NextFunction,
   status: 'approved' | 'rejected',
 ) {
+  const body = req.body as z.infer<typeof decisionSchema> | undefined
   const leave = await prisma.leaveRequest.findUnique({ where: { leave_id: req.params.id } })
   if (!leave) return res.status(404).json(fail('Not found'))
   const canApprove = CAN_APPROVE[req.user!.role] ?? []
@@ -138,9 +147,16 @@ async function transition(
   if (leave.status !== 'pending') {
     return res.status(409).json(fail('Permohonan sudah diputuskan'))
   }
+  const decider = await prisma.user.findUnique({ where: { user_id: req.user!.sub } })
   const updated = await prisma.leaveRequest.update({
     where: { leave_id: req.params.id },
-    data: { status },
+    data: {
+      status,
+      decided_by_id: req.user!.sub,
+      decided_by_name: decider?.full_name || null,
+      decided_at: new Date(),
+      decision_note: body?.decision_note || null,
+    },
   })
   return res.json(ok(updated))
 }
