@@ -6,10 +6,16 @@
 import { useState } from 'react'
 import {
   Wallet, Sparkles, Clock, UserX, CheckCircle2, Ban, Send, Pencil,
+  Landmark, Download, Loader2,
 } from 'lucide-react'
 import { formatCurrency, formatDate } from '../../lib/utils'
-import { STATUS_LABELS, type Payslip, type PayslipStatus } from '../../lib/payroll'
-import { usePayslips, usePayrollMutations } from '../../hooks/queries/usePayroll'
+import {
+  STATUS_LABELS, BATCH_STATUS_LABELS, downloadPaymentBatchCsv,
+  type Payslip, type PayslipStatus, type BatchStatus,
+} from '../../lib/payroll'
+import {
+  usePayslips, usePayrollMutations, usePaymentBatches, useBatchMutations,
+} from '../../hooks/queries/usePayroll'
 import { Modal } from '../../components/ui/Modal'
 import { ApiError } from '../../lib/api'
 
@@ -145,9 +151,108 @@ export default function PayrollPage() {
         )}
       </div>
 
+      <PaymentBatches period={period} hasFinalized={slips.some(s => s.status === 'finalized' && s.payment_status === 'pending')} />
+
       <Modal open={!!detail} onClose={() => setDetail(null)} title={detail ? `Slip Gaji — ${detail.editor_name}` : ''} size="md">
         {detail && <PayslipDetail slip={detail} onClose={() => setDetail(null)} />}
       </Modal>
+    </div>
+  )
+}
+
+const BATCH_CHIP: Record<BatchStatus, string> = {
+  pending:    'bg-amber-50 text-amber-700 border-amber-200',
+  processing: 'bg-navy-50 text-navy border-navy/15',
+  completed:  'bg-emerald-50 text-emerald-700 border-emerald-200',
+  failed:     'bg-red-50 text-red-700 border-red-200',
+}
+
+// Bank transfer batches: HR bundles finalized payslips into one batch, runs a
+// (simulated) bank process, then downloads the CSV for the bank portal.
+function PaymentBatches({ period, hasFinalized }: { period: string; hasFinalized: boolean }) {
+  const { data: batches = [], isLoading } = usePaymentBatches()
+  const { create, process } = useBatchMutations()
+  const [batchError, setBatchError] = useState<string | null>(null)
+
+  function runCreate() {
+    setBatchError(null)
+    create.mutate(period, {
+      onError: err => setBatchError(err instanceof ApiError ? err.message : 'Gagal membuat batch — coba lagi'),
+    })
+  }
+
+  function runProcess(id: string) {
+    setBatchError(null)
+    process.mutate(id, {
+      onError: err => setBatchError(err instanceof ApiError ? err.message : 'Gagal memproses batch — coba lagi'),
+    })
+  }
+
+  return (
+    <div className="card p-0 overflow-hidden">
+      <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-3 border-b border-border">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-navy-50 flex items-center justify-center shrink-0">
+            <Landmark className="w-4 h-4 text-navy" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-navy">Batch Pembayaran Bank</p>
+            <p className="text-xs text-navy/50">Kumpulkan slip berstatus Siap Dibayar menjadi satu transfer batch.</p>
+          </div>
+        </div>
+        <button className="btn-primary" disabled={create.isPending || !hasFinalized} onClick={runCreate}>
+          {create.isPending ? 'Membuat…' : `Buat Batch (${period})`}
+        </button>
+      </div>
+
+      {batchError && (
+        <p className="mx-5 mt-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{batchError}</p>
+      )}
+
+      {isLoading && <div className="text-center py-8 text-[13px] text-[#596074]">Memuat batch…</div>}
+      {!isLoading && batches.length === 0 && (
+        <div className="text-center py-8 text-[13px] text-[#596074]">Belum ada batch pembayaran.</div>
+      )}
+      {batches.length > 0 && (
+        <div className="divide-y divide-black/[0.05]">
+          {batches.map(b => (
+            <div key={b.batch_id} className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-navy">
+                  {b.period} · {b.payslip_count} slip · {formatCurrency(b.total_amount)}
+                </p>
+                <p className="text-[11px] text-navy/45">
+                  Dibuat {formatDate(b.created_at)}{b.processed_at ? ` · diproses ${formatDate(b.processed_at)}` : ''}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border ${BATCH_CHIP[b.status]}`}>
+                  {BATCH_STATUS_LABELS[b.status]}
+                </span>
+                {b.status === 'pending' && (
+                  <button
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 transition-colors"
+                    disabled={process.isPending}
+                    onClick={() => runProcess(b.batch_id)}
+                  >
+                    {process.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                    Proses Transfer
+                  </button>
+                )}
+                <button
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11.5px] font-semibold text-navy bg-navy/5 hover:bg-navy/10 transition-colors"
+                  onClick={() => {
+                    downloadPaymentBatchCsv(b.batch_id, b.period).catch(() =>
+                      setBatchError('Gagal mengunduh CSV — coba lagi'))
+                  }}
+                >
+                  <Download className="w-3.5 h-3.5" /> CSV
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -190,9 +295,31 @@ function PayslipDetail({ slip, onClose }: { slip: Payslip; onClose: () => void }
 
       <div className="space-y-1.5 text-[13px]">
         <Row label="Gaji Pokok" value={formatCurrency(slip.base_salary)} />
-        <Row label="Potongan Absen" value={`-${formatCurrency(slip.attendance_deduction)}`} tone="text-red-600" />
         <Row label="Lembur" value={`+${formatCurrency(slip.overtime_pay)}`} tone="text-emerald-700" />
+        <Row label="Gaji Bruto" value={formatCurrency(slip.gross_salary)} />
       </div>
+
+      <div className="space-y-1.5 text-[13px]">
+        <Row label="Potongan Absen" value={`-${formatCurrency(slip.attendance_deduction)}`} tone="text-red-600" />
+        {slip.presensi_penalty > 0 && (
+          <Row label="Denda Presensi" value={`-${formatCurrency(slip.presensi_penalty)}`} tone="text-red-600" />
+        )}
+        <Row label="PPh 21" value={`-${formatCurrency(slip.pph21_tax)}`} tone="text-red-600" />
+        <Row label="BPJS Kesehatan" value={`-${formatCurrency(slip.bpjs_kesehatan)}`} tone="text-red-600" />
+        <Row
+          label="BPJS Ketenagakerjaan"
+          value={`-${formatCurrency(slip.bpjs_tk_jkk + slip.bpjs_tk_jkm + slip.bpjs_tk_jht + slip.bpjs_tk_jp)}`}
+          tone="text-red-600"
+        />
+        <Row label="Total Potongan" value={`-${formatCurrency(slip.total_deductions)}`} tone="text-red-600" />
+      </div>
+
+      {slip.payment_reference && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-[13px]">
+          <Row label="Referensi Pembayaran" value={slip.payment_reference} tone="text-emerald-700" />
+          {slip.paid_at && <Row label="Dibayar Pada" value={formatDate(slip.paid_at)} tone="text-emerald-700" />}
+        </div>
+      )}
 
       {slip.status === 'draft' ? (
         <div className="grid grid-cols-2 gap-3">
