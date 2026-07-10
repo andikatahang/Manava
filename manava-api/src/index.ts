@@ -17,6 +17,7 @@ import { leaveRequestsRouter } from './modules/leaveRequests/routes.js'
 import { attendanceRouter } from './modules/attendance/routes.js'
 import { projectsRouter } from './modules/projects/routes.js'
 import { applicationsRouter } from './modules/applications/routes.js'
+import { jobPostingsRouter } from './modules/jobPostings/routes.js'
 import { kpiRouter } from './modules/kpi/routes.js'
 import { payrollRouter } from './modules/payroll/routes.js'
 import { reportsRouter } from './modules/reports/routes.js'
@@ -44,6 +45,7 @@ app.use('/api/v1/leave-requests', leaveRequestsRouter)
 app.use('/api/v1/attendance', attendanceRouter)
 app.use('/api/v1/projects', projectsRouter)
 app.use('/api/v1/applications', applicationsRouter)
+app.use('/api/v1/job-postings', jobPostingsRouter)
 app.use('/api/v1/kpi', kpiRouter)
 app.use('/api/v1/payroll', payrollRouter)
 app.use('/api/v1/reports', reportsRouter)

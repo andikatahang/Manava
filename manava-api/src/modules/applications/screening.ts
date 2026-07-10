@@ -27,10 +27,20 @@ export const VACANCY_CRITERIA = {
   skills: SKILL_OPTIONS as readonly string[],
 } as const
 
+export function defaultCriteria(): JobCriteria {
+  return {
+    min_age: 18,
+    max_age: 35,
+    min_education: 'D3',
+    min_gpa: 3.0,
+    skills: [...SKILL_OPTIONS],
+  }
+}
+
 export const CRITERIA_DESCRIPTION = [
-  { label: 'Umur', value: `${VACANCY_CRITERIA.min_age}–${VACANCY_CRITERIA.max_age} tahun` },
-  { label: 'Pendidikan', value: `Minimal ${VACANCY_CRITERIA.min_education}` },
-  { label: 'IPK', value: `Minimal ${VACANCY_CRITERIA.min_gpa.toFixed(2)}` },
+  { label: 'Umur', value: `${18}–${35} tahun` },
+  { label: 'Pendidikan', value: 'Minimal D3' },
+  { label: 'IPK', value: 'Minimal 3.00' },
   { label: 'Keahlian', value: `Minimal satu dari: ${SKILL_OPTIONS.join(', ')}` },
 ] as const
 
@@ -96,14 +106,22 @@ function normalizeText(raw: string): string | null {
   return text.length >= 30 ? text.slice(0, MAX_CV_TEXT_CHARS) : null
 }
 
+export interface JobCriteria {
+  min_age: number
+  max_age: number
+  min_education: string
+  min_gpa: number
+  skills: string[]
+}
+
 // ── Criteria evaluation (deterministic, shared by both sources) ──────────────
 
-export function evaluateCriteria(profile: ExtractedProfile): {
+export function evaluateCriteria(profile: ExtractedProfile, criteria: JobCriteria): {
   checks: CriterionCheck[]
   meets_criteria: boolean | null
 } {
-  const c = VACANCY_CRITERIA
-  const eduRank = (e: EducationLevel) => EDUCATION_LEVELS.indexOf(e)
+  const c = criteria
+  const eduRank = (e: string) => EDUCATION_LEVELS.indexOf(e as EducationLevel)
 
   const checks: CriterionCheck[] = [
     {
@@ -265,13 +283,14 @@ async function openAiExtract(cvText: string): Promise<{ profile: ExtractedProfil
 
 // ── Orchestrator ─────────────────────────────────────────────────────────────
 
-export async function screenCv(cvData: string): Promise<ScreeningResult> {
+export async function screenCv(cvData: string, criteria?: JobCriteria): Promise<ScreeningResult> {
+  const jobCriteria = criteria ?? defaultCriteria()
   const text = await extractCvText(cvData)
   if (!text) {
     const profile: ExtractedProfile = {
       age: null, education: null, gpa: null, graduation_year: null, skills: [],
     }
-    const { checks } = evaluateCriteria(profile)
+    const { checks } = evaluateCriteria(profile, jobCriteria)
     return {
       profile,
       summary:
@@ -286,7 +305,7 @@ export async function screenCv(cvData: string): Promise<ScreeningResult> {
   if (isOpenAiConfigured()) {
     try {
       const { profile, summary } = await openAiExtract(text)
-      const { checks, meets_criteria } = evaluateCriteria(profile)
+      const { checks, meets_criteria } = evaluateCriteria(profile, jobCriteria)
       return {
         profile,
         summary: `${summary} ${verdictSentence(meets_criteria)}`,
@@ -301,7 +320,7 @@ export async function screenCv(cvData: string): Promise<ScreeningResult> {
   }
 
   const profile = heuristicExtract(text)
-  const { checks, meets_criteria } = evaluateCriteria(profile)
+  const { checks, meets_criteria } = evaluateCriteria(profile, jobCriteria)
   return {
     profile,
     summary: heuristicSummary(profile, meets_criteria),

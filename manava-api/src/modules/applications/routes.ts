@@ -27,14 +27,15 @@ const CV_DATA_URL_RE =
   /^data:(application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document);base64,[A-Za-z0-9+/]+=*$/
 
 // Applicants only type name/email/phone — the profile (age, education, GPA,
-// skills) is AI-extracted from the CV server-side at submission time.
-const submitSchema = z.object({
-  full_name: z.string().trim().min(2).max(100),
-  email: z.string().trim().email(),
-  phone: z.string().trim().min(6).max(30),
-  cv_name: z.string().trim().min(1).max(200),
-  cv_data: z.string().max(MAX_CV_DATA_LENGTH).regex(CV_DATA_URL_RE, 'CV harus PDF/DOC dalam format data URL'),
-})
+ // skills) is AI-extracted from the CV server-side at submission time.
+ const submitSchema = z.object({
+   full_name: z.string().trim().min(2).max(100),
+   email: z.string().trim().email(),
+   phone: z.string().trim().min(6).max(30),
+   cv_name: z.string().trim().min(1).max(200),
+   cv_data: z.string().max(MAX_CV_DATA_LENGTH).regex(CV_DATA_URL_RE, 'CV harus PDF/DOC dalam format data URL'),
+   job_id: z.string().optional(), // link to job posting
+ })
 
 // Public list/detail fields — cv_data is excluded (streamed via /:id/cv).
 const LIST_SELECT = {
@@ -121,10 +122,30 @@ applicationsRouter.post(
     }
 
     const cv_mime = body.cv_data.slice(5, body.cv_data.indexOf(';'))
+
+    // If job_id provided, fetch job-specific criteria for screening
+    let jobCriteria: { min_age: number; max_age: number; min_education: string; min_gpa: number; skills: string[] } | null = null
+    if (body.job_id) {
+      const job = await prisma.jobPosting.findUnique({
+        where: { job_id: body.job_id, status: 'open' },
+        select: { min_gpa: true, min_education: true, required_skills: true },
+      })
+      if (!job) {
+        return res.status(404).json(fail('Lowongan tidak ditemukan atau sudah ditutup'))
+      }
+      jobCriteria = {
+        min_age: 18,
+        max_age: 35,
+        min_education: job.min_education ?? 'D3',
+        min_gpa: job.min_gpa ?? 3.0,
+        skills: job.required_skills,
+      }
+    }
+
     // Authoritative screening runs server-side at submission (the /screen call
     // on upload is only a preview) — falls back to the heuristic on any OpenAI
     // failure, so submission never blocks.
-    const screening = await screenCv(body.cv_data)
+    const screening = await screenCv(body.cv_data, jobCriteria ?? undefined)
     const created = await prisma.jobApplication.create({
       data: {
         full_name: body.full_name,
@@ -144,6 +165,7 @@ applicationsRouter.post(
         ai_department: screening.profile.skills.length
           ? deriveDepartment(screening.profile.skills)
           : null,
+        job_id: body.job_id ?? null,
       },
       select: LIST_SELECT,
     })
