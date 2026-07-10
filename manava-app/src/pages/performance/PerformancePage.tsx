@@ -141,7 +141,7 @@ function EditorRow({
   )
 }
 
-function DetailBody({ metrics }: { metrics: EditorMetrics }) {
+export function DetailBody({ metrics, compact = false }: { metrics: EditorMetrics; compact?: boolean }) {
   const bandMeta = BAND_META[metrics.performance_band]
 
   const radarData = [
@@ -151,7 +151,7 @@ function DetailBody({ metrics }: { metrics: EditorMetrics }) {
   ]
 
   return (
-    <div className="space-y-5">
+    <div className={compact ? 'space-y-4' : 'space-y-5'}>
       {/* Subject + gauge */}
       <div className="flex items-center gap-4">
         <div className="w-12 h-12 rounded-xl bg-navy flex items-center justify-center text-white text-sm font-bold shrink-0">
@@ -183,10 +183,11 @@ function DetailBody({ metrics }: { metrics: EditorMetrics }) {
         ))}
       </div>
 
-      {/* Radar */}
+      {/* Radar + Kepuasan — berdampingan pada mode compact */}
+      <div className={compact ? 'grid sm:grid-cols-2 gap-5 items-start' : 'contents'}>
       <div>
         <p className="text-xs font-semibold text-navy/50 uppercase tracking-wider mb-2">Dimensi KPI</p>
-        <ResponsiveContainer width="100%" height={180}>
+        <ResponsiveContainer width="100%" height={compact ? 150 : 180}>
           <RadarChart data={radarData} margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
             <PolarGrid stroke="#e8edf2" />
             <PolarAngleAxis dataKey="metric" tick={{ fontSize: 10, fill: '#022E5799' }} />
@@ -225,6 +226,7 @@ function DetailBody({ metrics }: { metrics: EditorMetrics }) {
             })}
           </div>
         </div>
+      </div>
       </div>
     </div>
   )
@@ -322,9 +324,6 @@ export default function PerformancePage({ role }: { role: UserRole; embedded?: b
           title={`KPI Anda — ${myMetrics.kpi_average.toFixed(2)} / 5.0`}
           hint={`Band: ${BAND_META[myMetrics.performance_band].label}. Skor ini menjadi basis bonus proyek kuartal berikutnya.`}
         />
-        <div className="card">
-          <DetailBody metrics={myMetrics} />
-        </div>
         {/* Grafik & AI insight pribadi — dipindah dari subhalaman ESS */}
         <MyKpiScore />
       </div>

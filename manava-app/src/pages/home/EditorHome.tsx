@@ -13,6 +13,8 @@ import { HomeHero } from '../../components/home/HomeHero'
 import { FeatureGrid } from '../../components/home/FeatureGrid'
 import { StatusBadge } from '../../components/ui/Badge'
 import { useProjects } from '../../hooks/queries/useProjects'
+import { useEditors } from '../../hooks/queries/useEditors'
+import { DetailBody } from '../performance/PerformancePage'
 import { useProjectInbox } from '../../hooks/queries/useProjectRoom'
 import { formatCurrency, timeAgo } from '../../lib/utils'
 import type { InboxItem, Project, User } from '../../types'
@@ -45,6 +47,8 @@ export default function EditorHome({ user }: { user: User }) {
   const navigate = useNavigate()
   const projectsQuery = useProjects()
   const inboxQuery = useProjectInbox()
+  const editorsQuery = useEditors()
+  const myMetrics = (editorsQuery.data ?? []).find(e => e.user_id === user.user_id)?.metrics ?? null
 
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data])
   const active = useMemo(
@@ -67,6 +71,13 @@ export default function EditorHome({ user }: { user: User }) {
         roleLabel="Staf"
         subtitle="Balas chat klien, kirim brief penawaran, dan pantau proyek yang sedang berjalan."
       />
+
+      {/* Ringkasan KPI pribadi (compact) — dipindah dari halaman Grafik & Indeks Kepuasan Klien */}
+      {myMetrics && (
+        <section className="card">
+          <DetailBody metrics={myMetrics} compact />
+        </section>
+      )}
 
       <FeatureGrid
         title="Akses cepat"
