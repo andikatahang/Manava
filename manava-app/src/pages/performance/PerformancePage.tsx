@@ -14,6 +14,7 @@ import { useEditors, useEditorMutations } from '../../hooks/queries/useEditors'
 import { useDepartments } from '../../hooks/queries/useDepartments'
 import { useMonthlyKpi } from '../../hooks/queries/useKpi'
 import { KpiTrendChart } from './KpiTrendChart'
+import { MyKpiScore } from '../ess/MyKpiScore'
 import { ApiError } from '../../lib/api'
 import type { EditorMetrics, UserRole } from '../../types'
 
@@ -324,6 +325,8 @@ export default function PerformancePage({ role }: { role: UserRole; embedded?: b
         <div className="card">
           <DetailBody metrics={myMetrics} />
         </div>
+        {/* Grafik & AI insight pribadi — dipindah dari subhalaman ESS */}
+        <MyKpiScore />
       </div>
     )
   }

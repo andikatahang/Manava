@@ -3,7 +3,7 @@
 // (pengajuan + riwayat), gaji dari /payroll/mine (slip yang sudah difinalisasi).
 
 import { useMemo, useState } from 'react'
-import { Calendar, CheckCircle2, Clock, Plus, Wallet, TrendingUp, UserX } from 'lucide-react'
+import { Calendar, CheckCircle2, Clock, Plus, Wallet, UserX } from 'lucide-react'
 import { StatusBadge } from '../../components/ui/Badge'
 import { Modal } from '../../components/ui/Modal'
 import { Drawer } from '../../components/ui/Drawer'
@@ -17,16 +17,14 @@ import type { Attendance } from '../../lib/attendance'
 import { STATUS_LABELS as PAYSLIP_STATUS_LABELS, type Payslip, type PayslipStatus } from '../../lib/payroll'
 import { useMyPayslips } from '../../hooks/queries/usePayroll'
 import { CalendarCard, DayDetailBody, StatStrip } from '../attendance/AttendanceTab'
-import { MyKpiScore } from './MyKpiScore'
 import { MyReimbursements } from './MyReimbursements'
 
-type Tab = 'absensi' | 'cuti' | 'klaim' | 'kpi' | 'gaji'
+type Tab = 'absensi' | 'cuti' | 'klaim' | 'gaji'
 
 const TABS: { id: Tab; label: string; icon: typeof Clock }[] = [
   { id: 'absensi', label: 'Absensi', icon: Clock },
   { id: 'cuti', label: 'Cuti & Izin', icon: Calendar },
   { id: 'klaim', label: 'Klaim Dana Operasional', icon: Wallet },
-  { id: 'kpi', label: 'Indeks Kepuasan Klien', icon: TrendingUp },
   { id: 'gaji', label: 'Slip Gaji', icon: Wallet },
 ]
 
@@ -61,7 +59,6 @@ export default function ESSPage({ role }: { role: UserRole }) {
       {tab === 'absensi' && <MyAttendance />}
       {tab === 'cuti' && <MyLeave role={role} />}
       {tab === 'klaim' && <MyReimbursements />}
-      {tab === 'kpi' && <MyKpiScore />}
       {tab === 'gaji' && <MyPayslips />}
     </div>
   )
