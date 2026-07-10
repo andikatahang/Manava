@@ -71,7 +71,7 @@ const configs: Record<UserRole, RoleHomeConfig> = {
     ],
   },
   // client dirender oleh <ClientHome/> (inbox + proyek), bukan config ini.
-  client:   { roleLabel: 'Klien',    subtitle: 'Cari staf, pantau proyek, dan beri ulasan.', features: [] },
+  client:   { roleLabel: 'Klien',    subtitle: 'Cari jasa, pantau proyek, dan beri ulasan.', features: [] },
   mediator: { roleLabel: 'Mediator', subtitle: 'Role nonaktif.',   features: [] },
   finance:  { roleLabel: 'Keuangan', subtitle: 'Role nonaktif.',   features: [] },
 }

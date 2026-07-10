@@ -95,7 +95,7 @@ export default function EditorHome({ user }: { user: User }) {
             <p className="text-xs text-[#596074] py-6 text-center">Memuat…</p>
           ) : inbox.length === 0 ? (
             <p className="text-xs text-[#596074] py-6 text-center">
-              Belum ada pesan dari klien. Klien akan mengontak Anda lewat halaman Cari Staf.
+              Belum ada pesan dari klien. Klien akan mengontak Anda lewat halaman Cari Jasa.
             </p>
           ) : (
             <ul className="divide-y divide-[#EDEDED] -mx-2">

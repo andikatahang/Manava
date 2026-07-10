@@ -32,7 +32,7 @@ const pageTitles: Record<string, string> = {
   '/users': 'Pengguna & Role',
   '/system': 'Sistem & Enkripsi',
   '/warning': 'Peringatan Kerja',
-  '/browse-editors': 'Cari Staf',
+  '/browse-editors': 'Cari Jasa',
   '/profile': 'Profil',
   '/escrow': 'Escrow',
   '/emergency-release': 'Emergency Escrow Release',

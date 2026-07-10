@@ -67,7 +67,7 @@ const navByRole: Record<UserRole, NavItem[]> = {
   ],
   client: [
     { to: '/dashboard', icon: Home, label: 'Home' },
-    { to: '/browse-editors', icon: Search, label: 'Cari Staf' },
+    { to: '/browse-editors', icon: Search, label: 'Cari Jasa' },
     { to: '/projects', icon: Briefcase, label: 'Proyek Saya' },
   ],
   mediator: [],

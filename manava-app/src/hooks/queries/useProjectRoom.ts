@@ -142,7 +142,7 @@ export function useProjectRoomMutations(projectId: string | undefined) {
   }
 }
 
-// Klien membuka ruang diskusi baru dengan editor dari halaman Cari Staf.
+// Klien membuka ruang diskusi baru dengan editor dari halaman Cari Jasa.
 export function useStartBooking() {
   const qc = useQueryClient()
   return useMutation({
