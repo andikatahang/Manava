@@ -61,6 +61,17 @@ enum ApplicationStatus {
   rejected
 }
 
+enum WorkType {
+  fulltime
+  parttime
+}
+
+enum WorkSystem {
+  remote
+  hybrid
+  onsite
+}
+
 enum ProjectStatus {
   draft
   awaiting_dp
@@ -251,6 +262,7 @@ model User {
   attendance_adjustments AttendanceRecord[] @relation("AttendanceAdjuster")
   reimbursement_claims ReimbursementClaim[]
   editor_reports       EditorReport[]
+  job_postings         JobPosting[]
 
   @@index([role])
 }
@@ -755,14 +767,30 @@ model PaymentBatch {
 // ─── Recruitment ─────────────────────────────────────────────────────────────
 
 model JobPosting {
-  job_id          String    @id @default(cuid())
-  title           String
-  specialization  String[]
-  status          JobStatus @default(open)
-  created_at      DateTime  @default(now())
-  applicant_count Int       @default(0)
+  job_id           String    @id @default(cuid())
+  title               String
+  department          String?
+  position            String?   // Jabatan: free-text (e.g. "Senior Editor", "Junior Retoucher")
+  work_type           WorkType?
+  work_system         WorkSystem?
+  description         String?
+  min_gpa             Float?
+  min_education       String?   // e.g. "D3", "S1", "S2"
+  required_skills     String[]  @default([]) // subset of SKILL_OPTIONS
+  required_experience String?
+  specialization      String[]
+  status              JobStatus @default(open)
+  created_by_id       String?   // HR admin who posted this job; null for legacy/demo rows
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+  applicant_count     Int       @default(0)
 
-  applicants Applicant[]
+  applicants          Applicant[]
+  jobApplications     JobApplication[]
+  createdBy           User?     @relation(fields: [created_by_id], references: [user_id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([created_by_id])
 }
 
 // Single-row switch (id "default") controlling whether the public /apply
@@ -778,6 +806,7 @@ model RecruitmentSetting {
 // ai_summary is generated once at submission time (mock AI, deterministic).
 model JobApplication {
   application_id  String            @id @default(cuid())
+  job_id          String?           // nullable: existing applications have no job link
   full_name       String
   email           String
   // Profile fields are AI-extracted from the CV (not typed by the applicant)
@@ -807,8 +836,11 @@ model JobApplication {
   submitted_at    DateTime          @default(now())
   updated_at      DateTime          @updatedAt
 
+  job JobPosting? @relation(fields: [job_id], references: [job_id], onDelete: SetNull)
+
   @@index([status])
   @@index([email])
+  @@index([job_id])
 }
 
 // ─── Department Reporting ────────────────────────────────────────────────────

@@ -1,7 +1,6 @@
+import type { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma.js'
 import { HttpError } from '../../middleware/errorHandler.js'
-
-const HR_ROLES = ['hr_admin', 'superadmin'] as const
 
 export const JOB_POSTING_SELECT = {
   job_id: true,
@@ -23,7 +22,7 @@ export const JOB_POSTING_SELECT = {
   applicant_count: true,
 } as const
 
-export type JobPosting = typeof JOB_POSTING_SELECT extends { [k: string]: infer T } ? T : never
+export type JobPosting = Prisma.JobPostingGetPayload<{ select: typeof JOB_POSTING_SELECT }>
 
 export interface CreateJobPostingInput {
   title: string

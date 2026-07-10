@@ -5,13 +5,17 @@
 
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, ClipboardList, FileText, Upload, X } from 'lucide-react'
+import { ArrowLeft, Briefcase, CheckCircle2, ClipboardList, Clock, FileText, MapPin, Upload, X } from 'lucide-react'
 import logoDark from '../../assets/logo-dark.png'
 import {
-  fetchRecruitmentStatus, fetchVacancyCriteria, submitApplication,
+  fetchOpenJobPostings, fetchRecruitmentStatus, fetchVacancyCriteria, submitApplication,
   type VacancyCriterion,
 } from '../../lib/applications'
+import type { JobPosting } from '../../types'
 import { ApiError } from '../../lib/api'
+
+const WORK_TYPE_LABELS: Record<string, string> = { fulltime: 'Full-time', parttime: 'Part-time' }
+const WORK_SYSTEM_LABELS: Record<string, string> = { remote: 'Remote', hybrid: 'Hybrid', onsite: 'On-site' }
 
 interface FormState {
   full_name: string
@@ -52,11 +56,23 @@ export default function ApplyPage() {
   // null = still checking; the form is hidden until we know for sure so a
   // closed vacancy never flashes an editable form first.
   const [isOpen, setIsOpen] = useState<boolean | null>(null)
+  // Open postings; the applicant picks one before the form appears. When the
+  // list fails to load or is empty, the form still works without a job link.
+  const [jobs, setJobs] = useState<JobPosting[]>([])
+  const [jobsLoaded, setJobsLoaded] = useState(false)
+  const [selectedJob, setSelectedJob] = useState<JobPosting | null>(null)
 
   useEffect(() => {
-    fetchVacancyCriteria().then(setCriteria).catch(() => {})
     fetchRecruitmentStatus().then(s => setIsOpen(s.is_open)).catch(() => setIsOpen(true))
+    fetchOpenJobPostings()
+      .then(list => { setJobs(list); setJobsLoaded(true) })
+      .catch(() => setJobsLoaded(true))
   }, [])
+
+  // Criteria follow the chosen job (fallback = generic criteria).
+  useEffect(() => {
+    fetchVacancyCriteria(selectedJob?.job_id).then(setCriteria).catch(() => {})
+  }, [selectedJob])
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm(f => ({ ...f, [key]: value }))
@@ -100,6 +116,7 @@ export default function ApplyPage() {
     setSubmitError(null)
     try {
       await submitApplication({
+        ...(selectedJob ? { job_id: selectedJob.job_id } : {}),
         full_name: form.full_name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
@@ -133,18 +150,62 @@ export default function ApplyPage() {
           <ClosedView />
         ) : submitted ? (
           <SuccessView email={form.email} />
-        ) : (
+        ) : jobs.length > 0 && !selectedJob ? (
+          /* Step 1 — pick a vacancy before the form appears */
           <>
             <div className="mb-8">
               <span className="inline-block text-[11px] font-semibold uppercase tracking-[0.16em] text-[#0050F8] mb-3">Lowongan Pekerjaan</span>
               <h1 className="text-[clamp(1.8rem,4vw,2.6rem)] font-bold tracking-[-0.03em] text-[#021526] leading-tight"
                 style={{ fontFamily: "'Inter Display', sans-serif" }}>
-                Daftar sebagai Editor
+                Gabung Bersama Kami
+              </h1>
+              <p className="text-[#596074] mt-2 text-[15px]">
+                Pilih posisi yang paling sesuai dengan keahlian Anda, lalu lengkapi formulir lamaran.
+              </p>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {jobs.map(job => (
+                <button key={job.job_id} type="button" onClick={() => setSelectedJob(job)}
+                  className="text-left rounded-2xl border border-[#e0e0e0] bg-white p-5 hover:border-[#021526]/40 hover:shadow-[0_14px_44px_-16px_rgba(2,21,38,0.18)] transition-all">
+                  <div className="w-9 h-9 rounded-xl bg-[#021526]/5 flex items-center justify-center mb-3">
+                    <Briefcase className="w-4 h-4 text-[#021526]" />
+                  </div>
+                  <h2 className="text-[15px] font-semibold text-[#021526] leading-snug">{job.title}</h2>
+                  <p className="text-xs text-[#596074] mt-0.5">
+                    {[job.position, job.department].filter(Boolean).join(' · ')}
+                  </p>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3 text-[11.5px] text-[#596074]">
+                    {job.work_type && (
+                      <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> {WORK_TYPE_LABELS[job.work_type]}</span>
+                    )}
+                    {job.work_system && (
+                      <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" /> {WORK_SYSTEM_LABELS[job.work_system]}</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          /* Step 2 — application form (also the fallback when no postings exist) */
+          <>
+            <div className="mb-8">
+              <span className="inline-block text-[11px] font-semibold uppercase tracking-[0.16em] text-[#0050F8] mb-3">Lowongan Pekerjaan</span>
+              <h1 className="text-[clamp(1.8rem,4vw,2.6rem)] font-bold tracking-[-0.03em] text-[#021526] leading-tight"
+                style={{ fontFamily: "'Inter Display', sans-serif" }}>
+                {selectedJob ? `Lamar: ${selectedJob.title}` : 'Gabung Bersama Kami'}
               </h1>
               <p className="text-[#596074] mt-2 text-[15px]">
                 Isi data kontak Anda dan unggah CV. Tim HR Manava akan meninjau lamaran Anda dan
                 mengirim undangan interview melalui email.
               </p>
+              {selectedJob && (
+                <button type="button" onClick={() => setSelectedJob(null)}
+                  className="mt-2 text-[13px] font-semibold text-[#0050F8] hover:underline">
+                  ← Pilih lowongan lain
+                </button>
+              )}
+              {!jobsLoaded && <p className="text-xs text-[#8a8fa3] mt-2">Memuat daftar lowongan…</p>}
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5" noValidate>

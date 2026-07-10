@@ -9,6 +9,8 @@ import LoginPage from './pages/auth/LoginPage'
 import ApplyPage from './pages/apply/ApplyPage'
 import RecruitmentPage from './pages/recruitment/RecruitmentPage'
 import ApplicantDetailPage from './pages/recruitment/ApplicantDetailPage'
+import JobPostingsPage from './pages/recruitment/JobPostingsPage'
+import JobPostingFormPage from './pages/recruitment/JobPostingFormPage'
 import PayrollPage from './pages/payroll/PayrollPage'
 import AttendancePage from './pages/attendance/AttendancePage'
 import PerformancePage from './pages/performance/PerformancePage'
@@ -119,6 +121,9 @@ function AppRoutes() {
         <Route path="/login" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<RoleHomePage user={user} />} />
         <Route path="/recruitment" element={<RoleGuard role={role}><RecruitmentPage role={role} /></RoleGuard>} />
+        <Route path="/recruitment/jobs" element={<RoleGuard role={role}><JobPostingsPage /></RoleGuard>} />
+        <Route path="/recruitment/jobs/new" element={<RoleGuard role={role}><JobPostingFormPage /></RoleGuard>} />
+        <Route path="/recruitment/jobs/:id/edit" element={<RoleGuard role={role}><JobPostingFormPage /></RoleGuard>} />
         <Route path="/recruitment/:id" element={<RoleGuard role={role}><ApplicantDetailPage /></RoleGuard>} />
         <Route path="/projects" element={<RoleGuard role={role}><ProjectsPage role={role} /></RoleGuard>} />
         <Route path="/projects/:id" element={<RoleGuard role={role}><ProjectRoomPage role={role} /></RoleGuard>} />
