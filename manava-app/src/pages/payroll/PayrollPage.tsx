@@ -328,7 +328,7 @@ function PayslipDetail({ slip, onClose }: { slip: Payslip; onClose: () => void }
             <input type="number" min={0} className="input" value={bonus} onChange={e => setBonus(e.target.value)} />
           </div>
           <div>
-            <label className="label">Reimbursement</label>
+            <label className="label">Reimbursement (auto dari klaim disetujui)</label>
             <input type="number" min={0} className="input" value={reimbursement} onChange={e => setReimbursement(e.target.value)} />
           </div>
           <button className="btn-secondary col-span-2 justify-center" disabled={busy} onClick={saveAdjustment}>
