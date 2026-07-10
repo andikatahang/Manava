@@ -85,6 +85,10 @@ async function main() {
   // FK ke Editor (Project, dll.), jadi kalau tabel-tabel itu tidak dikosongkan
   // di sini dulu, Editor.deleteMany() di bawah gagal FK constraint dan proses
   // berhenti SEBELUM sempat membuat ulang AdminManager/Department/Editor.
+  await prisma.reimbursementClaim.deleteMany()
+  await prisma.editorReport.deleteMany()
+  await prisma.departmentReport.deleteMany()
+  await prisma.paymentBatch.deleteMany()
   await prisma.kpiSnapshot.deleteMany()
   await prisma.transaction.deleteMany()
   await prisma.escrowAccount.deleteMany()
@@ -224,8 +228,10 @@ async function main() {
   console.log(`🏢 Seeded ${DEPARTMENTS.length} departments (10 editor each)`)
 
   // ── Attendance schedule defaults ──────────────────────────────────────────
-  await prisma.attendanceSetting.create({
-    data: { id: 'default', clock_in_time: '09:00', clock_out_time: '17:00', code_duration_minutes: 30 },
+  await prisma.attendanceSetting.upsert({
+    where: { id: 'default' },
+    update: { clock_in_time: '09:00', clock_out_time: '17:00', code_duration_minutes: 30 },
+    create: { id: 'default', clock_in_time: '09:00', clock_out_time: '17:00', code_duration_minutes: 30 },
   })
   console.log('🕐 Seeded attendance settings (09:00 – 17:00, kode 30 menit)')
 
