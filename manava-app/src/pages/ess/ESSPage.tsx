@@ -137,7 +137,12 @@ function MyLeave({ role }: { role: UserRole }) {
   function send() {
     if (!form.start || !form.end) return
     submit.mutate(
-      { leave_type: form.type, start_date: form.start, end_date: form.end },
+      {
+        leave_type: form.type,
+        start_date: form.start,
+        end_date: form.end,
+        ...(form.reason.trim() ? { reason: form.reason.trim().slice(0, 500) } : {}),
+      },
       {
         onSuccess: () => {
           setModal(false)
@@ -187,6 +192,13 @@ function MyLeave({ role }: { role: UserRole }) {
                 <p className="text-xs text-navy/50">
                   {formatDate(l.start_date)} – {formatDate(l.end_date)} · diajukan {formatDate(l.created_at)}
                 </p>
+                {l.status !== 'pending' && l.decided_by_name && (
+                  <p className="text-xs text-navy/50 mt-0.5">
+                    {l.status === 'approved' ? 'Disetujui' : 'Ditolak'} oleh {l.decided_by_name}
+                    {l.decided_at ? ` · ${formatDate(l.decided_at)}` : ''}
+                    {l.decision_note ? ` — “${l.decision_note}”` : ''}
+                  </p>
+                )}
               </div>
               <StatusBadge status={l.status} />
             </li>
