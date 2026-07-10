@@ -100,9 +100,9 @@ export async function getProjectDetail(projectId: string, viewer: Viewer) {
 
 export async function startBooking(viewer: Viewer, editorId: string, note?: string) {
   const editor = await prisma.editor.findUnique({ where: { editor_id: editorId } })
-  if (!editor) throw new HttpError(404, 'Editor tidak ditemukan')
+  if (!editor) throw new HttpError(404, 'Staf tidak ditemukan')
   if (editor.status !== 'active') {
-    throw new HttpError(422, 'Editor sedang tidak menerima proyek baru')
+    throw new HttpError(422, 'Staf sedang tidak menerima proyek baru')
   }
 
   // Idempoten: satu ruang diskusi draft per pasangan klien-editor.
@@ -135,7 +135,7 @@ export async function startBooking(viewer: Viewer, editorId: string, note?: stri
         sender_role: viewer.role,
         message_type: 'system',
         body: `Ruang diskusi dibuat. Jelaskan kebutuhan proyek Anda kepada ${editor.full_name}; `
-          + 'editor akan menyusun brief penawaran (judul, deskripsi, batas revisi, harga) untuk disetujui.',
+          + 'staf akan menyusun brief penawaran (judul, deskripsi, batas revisi, harga) untuk disetujui.',
       },
     })
     if (note?.trim()) {
@@ -169,7 +169,7 @@ export async function listMessages(projectId: string, viewer: Viewer) {
 export async function sendTextMessage(projectId: string, viewer: Viewer, body: string) {
   const project = await loadProject(projectId)
   const access = await resolveAccess(project, viewer)
-  if (access === 'staff') throw new HttpError(403, 'Hanya klien dan editor proyek yang dapat mengirim pesan')
+  if (access === 'staff') throw new HttpError(403, 'Hanya klien dan staf proyek yang dapat mengirim pesan')
   if (project.status === 'cancelled') throw new HttpError(422, 'Proyek sudah dibatalkan')
 
   return prisma.message.create({
@@ -270,7 +270,7 @@ export async function respondBrief(projectId: string, viewer: Viewer, approve: b
           sender_name: clientName,
           sender_role: viewer.role,
           message_type: 'system',
-          body: 'Brief ditolak klien. Diskusikan penyesuaian, lalu editor dapat mengirim brief baru.',
+          body: 'Brief ditolak klien. Diskusikan penyesuaian, lalu staf dapat mengirim brief baru.',
         },
       }),
     ])
@@ -452,7 +452,7 @@ export async function submitRevision(projectId: string, viewer: Viewer, input: R
     throw new HttpError(
       422,
       `Batas ${envelope.allowance_count}x revisi minor sudah terpakai. `
-      + 'Selesaikan proyek, atau diskusikan revisi berbayar dengan editor melalui chat.',
+      + 'Selesaikan proyek, atau diskusikan revisi berbayar dengan staf melalui chat.',
     )
   }
 
@@ -514,7 +514,7 @@ export async function completeProject(projectId: string, viewer: Viewer) {
   const access = await resolveAccess(project, viewer)
   if (access !== 'client') throw new HttpError(403, 'Hanya klien pemilik proyek yang dapat menyelesaikan proyek')
   if (project.status !== 'in_review' && project.status !== 'revision') {
-    throw new HttpError(422, 'Proyek hanya dapat diselesaikan setelah editor mengirim preview')
+    throw new HttpError(422, 'Proyek hanya dapat diselesaikan setelah staf mengirim preview')
   }
 
   const clientName = await fullNameOf(viewer.sub)
@@ -548,7 +548,7 @@ export async function completeProject(projectId: string, viewer: Viewer) {
         sender_role: viewer.role,
         message_type: 'system',
         body: 'Klien menyetujui hasil akhir — proyek selesai. Terima kasih! '
-          + 'Klien dapat memberi ulasan kinerja editor untuk KPI.',
+          + 'Klien dapat memberi ulasan kinerja staf untuk KPI.',
       },
     })
     return completed
@@ -591,7 +591,7 @@ export async function submitReview(
       sender_name: clientName,
       sender_role: viewer.role,
       message_type: 'system',
-      body: `Klien memberi ulasan ${rating}/5 untuk proyek ini. Nilai tersimpan ke KPI editor.`,
+      body: `Klien memberi ulasan ${rating}/5 untuk proyek ini. Nilai tersimpan ke KPI staf.`,
     },
   })
   return review

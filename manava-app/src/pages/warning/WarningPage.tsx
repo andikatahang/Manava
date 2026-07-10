@@ -15,7 +15,7 @@ import type { UserRole } from '../../types'
 interface Candidate { id: string; name: string; role: TargetRole; subLabel: string }
 
 const ROLE_LABEL: Record<TargetRole, string> = {
-  editor: 'Editor',
+  editor: 'Staf',
   admin_manager: 'Admin Manager',
 }
 
@@ -35,7 +35,7 @@ interface WarningPageProps { role: UserRole }
 
 const HEADER_BY_ROLE: Record<UserRole, { eyebrow: string; title: string; description: string; canIssue: boolean }> = {
   superadmin:    { eyebrow: 'HR oversight', title: 'Peringatan Kerja', description: '', canIssue: false },
-  hr_admin:      { eyebrow: 'HR enforcement', title: 'Peringatan Kerja', description: 'Terbitkan peringatan kerja kepada editor atau manajer berdasarkan KPI, kepatuhan absensi, atau performa departemen.', canIssue: true },
+  hr_admin:      { eyebrow: 'HR enforcement', title: 'Peringatan Kerja', description: 'Terbitkan peringatan kerja kepada staf atau manajer berdasarkan KPI, kepatuhan absensi, atau performa departemen.', canIssue: true },
   admin_manager: { eyebrow: 'Tim saya', title: 'Peringatan Diterima', description: 'Peringatan kerja yang diterbitkan HR Admin terhadap Anda atau anggota tim Anda.', canIssue: false },
   editor:        { eyebrow: 'Catatan untuk saya', title: 'Peringatan Diterima', description: 'Peringatan kerja yang HR Admin terbitkan untuk Anda. Akui peringatan dan ambil tindakan korektif sebelum kedaluwarsa.', canIssue: false },
   client:        { eyebrow: 'HR', title: 'Peringatan Kerja', description: '', canIssue: false },
@@ -227,7 +227,7 @@ function IssueWarningForm({ candidates, onCancel, onSubmit }: IssueWarningFormPr
           onChange={e => { setTargetId(e.target.value); setError('') }}
         >
           <option value="" disabled>Pilih pengguna…</option>
-          <optgroup label="Editor">
+          <optgroup label="Staf">
             {candidates.filter(c => c.role === 'editor').map(c => (
               <option key={c.id} value={c.id}>{c.name} — {c.subLabel}</option>
             ))}

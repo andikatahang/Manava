@@ -86,7 +86,7 @@ export function ManagerDepartmentView(_props: { role: UserRole; embedded?: boole
                     points={deptEditorPoints}
                     department={dep.name}
                     title={`Perkembangan Anggota — ${dep.name}`}
-                    subtitle="Tren KPI setiap editor di departemen Anda selama 6 bulan terakhir."
+                    subtitle="Tren KPI setiap staf di departemen Anda selama 6 bulan terakhir."
                   />
                 )}
               </div>
@@ -134,7 +134,7 @@ function DepartmentBlock({ department, projects, attendanceByUser, onOpenProject
       </div>
 
       {editors.length === 0 ? (
-        <div className="card text-center py-10 text-navy/40 text-sm">Belum ada editor di departemen ini.</div>
+        <div className="card text-center py-10 text-navy/40 text-sm">Belum ada staf di departemen ini.</div>
       ) : (
         editors.map(e => (
           <EditorHubCard

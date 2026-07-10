@@ -43,7 +43,7 @@ const REVIEW_LABEL = {
 
 const ROLE_LABEL: Record<string, string> = {
   superadmin: 'Superadmin', hr_admin: 'HR Admin',
-  admin_manager: 'Admin Manajer', editor: 'Editor',
+  admin_manager: 'Admin Manajer', editor: 'Staf',
 }
 
 export const SESSION_LABEL: Record<AttendanceSessionType, string> = {
@@ -439,7 +439,7 @@ function SessionCell({ session }: { session: AttendanceSession }) {
         </button>
       </div>
       <p className="text-xs text-white/60 mt-2">
-        Berlaku s.d. {fmtTimeWIB(session.expires_at)} WIB ({session.duration_minutes} menit) — kode terkirim ke Admin Manajer & Editor via notifikasi.
+        Berlaku s.d. {fmtTimeWIB(session.expires_at)} WIB ({session.duration_minutes} menit) — kode terkirim ke Admin Manajer & Staf via notifikasi.
       </p>
     </div>
   )
@@ -508,7 +508,7 @@ export function OpenPresensiModal({ open, defaultDuration, onClose, onSubmit, is
         </div>
 
         <p className="text-xs text-navy/50">
-          Kode dibuat otomatis dan dikirim ke semua Admin Manajer &amp; Editor melalui notifikasi aplikasi.
+          Kode dibuat otomatis dan dikirim ke semua Admin Manajer &amp; Staf melalui notifikasi aplikasi.
           Setiap pengguna wajib mengisi kode ini sebelum presensi {type === 'masuk' ? 'masuk' : 'keluar'}.
           Hanya satu kode berlaku pada satu waktu — membuka presensi baru menutup kode yang masih aktif,
           termasuk kode {type === 'masuk' ? 'keluar' : 'masuk'} yang belum kedaluwarsa.

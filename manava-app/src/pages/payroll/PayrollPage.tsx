@@ -97,7 +97,7 @@ export default function PayrollPage() {
         <table className="w-full text-[13px]" style={{ fontFamily: "'Inter Display', 'Open Runde', sans-serif" }}>
           <thead className="bg-[#021526]/[0.03]">
             <tr className="text-left text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#596074]">
-              <th className="px-5 py-3">Editor</th>
+              <th className="px-5 py-3">Staf</th>
               <th className="px-5 py-3 text-right hidden md:table-cell">Gaji Pokok</th>
               <th className="px-5 py-3 text-right hidden lg:table-cell">Potongan Absen</th>
               <th className="px-5 py-3 text-right hidden lg:table-cell">Lembur</th>

@@ -1,4 +1,4 @@
-// Cari Editor — katalog editor untuk klien: cari nama/keahlian, filter
+// Cari Staf — katalog editor untuk klien: cari nama/keahlian, filter
 // departemen, lihat detail keahlian + ulasan di drawer, lalu "Mulai Diskusi"
 // membuka ruang proyek draft dengan editor tersebut.
 

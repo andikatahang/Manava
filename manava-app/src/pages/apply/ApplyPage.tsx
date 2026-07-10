@@ -325,7 +325,7 @@ function ClosedView() {
         Pendaftaran Sedang Ditutup
       </h1>
       <p className="text-[#596074] mt-2 max-w-md mx-auto">
-        Lowongan Editor saat ini tidak menerima lamaran baru. Silakan kembali lagi nanti.
+        Lowongan Staf saat ini tidak menerima lamaran baru. Silakan kembali lagi nanti.
       </p>
       <Link to="/" className="inline-flex items-center gap-1.5 mt-6 text-sm font-semibold text-[#021526] hover:underline">
         <ArrowLeft className="w-4 h-4" /> Kembali ke beranda

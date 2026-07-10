@@ -58,7 +58,7 @@ const configs: Record<UserRole, RoleHomeConfig> = {
     ],
   },
   editor: {
-    roleLabel: 'Editor • Level Operasional',
+    roleLabel: 'Staf • Level Operasional',
     subtitle: 'Input data harian: absensi, cuti, dan lihat informasi pribadi Anda (KPI, gaji, proyek).',
     features: [
       { label: 'Proyek Saya',        to: '/projects',  icon: Briefcase,      accent: 'lime' },
@@ -71,7 +71,7 @@ const configs: Record<UserRole, RoleHomeConfig> = {
     ],
   },
   // client dirender oleh <ClientHome/> (inbox + proyek), bukan config ini.
-  client:   { roleLabel: 'Klien',    subtitle: 'Cari editor, pantau proyek, dan beri ulasan.', features: [] },
+  client:   { roleLabel: 'Klien',    subtitle: 'Cari staf, pantau proyek, dan beri ulasan.', features: [] },
   mediator: { roleLabel: 'Mediator', subtitle: 'Role nonaktif.',   features: [] },
   finance:  { roleLabel: 'Keuangan', subtitle: 'Role nonaktif.',   features: [] },
 }

@@ -23,7 +23,7 @@ export const ROUTES_TO_LABEL: Record<RequesterRole, string> = {
 }
 
 export const REQUESTER_ROLE_LABEL: Record<RequesterRole, string> = {
-  editor: 'Editor',
+  editor: 'Staf',
   admin_manager: 'Admin Manager',
 }
 

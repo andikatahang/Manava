@@ -30,7 +30,7 @@ payrollRouter.post(
 
     if (body.editor_id) {
       const editor = await prisma.editor.findUnique({ where: { editor_id: body.editor_id } })
-      if (!editor) return res.status(404).json(fail('Editor tidak ditemukan'))
+      if (!editor) return res.status(404).json(fail('Staf tidak ditemukan'))
       const result = await generatePayslipForEditor(editor, body.period)
       return res.status(201).json(ok(result))
     }
@@ -159,7 +159,7 @@ payrollRouter.post(
     const missingBank = payslips.filter(p => !p.editor.bank_account_no)
     if (missingBank.length > 0) {
       return res.status(400).json(fail(
-        `${missingBank.length} editor belum melengkapi data rekening bank`
+        `${missingBank.length} staf belum melengkapi data rekening bank`
       ))
     }
 

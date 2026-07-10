@@ -24,7 +24,7 @@ export function TeamReimbursements() {
         <div className="border-b border-border pb-4">
           <h3 className="text-lg font-bold text-navy">Persetujuan Klaim Dana Operasional</h3>
           <p className="text-sm text-navy/60 mt-1">
-            Klaim dari editor di departemen Anda. Total klaim disetujui otomatis masuk ke
+            Klaim dari staf di departemen Anda. Total klaim disetujui otomatis masuk ke
             Draft Laporan Bulanan Departemen sebagai bahan finalisasi payroll oleh HR Admin.
           </p>
         </div>
@@ -78,7 +78,7 @@ function ClaimTable({ claims, actions }: {
       <table className="w-full text-[13px]">
         <thead className="bg-[#021526]/[0.03]">
           <tr className="text-left text-[10.5px] font-semibold uppercase tracking-[0.14em] text-[#596074]">
-            <th className="px-4 py-3">Editor</th>
+            <th className="px-4 py-3">Staf</th>
             <th className="px-4 py-3">Keperluan</th>
             <th className="px-4 py-3 text-right">Nominal</th>
             <th className="px-4 py-3">Diajukan</th>

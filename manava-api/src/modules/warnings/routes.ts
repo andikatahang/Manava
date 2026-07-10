@@ -51,7 +51,7 @@ warningsRouter.post(
     const target = await prisma.user.findUnique({ where: { user_id: target_user_id } })
     if (!target) return res.status(404).json(fail('Pengguna target tidak ditemukan'))
     if (!TARGETABLE_ROLES.includes(target.role as (typeof TARGETABLE_ROLES)[number])) {
-      return res.status(422).json(fail('Peringatan hanya dapat diterbitkan untuk editor atau admin manager'))
+      return res.status(422).json(fail('Peringatan hanya dapat diterbitkan untuk staf atau admin manager'))
     }
 
     const issued_at = new Date()

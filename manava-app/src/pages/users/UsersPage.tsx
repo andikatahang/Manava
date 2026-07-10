@@ -12,7 +12,7 @@ const ROLE_LABEL: Record<UserRole, string> = {
   superadmin: 'System Admin',
   hr_admin: 'HR Admin',
   admin_manager: 'Admin Manager',
-  editor: 'Editor',
+  editor: 'Staf',
   client: 'Klien',
   mediator: 'Mediator',
   finance: 'Keuangan',
@@ -51,7 +51,7 @@ export default function UsersPage() {
     { label: 'Total akun', value: allUsers.length, tone: 'navy' as const, hint: 'terdaftar di sistem' },
     { label: 'HR Admin', value: allUsers.filter(u => u.role === 'hr_admin').length, tone: 'blue' as const, hint: 'operasional HR' },
     { label: 'Admin Manajer', value: allUsers.filter(u => u.role === 'admin_manager').length, tone: 'emerald' as const, hint: 'kepala departemen' },
-    { label: 'Editor', value: allUsers.filter(u => u.role === 'editor').length, tone: 'navy' as const, hint: 'pelaksana produksi' },
+    { label: 'Staf', value: allUsers.filter(u => u.role === 'editor').length, tone: 'navy' as const, hint: 'pelaksana produksi' },
     { label: 'Suspended', value: allUsers.filter(u => !u.is_active).length, tone: 'red' as const, hint: 'dinonaktifkan' },
   ]
 

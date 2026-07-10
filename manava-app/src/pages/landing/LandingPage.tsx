@@ -27,9 +27,9 @@ type Faq = { q: string; a: string }
 
 const features: Feature[] = [
   { icon: Users, title: 'Smart Recruitment', tag: 'ATS',
-    desc: 'Lamaran publik masuk ke pipeline terstruktur — seleksi, interview, hingga akun editor dibuat otomatis saat diterima.' },
+    desc: 'Lamaran publik masuk ke pipeline terstruktur — seleksi, interview, hingga akun staf dibuat otomatis saat diterima.' },
   { icon: CalendarClock, title: 'Cuti Berjenjang', tag: 'Persetujuan',
-    desc: 'Permohonan cuti naik satu tingkat: editor disetujui manajer, manajer disetujui HR — dengan notifikasi langsung ke approver.' },
+    desc: 'Permohonan cuti naik satu tingkat: staf disetujui manajer, manajer disetujui HR — dengan notifikasi langsung ke approver.' },
   { icon: AlertOctagon, title: 'Peringatan Kerja', tag: 'Kepatuhan',
     desc: 'HR menerbitkan peringatan dengan severity dan masa berlaku; penerima mendapat notifikasi dan mengakuinya secara tercatat.' },
   { icon: UserCheck, title: 'Layanan Mandiri (ESS)', tag: 'Karyawan',
@@ -42,9 +42,9 @@ const features: Feature[] = [
 
 const steps: Step[] = [
   { icon: FileCheck2, step: '01', title: 'Lamar & Seleksi',
-    desc: 'Kandidat melamar tanpa perlu akun. HR menyeleksi lewat pipeline ATS, dan akun editor dibuat otomatis saat diterima.' },
+    desc: 'Kandidat melamar tanpa perlu akun. HR menyeleksi lewat pipeline ATS, dan akun staf dibuat otomatis saat diterima.' },
   { icon: PackageCheck, step: '02', title: 'Bekerja & Terpantau',
-    desc: 'Editor mengerjakan proyek dengan presensi, cuti berjenjang, dan KPI yang tercatat rapi — transparan bagi semua pihak.' },
+    desc: 'Staf mengerjakan proyek dengan presensi, cuti berjenjang, dan KPI yang tercatat rapi — transparan bagi semua pihak.' },
   { icon: BadgeDollarSign, step: '03', title: 'Gaji & Bonus',
     desc: 'Penggajian mengikuti kinerja terukur: KPI dan penilaian manajer menentukan bonus, slip gaji tersedia di ESS.' },
 ]
@@ -52,8 +52,8 @@ const steps: Step[] = [
 const roles: Role[] = [
   { role: 'Superadmin', initial: 'S', color: '#0050F8', points: ['Kendali penuh platform', 'Kelola akun & akses', 'Jejak audit sistem', 'Pengawasan lintas modul'] },
   { role: 'HR Admin', initial: 'H', color: '#10B981', points: ['Rekrutmen & onboarding', 'Terbitkan peringatan kerja', 'Eskalasi cuti manajer', 'Presensi & penggajian'] },
-  { role: 'Manajer Admin', initial: 'A', color: '#EC4899', points: ['Setujui cuti tim editor', 'Nilai kinerja editor', 'Pantau absensi', 'Dashboard departemen'] },
-  { role: 'Editor', initial: 'E', color: '#3B82F6', points: ['Lihat proyek yang ditugaskan', 'ESS: cuti & slip gaji', 'Lacak KPI & bonus', 'Terima & akui peringatan'] },
+  { role: 'Manajer Admin', initial: 'A', color: '#EC4899', points: ['Setujui cuti tim staf', 'Nilai kinerja staf', 'Pantau absensi', 'Dashboard departemen'] },
+  { role: 'Staf', initial: 'E', color: '#3B82F6', points: ['Lihat proyek yang ditugaskan', 'ESS: cuti & slip gaji', 'Lacak KPI & bonus', 'Terima & akui peringatan'] },
 ]
 
 const stats: Stat[] = [
@@ -64,13 +64,13 @@ const stats: Stat[] = [
 ]
 
 const faqs: Faq[] = [
-  { q: 'Bagaimana cara bergabung sebagai editor?',
-    a: 'Kirim lamaran lewat halaman Lowongan Pekerjaan — tanpa perlu membuat akun. HR meninjau lamaran Anda di pipeline ATS, mengundang interview, dan begitu diterima akun editor Anda dibuat otomatis beserta email undangan masuk.' },
+  { q: 'Bagaimana cara bergabung sebagai staf?',
+    a: 'Kirim lamaran lewat halaman Lowongan Pekerjaan — tanpa perlu membuat akun. HR meninjau lamaran Anda di pipeline ATS, mengundang interview, dan begitu diterima akun staf Anda dibuat otomatis beserta email undangan masuk.' },
   { q: 'Bagaimana alur persetujuan cuti bekerja?',
-    a: 'Permohonan selalu naik satu tingkat: cuti editor disetujui Manajer Admin, cuti Manajer Admin disetujui HR Admin. Approver mendapat notifikasi langsung di aplikasi, jadi tidak ada permohonan yang tenggelam.' },
+    a: 'Permohonan selalu naik satu tingkat: cuti staf disetujui Manajer Admin, cuti Manajer Admin disetujui HR Admin. Approver mendapat notifikasi langsung di aplikasi, jadi tidak ada permohonan yang tenggelam.' },
   { q: 'Bagaimana peringatan kerja dikelola?',
     a: 'Hanya HR Admin yang dapat menerbitkan peringatan, lengkap dengan severity dan masa berlaku. Penerima mendapat notifikasi, melihat detail alasannya, dan mengakui peringatan secara tercatat — semuanya terdokumentasi.' },
-  { q: 'Bagaimana kompensasi editor dihitung?',
+  { q: 'Bagaimana kompensasi staf dihitung?',
     a: 'KPI memadukan rating klien, tingkat penyelesaian tepat waktu, dan penilaian manajer tiap kuartal. Tingkatan itu menentukan bonus proyek, sehingga bayaran mengikuti kinerja terukur, bukan opini.' },
   { q: 'Apa yang bisa karyawan lakukan sendiri lewat ESS?',
     a: 'Lewat Layanan Mandiri, karyawan mencatat presensi, mengajukan cuti dan izin, mengunduh slip gaji, serta memantau KPI pribadinya — tanpa harus menunggu balasan email dari HR.' },

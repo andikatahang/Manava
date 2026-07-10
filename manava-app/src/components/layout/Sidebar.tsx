@@ -67,7 +67,7 @@ const navByRole: Record<UserRole, NavItem[]> = {
   ],
   client: [
     { to: '/dashboard', icon: Home, label: 'Home' },
-    { to: '/browse-editors', icon: Search, label: 'Cari Editor' },
+    { to: '/browse-editors', icon: Search, label: 'Cari Staf' },
     { to: '/projects', icon: Briefcase, label: 'Proyek Saya' },
   ],
   mediator: [],
@@ -78,7 +78,7 @@ const roleLabels: Record<UserRole, string> = {
   superadmin: 'System Admin',
   hr_admin: 'HR Admin',
   admin_manager: 'Admin Manager',
-  editor: 'Editor',
+  editor: 'Staf',
   client: 'Klien',
   mediator: 'Mediator',
   finance: 'Keuangan',

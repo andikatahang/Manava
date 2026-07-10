@@ -142,7 +142,7 @@ export default function JobPostingFormPage() {
 
       <form onSubmit={handleSubmit} className="card p-5 space-y-5" noValidate>
         <Field label="Judul Lowongan" error={errors.title}>
-          <input className="job-input" value={form.title} onChange={e => set('title', e.target.value)} placeholder="mis. Editor Video Senior" />
+          <input className="job-input" value={form.title} onChange={e => set('title', e.target.value)} placeholder="mis. Staf Video Senior" />
         </Field>
 
         <div className="grid sm:grid-cols-2 gap-4">
@@ -150,7 +150,7 @@ export default function JobPostingFormPage() {
             <input className="job-input" value={form.department} onChange={e => set('department', e.target.value)} placeholder="mis. Video Editing" />
           </Field>
           <Field label="Jabatan" error={errors.position}>
-            <input className="job-input" value={form.position} onChange={e => set('position', e.target.value)} placeholder="mis. Senior Editor" />
+            <input className="job-input" value={form.position} onChange={e => set('position', e.target.value)} placeholder="mis. Staf Senior" />
           </Field>
         </div>
 

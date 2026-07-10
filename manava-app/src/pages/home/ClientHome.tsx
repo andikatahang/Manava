@@ -1,5 +1,5 @@
 // Home klien: kotak masuk (pesan terbaru lintas ruang proyek), proyek yang
-// sedang aktif, dan riwayat pesanan — plus akses cepat Cari Editor.
+// sedang aktif, dan riwayat pesanan — plus akses cepat Cari Staf.
 // Mengikuti bahasa visual home role lain (HomeHero + FeatureGrid).
 
 import { useMemo } from 'react'
@@ -62,13 +62,13 @@ export default function ClientHome({ user }: { user: User }) {
       <HomeHero
         fullName={user.full_name}
         roleLabel="Klien"
-        subtitle="Cari editor, pantau proyek berjalan, dan beri ulasan hasil kerja."
+        subtitle="Cari staf, pantau proyek berjalan, dan beri ulasan hasil kerja."
       />
 
       <FeatureGrid
         title="Akses cepat"
         features={[
-          { label: 'Cari Editor', to: '/browse-editors', icon: Search, accent: 'lime' },
+          { label: 'Cari Staf', to: '/browse-editors', icon: Search, accent: 'lime' },
           { label: 'Proyek Saya', to: '/projects', icon: Briefcase, accent: 'blue' },
           { label: 'Pengaturan', to: '/settings', icon: Settings, accent: 'navy' },
         ]}
@@ -89,7 +89,7 @@ export default function ClientHome({ user }: { user: User }) {
             <p className="text-xs text-[#596074] py-6 text-center">Memuat…</p>
           ) : inbox.length === 0 ? (
             <p className="text-xs text-[#596074] py-6 text-center">
-              Belum ada pesan. Mulai diskusi dengan editor dari halaman Cari Editor.
+              Belum ada pesan. Mulai diskusi dengan staf dari halaman Cari Staf.
             </p>
           ) : (
             <ul className="divide-y divide-[#EDEDED] -mx-2">
@@ -135,7 +135,7 @@ export default function ClientHome({ user }: { user: User }) {
               <div className="card no-hover text-center py-8">
                 <p className="text-sm text-[#596074]">Belum ada proyek aktif.</p>
                 <Link to="/browse-editors" className="btn-primary inline-flex text-sm mt-3">
-                  <Search className="w-4 h-4" /> Cari Editor
+                  <Search className="w-4 h-4" /> Cari Staf
                 </Link>
               </div>
             ) : (
@@ -190,12 +190,12 @@ export default function ClientHome({ user }: { user: User }) {
 function ActiveProjectRow({ project }: { project: Project }) {
   const navigate = useNavigate()
   const hint =
-    project.status === 'draft' ? 'Tahap diskusi — tunggu atau balas chat editor.'
+    project.status === 'draft' ? 'Tahap diskusi — tunggu atau balas chat staf.'
     : project.status === 'in_review' ? 'Preview menunggu tanggapan Anda.'
-    : project.status === 'revision' ? 'Editor sedang mengerjakan revisi Anda.'
+    : project.status === 'revision' ? 'Staf sedang mengerjakan revisi Anda.'
     : project.status === 'awaiting_dp' ? 'Menunggu konfirmasi pembayaran DP.'
     : project.status === 'disputed' ? 'Proyek dalam proses sengketa.'
-    : 'Editor sedang mengerjakan proyek Anda.'
+    : 'Staf sedang mengerjakan proyek Anda.'
 
   return (
     <button

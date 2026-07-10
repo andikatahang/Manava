@@ -118,11 +118,11 @@ export default function ApplicantDetailPage() {
       {account && (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5 space-y-3">
           <p className="text-sm font-semibold text-emerald-800 flex items-center gap-2">
-            <KeyRound className="w-4 h-4" /> Akun editor berhasil dibuat
+            <KeyRound className="w-4 h-4" /> Akun staf berhasil dibuat
           </p>
           <p className="text-[13px] text-navy/70">
             Kredensial sementara juga dikirim ke email kandidat (lihat status di atas). Panel ini hanya
-            ditampilkan sekali sebagai cadangan. Role default <span className="font-semibold">Editor</span>;
+            ditampilkan sekali sebagai cadangan. Role default <span className="font-semibold">Staf</span>;
             data dapat diubah dari halaman Users.
           </p>
           <div className="grid sm:grid-cols-3 gap-2">
@@ -250,7 +250,7 @@ export default function ApplicantDetailPage() {
             {app.status === 'interview' && (
               <>
                 <p className="text-[13px] text-navy/60">
-                  Setelah interview: setujui untuk membuat akun editor otomatis dari data lamaran, atau tolak kandidat.
+                  Setelah interview: setujui untuk membuat akun staf otomatis dari data lamaran, atau tolak kandidat.
                   Penempatan departemen dikonfirmasi lewat popup sebelum akun dibuat.
                 </p>
                 <button
@@ -266,7 +266,7 @@ export default function ApplicantDetailPage() {
 
             {app.status === 'approved' && (
               <p className="text-[13px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5">
-                Kandidat diterima {app.decided_at ? formatDate(app.decided_at) : ''} — akun editor sudah dibuat.
+                Kandidat diterima {app.decided_at ? formatDate(app.decided_at) : ''} — akun staf sudah dibuat.
               </p>
             )}
             {app.status === 'rejected' && (

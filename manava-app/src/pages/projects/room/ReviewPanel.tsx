@@ -22,7 +22,7 @@ export function ReviewPanel({ editorName, existing, canReview, mutation }: {
     return (
       <div className="card no-hover border-emerald-200 bg-emerald-50/40">
         <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-emerald-700 mb-2">
-          <Award className="w-3.5 h-3.5" /> Ulasan Klien — tersimpan ke KPI editor
+          <Award className="w-3.5 h-3.5" /> Ulasan Klien — tersimpan ke KPI staf
         </p>
         <StarRating value={existing.rating} size={15} />
         <p className="text-sm text-navy/75 mt-2 leading-relaxed">{existing.comment}</p>
@@ -40,7 +40,7 @@ export function ReviewPanel({ editorName, existing, canReview, mutation }: {
   return (
     <div className="card no-hover border-navy/15">
       <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-navy/60 mb-1">
-        <Award className="w-3.5 h-3.5" /> Beri Ulasan Kinerja Editor
+        <Award className="w-3.5 h-3.5" /> Beri Ulasan Kinerja Staf
       </p>
       <p className="text-xs text-navy/55 mb-3">
         Bagaimana kinerja {editorName} di proyek ini? Penilaian Anda menjadi KPI editor.
@@ -50,7 +50,7 @@ export function ReviewPanel({ editorName, existing, canReview, mutation }: {
         className="input min-h-[80px] resize-y mt-3"
         value={comment}
         onChange={e => setComment(e.target.value)}
-        placeholder="Ceritakan kualitas hasil, komunikasi, dan ketepatan waktu editor…"
+        placeholder="Ceritakan kualitas hasil, komunikasi, dan ketepatan waktu staf…"
         maxLength={1000}
       />
       {mutation.isError && <p className="text-xs text-red-600 mt-2">{mutation.error.message}</p>}

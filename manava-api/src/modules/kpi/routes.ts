@@ -482,7 +482,7 @@ function heuristicEditorInsight(ctx: EditorContext): EditorInsight {
   const tips: string[] = []
   if (level === 'excellent') {
     tips.push('Pertahankan standar kualitas tinggi Anda dengan dokumentasi best practices')
-    tips.push('Pertimbangkan mentoring editor junior untuk berbagi pengalaman')
+    tips.push('Pertimbangkan mentoring staf junior untuk berbagi pengalaman')
     tips.push('Eksplorasi teknik atau tools baru untuk terus berkembang')
   } else if (level === 'good') {
     tips.push('Review feedback klien secara detail untuk identifikasi pola improvement')
@@ -491,7 +491,7 @@ function heuristicEditorInsight(ctx: EditorContext): EditorInsight {
   } else {
     tips.push('Jadwalkan 1-on-1 dengan manager untuk diskusi tantangan spesifik')
     tips.push('Fokus pada quality over speed - pastikan deliverable memenuhi brief')
-    tips.push('Minta feedback konstruktif dari senior editor di departemen Anda')
+    tips.push('Minta feedback konstruktif dari staf senior di departemen Anda')
   }
 
   if (trend === 'declining') {
@@ -605,7 +605,7 @@ kpiRouter.post(
             role: 'system',
             content: [
               'Anda adalah performance coach berpengalaman untuk profesional jasa visual (editor foto, video, color grading) di Indonesia.',
-              'Tugas: menganalisis data performa personal editor dan memberikan insight MOTIVASIONAL + ACTIONABLE.',
+              'Tugas: menganalisis data performa personal staf dan memberikan insight MOTIVASIONAL + ACTIONABLE.',
               '',
               'KELUARAN WAJIB berupa JSON valid dengan schema TEPAT:',
               '{',
@@ -615,7 +615,7 @@ kpiRouter.post(
               '  "key_strengths": string[] (2-4 kekuatan spesifik berdasarkan data, bukan generik)',
               '  "areas_for_improvement": string[] (1-3 area konkret yang perlu diperbaiki)',
               '  "actionable_tips": string[] (3-5 tips spesifik dan langsung bisa dilakukan, bukan saran umum)',
-              '  "motivational_message": string (2-3 kalimat motivasi personal, sebutkan nama editor, tone supportive tapi jujur)',
+              '  "motivational_message": string (2-3 kalimat motivasi personal, sebutkan nama staf, tone supportive tapi jujur)',
               '}',
               '',
               'ATURAN PENTING:',
@@ -623,13 +623,13 @@ kpiRouter.post(
               '- Tips harus ACTIONABLE (bisa langsung dilakukan), bukan generik ("tingkatkan komunikasi" → "Kirim update progress ke klien setiap 2 hari")',
               '- Tone: Supportive tapi jujur. Jika performa menurun, akui tapi tetap motivational.',
               '- Bahasa Indonesia natural-formal. Gunakan emoji 1-2x di motivational_message untuk warmth.',
-              '- Jangan pernah bandingkan dengan editor lain (data privacy).',
+              '- Jangan pernah bandingkan dengan staf lain (data privacy).',
             ].join('\n'),
           },
           {
             role: 'user',
             content: [
-              `Analisis performa editor berikut dan berikan insight personal:`,
+              `Analisis performa staf berikut dan berikan insight personal:`,
               '',
               '```json',
               JSON.stringify(ctx, null, 2),
@@ -928,7 +928,7 @@ function heuristicRecommendation(ctx: DeptContext[]): RecommendationResponse {
       rationale = `Departemen memenuhi ambang darurat: KPI Juni ${c.kpi_latest.toFixed(2)} (delta ${c.kpi_delta_6m.toFixed(2)}), ${c.warnings_active.berat + c.warnings_active.sedang + c.warnings_active.ringan} peringatan aktif, ${c.disputes_open} sengketa terbuka.`
     } else if (priority === 'medium') {
       action = c.attendance_30d.late_pct >= 10
-        ? `Perketat kepatuhan presensi ${c.department}: kirim briefing kedisiplinan mingguan dan minta manajer mereview jam kerja 3 editor yang paling sering terlambat.`
+        ? `Perketat kepatuhan presensi ${c.department}: kirim briefing kedisiplinan mingguan dan minta manajer mereview jam kerja 3 staf yang paling sering terlambat.`
         : `Minta manajer ${c.department} presentasikan analisis penyebab penurunan KPI pada review Q berikutnya dengan rencana koreksi konkret.`
       rationale = `KPI ${c.kpi_latest.toFixed(2)} masih layak, tapi ada sinyal peringatan (delta ${c.kpi_delta_6m.toFixed(2)}, keterlambatan ${c.attendance_30d.late_pct}%).`
     } else {

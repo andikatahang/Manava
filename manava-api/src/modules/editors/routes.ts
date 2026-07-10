@@ -45,7 +45,7 @@ editorsRouter.get(
       where: { editor_id: req.params.id },
       include: { metrics: true },
     })
-    if (!editor) throw new HttpError(404, 'Editor not found')
+    if (!editor) throw new HttpError(404, 'Staf not found')
     res.json(ok(redactSalary(editor, req.user!.role, req.user!.sub)))
   }),
 )
@@ -93,7 +93,7 @@ editorsRouter.patch(
       where: { editor_id: req.params.id },
       include: { metrics: true },
     })
-    if (!editor) return res.status(404).json(fail('Editor tidak ditemukan'))
+    if (!editor) return res.status(404).json(fail('Staf tidak ditemukan'))
 
     if (req.user!.role === 'admin_manager') {
       const managed = await prisma.department.findFirst({
@@ -104,7 +104,7 @@ editorsRouter.patch(
         select: { id: true },
       })
       if (!managed) {
-        return res.status(403).json(fail('Anda hanya dapat menilai editor di departemen Anda'))
+        return res.status(403).json(fail('Anda hanya dapat menilai staf di departemen Anda'))
       }
     }
 

@@ -120,7 +120,7 @@ async function openAiClassify(
           + 'Gunakan "uncertain" hanya bila benar-benar ambigu. '
           + 'Balas HANYA JSON: {"label": "minor"|"major"|"uncertain", "confidence": number 0-1, '
           + '"summary": string}. "summary": 1-2 kalimat Bahasa Indonesia yang menjelaskan alasan kategorisasi '
-          + 'kepada klien dan editor.',
+          + 'kepada klien dan staf.',
       },
       {
         role: 'user',

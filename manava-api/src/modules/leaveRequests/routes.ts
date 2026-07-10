@@ -141,7 +141,7 @@ async function transition(
   if (req.user!.role === 'admin_manager') {
     const teamIds = await managedEditorUserIds(req.user!.sub)
     if (!teamIds.includes(leave.requester_id)) {
-      return res.status(403).json(fail('Pengajuan ini bukan dari editor di departemen Anda'))
+      return res.status(403).json(fail('Pengajuan ini bukan dari staf di departemen Anda'))
     }
   }
   if (leave.status !== 'pending') {

@@ -1,6 +1,6 @@
 // Proyek — halaman untuk Editor (proyek miliknya), Klien (pesanannya), dan
 // Admin Manajer (proyek tim). Data dari /projects yang sudah di-scope per
-// role di backend; booking baru dibuat klien dari halaman Cari Editor.
+// role di backend; booking baru dibuat klien dari halaman Cari Staf.
 
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -116,7 +116,7 @@ function GridView({ role, projects, filtered, filter, setFilter }: {
         </div>
         {role === 'client' && (
           <Link to="/browse-editors" className="btn-primary text-sm shrink-0 hidden sm:inline-flex">
-            <Search className="w-4 h-4" /> Cari Editor
+            <Search className="w-4 h-4" /> Cari Staf
           </Link>
         )}
       </div>
@@ -300,9 +300,9 @@ function EmptyState({ role }: { role?: 'editor' | 'client' }) {
       <p className="text-sm font-medium">Belum ada proyek</p>
       {role === 'client' ? (
         <>
-          <p className="text-xs mt-1 text-navy/45">Mulai dengan mencari editor yang sesuai kebutuhan Anda.</p>
+          <p className="text-xs mt-1 text-navy/45">Mulai dengan mencari staf yang sesuai kebutuhan Anda.</p>
           <Link to="/browse-editors" className="btn-primary text-sm mt-4">
-            <Search className="w-4 h-4" /> Cari Editor
+            <Search className="w-4 h-4" /> Cari Staf
           </Link>
         </>
       ) : (

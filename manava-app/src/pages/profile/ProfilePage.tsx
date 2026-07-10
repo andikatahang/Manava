@@ -13,7 +13,7 @@ const ROLE_LABEL: Record<string, string> = {
   superadmin: 'System Admin',
   hr_admin: 'HR Admin',
   admin_manager: 'Admin Manager',
-  editor: 'Editor',
+  editor: 'Staf',
 }
 
 const SPEC_LABELS: Record<string, string> = {

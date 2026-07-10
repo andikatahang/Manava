@@ -41,7 +41,7 @@ export function renderInterviewEmail(app: JobApplication, details: InterviewDeta
   return [
     `Kepada ${app.full_name},`,
     '',
-    'Terima kasih telah melamar sebagai Editor di Manava. Setelah meninjau lamaran Anda,',
+    'Terima kasih telah melamar sebagai Staf di Manava. Setelah meninjau lamaran Anda,',
     'kami ingin mengundang Anda ke tahap interview.',
     '',
     'Detail interview:',
@@ -63,7 +63,7 @@ export function renderRejectionEmail(app: JobApplication): string {
   return [
     `Kepada ${app.full_name},`,
     '',
-    'Terima kasih atas waktu dan minat Anda melamar sebagai Editor di Manava.',
+    'Terima kasih atas waktu dan minat Anda melamar sebagai Staf di Manava.',
     '',
     'Setelah peninjauan yang cermat, dengan berat hati kami sampaikan bahwa kami',
     'belum dapat melanjutkan lamaran Anda ke tahap berikutnya untuk lowongan ini.',
@@ -98,7 +98,7 @@ export function renderCredentialsEmail(fullName: string, account: CreatedAccount
   return [
     `Kepada ${fullName},`,
     '',
-    'Selamat! Anda diterima sebagai Editor di Manava. Akun Anda sudah dibuat:',
+    'Selamat! Anda diterima sebagai Staf di Manava. Akun Anda sudah dibuat:',
     '',
     `  • URL login    : ${appUrl}/login`,
     `  • Username     : ${account.username}`,

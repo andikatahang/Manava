@@ -64,7 +64,7 @@ function HrDepartmentDashboard() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
 
   // Departments arrive with manager + editor rows joined, so no fixture
-  // lookups are needed; the editors list feeds the "Tambah Editor" picker.
+  // lookups are needed; the editors list feeds the "Tambah Staf" picker.
   const departmentsQuery = useDepartments()
   const editorsQuery = useEditors()
   const mutations = useDepartmentMutations()
@@ -290,7 +290,7 @@ function DepartmentManageView({
   return (
     <div className="space-y-5 max-w-[1140px]">
       {isNew ? (
-        <p className="text-sm text-navy/50">Langkah terakhir — tambahkan minimal satu editor, lalu simpan.</p>
+        <p className="text-sm text-navy/50">Langkah terakhir — tambahkan minimal satu staf, lalu simpan.</p>
       ) : (
         <button
           onClick={onDone}
@@ -325,7 +325,7 @@ function DepartmentManageView({
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <KpiCell icon={<Award className="w-3.5 h-3.5 text-emerald-500" />} label="Editor" value={String(members.length)} />
+            <KpiCell icon={<Award className="w-3.5 h-3.5 text-emerald-500" />} label="Staf" value={String(members.length)} />
             <KpiCell icon={<BarChart2 className="w-3.5 h-3.5 text-navy/50" />} label="KPI Rata-rata" value={deptKpi.toFixed(1)} highlight />
           </div>
         </div>
@@ -334,25 +334,25 @@ function DepartmentManageView({
       {/* Roster */}
       <div className="space-y-2.5">
         <div className="flex items-center justify-between">
-          <p className="text-[11px] uppercase tracking-wider text-navy/40">Daftar Editor ({members.length})</p>
+          <p className="text-[11px] uppercase tracking-wider text-navy/40">Daftar Staf ({members.length})</p>
           {available.length > 0 && (
             <button onClick={() => setShowPicker(true)} className="btn-secondary text-xs py-1.5 px-3">
-              <Plus className="w-3.5 h-3.5" /> Tambah Editor
+              <Plus className="w-3.5 h-3.5" /> Tambah Staf
             </button>
           )}
         </div>
 
         {members.length === 0 ? (
           <div className="rounded-[12px] border border-dashed border-navy/15 p-8 text-center">
-            <p className="text-sm text-navy/40">Belum ada editor. Tambahkan minimal satu untuk menyimpan.</p>
+            <p className="text-sm text-navy/40">Belum ada staf. Tambahkan minimal satu untuk menyimpan.</p>
             <button onClick={() => setShowPicker(true)} className="btn-primary text-xs py-1.5 px-3 mt-3">
-              <Plus className="w-3.5 h-3.5" /> Tambah Editor
+              <Plus className="w-3.5 h-3.5" /> Tambah Staf
             </button>
           </div>
         ) : (
           <div className="rounded-[12px] border border-black/[0.06] overflow-hidden bg-white">
             <div className="hidden sm:grid grid-cols-[1.5fr_0.5fr_360px] items-center gap-3 px-4 py-2.5 bg-[#fafafa] border-b border-black/[0.06] text-[11px] font-medium uppercase tracking-wider text-navy/40">
-              <span>Editor</span>
+              <span>Staf</span>
               <span className="text-right">KPI Score</span>
               <span />
             </div>
@@ -398,7 +398,7 @@ function DepartmentManageView({
         {warningTarget && <IssueWarningForEditor editor={warningTarget} onDone={() => setWarningTarget(null)} />}
       </Modal>
 
-      <Modal open={!!detailTarget} onClose={() => setDetailTarget(null)} title="Detail Editor" size="md">
+      <Modal open={!!detailTarget} onClose={() => setDetailTarget(null)} title="Detail Staf" size="md">
         {detailTarget && <EditorDetailInfo editor={detailTarget} />}
       </Modal>
 
@@ -408,7 +408,7 @@ function DepartmentManageView({
             <p className="text-sm text-navy/70 leading-relaxed">
               Keluarkan <span className="font-semibold text-navy">{removeTarget.full_name}</span> dari
               departemen <span className="font-semibold text-navy">{department.name}</span>?
-              Editor tetap aktif dan dapat ditambahkan kembali kapan saja.
+              Staf tetap aktif dan dapat ditambahkan kembali kapan saja.
             </p>
             <div className="flex justify-end gap-2">
               <button className="btn-secondary" onClick={() => setRemoveTarget(null)}>Batal</button>
@@ -426,7 +426,7 @@ function DepartmentManageView({
       {/* Save bar */}
       <div className="flex items-center justify-between gap-3 border-t border-black/[0.06] pt-4">
         <p className="text-xs text-navy/50">
-          {canSave ? `${members.length} editor di departemen ini` : 'Tambah minimal 1 editor untuk menyimpan.'}
+          {canSave ? `${members.length} staf di departemen ini` : 'Tambah minimal 1 staf untuk menyimpan.'}
         </p>
         <div className="flex gap-2">
           {isNew && (
@@ -473,9 +473,9 @@ function AddEditorModal({
   function cancel() { setPicked([]); onClose() }
 
   return (
-    <Modal open={open} onClose={cancel} title="Tambah Editor" size="md">
+    <Modal open={open} onClose={cancel} title="Tambah Staf" size="md">
       {available.length === 0 ? (
-        <p className="text-sm text-navy/50 py-4 text-center">Semua editor aktif sudah tergabung di departemen ini.</p>
+        <p className="text-sm text-navy/50 py-4 text-center">Semua staf aktif sudah tergabung di departemen ini.</p>
       ) : (
         <div className="space-y-4">
           <ul className="space-y-1.5 max-h-72 overflow-y-auto pr-0.5">

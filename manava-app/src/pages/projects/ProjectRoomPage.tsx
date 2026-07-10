@@ -96,7 +96,7 @@ export default function ProjectRoomPage({ role: _role }: { role: UserRole }) {
         </div>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mt-4 pt-3.5 border-t border-border text-xs text-navy/60">
           <span className="flex items-center gap-1.5">
-            <User className="w-3.5 h-3.5 text-navy/40" /> Editor: <strong className="text-navy">{p.editor_name}</strong>
+            <User className="w-3.5 h-3.5 text-navy/40" /> Staf: <strong className="text-navy">{p.editor_name}</strong>
           </span>
           <span className="flex items-center gap-1.5">
             <Building2 className="w-3.5 h-3.5 text-navy/40" /> Klien: <strong className="text-navy">{p.client_name}</strong>
@@ -208,7 +208,7 @@ export default function ProjectRoomPage({ role: _role }: { role: UserRole }) {
               )}
               {downloadsQuery.data && downloadsQuery.data.length === 0 && (
                 <p className="text-xs text-navy/45 py-4 text-center">
-                  Tidak ada file gambar untuk diunduh. Editor mengirim preview melalui tautan eksternal.
+                  Tidak ada file gambar untuk diunduh. Staf mengirim preview melalui tautan eksternal.
                 </p>
               )}
               {downloadsQuery.data && downloadsQuery.data.length > 0 && (
@@ -292,7 +292,7 @@ export default function ProjectRoomPage({ role: _role }: { role: UserRole }) {
               className="input flex-1"
               value={chatInput}
               onChange={e => setChatInput(e.target.value)}
-              placeholder={access === 'client' ? 'Tulis pesan untuk editor…' : 'Tulis pesan untuk klien…'}
+              placeholder={access === 'client' ? 'Tulis pesan untuk staf…' : 'Tulis pesan untuk klien…'}
               maxLength={2000}
               aria-label="Pesan baru"
             />

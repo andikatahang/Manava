@@ -5,8 +5,8 @@
 import { UserX, AlertTriangle, Briefcase, FileText, Archive } from 'lucide-react'
 
 const PHASES = [
-  { label: 'Pemicu & Notifikasi', icon: AlertTriangle, desc: 'HR diberi tahu, editor menerima surat pengakhiran' },
-  { label: 'Serah Terima Proyek', icon: Briefcase, desc: 'Proyek aktif dialihkan ke editor yang tersedia' },
+  { label: 'Pemicu & Notifikasi', icon: AlertTriangle, desc: 'HR diberi tahu, staf menerima surat pengakhiran' },
+  { label: 'Serah Terima Proyek', icon: Briefcase, desc: 'Proyek aktif dialihkan ke staf yang tersedia' },
   { label: 'Penggajian Akhir', icon: FileText, desc: 'Gaji prorata, bonus, dan potongan diselesaikan' },
   { label: 'Anonimisasi Data', icon: Archive, desc: 'Data pribadi dianonimkan 90 hari pasca-pengakhiran sesuai kebijakan' },
 ]

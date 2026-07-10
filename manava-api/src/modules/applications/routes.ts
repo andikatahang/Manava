@@ -281,7 +281,7 @@ applicationsRouter.patch(
     // Delivery failure must not block the pipeline: the transition still
     // happens and HR sees the delivery status to follow up manually.
     const emailBody = renderInterviewEmail(app, details)
-    const mail = await sendEmail(app.email, 'Undangan Interview — Editor Manava', emailBody)
+    const mail = await sendEmail(app.email, 'Undangan Interview — Staf Manava', emailBody)
 
     const updated = await prisma.jobApplication.update({
       where: { application_id: app.application_id },
@@ -317,7 +317,7 @@ applicationsRouter.patch(
     // only shown once on the HR screen with no channel to the employee.
     const mail = await sendEmail(
       app.email,
-      'Selamat Bergabung di Manava — Akun Editor Anda',
+      'Selamat Bergabung di Manava — Akun Staf Anda',
       renderCredentialsEmail(app.full_name, account, env.APP_URL),
     )
     const updated = await prisma.jobApplication.findUnique({
@@ -344,7 +344,7 @@ applicationsRouter.patch(
 
     const mail = await sendEmail(
       app.email,
-      'Hasil Lamaran Anda — Editor Manava',
+      'Hasil Lamaran Anda — Staf Manava',
       renderRejectionEmail(app),
     )
     const updated = await prisma.jobApplication.update({

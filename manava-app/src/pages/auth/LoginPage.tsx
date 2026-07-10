@@ -15,8 +15,8 @@ const demoAccounts: { role: UserRole; email: string; label: string; desc: string
   { role: 'superadmin',    email: 'administrator.sistem@manava.id', label: 'Superadmin', desc: 'Akun, role, parameter sistem' },
   { role: 'hr_admin',      email: 'andi.pratama@manava.id',   label: 'HR Admin',      desc: 'ATS, departemen, peringatan' },
   { role: 'admin_manager', email: 'muhammad.rizki@manava.id', label: 'Admin Manager', desc: 'Tim, KPI, persetujuan cuti' },
-  { role: 'editor',        email: 'rudi.hartono@manava.id',   label: 'Editor',        desc: 'Kerjakan proyek & ESS' },
-  { role: 'client',        email: 'budi@wijayakreatif.co.id', label: 'Klien',         desc: 'Booking editor & pantau proyek' },
+  { role: 'editor',        email: 'rudi.hartono@manava.id',   label: 'Staf',        desc: 'Kerjakan proyek & ESS' },
+  { role: 'client',        email: 'budi@wijayakreatif.co.id', label: 'Klien',         desc: 'Booking staf & pantau proyek' },
 ]
 
 interface LoginPageProps { onLogin: (identifier: string, password: string) => Promise<unknown> }

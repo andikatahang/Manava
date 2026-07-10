@@ -124,7 +124,7 @@ export default function ReportDetailView({ reportId, onBack }: ReportDetailViewP
                 <thead>
                   <tr className="border-b border-navy/15">
                     <th className="text-left font-semibold text-navy/60 py-1.5 w-10">#</th>
-                    <th className="text-left font-semibold text-navy/60 py-1.5">Nama Editor</th>
+                    <th className="text-left font-semibold text-navy/60 py-1.5">Nama Staf</th>
                     <th className="text-right font-semibold text-navy/60 py-1.5">Hari Hadir</th>
                   </tr>
                 </thead>
@@ -147,9 +147,9 @@ export default function ReportDetailView({ reportId, onBack }: ReportDetailViewP
           <MetricTable
             rows={[
               ['Skor KPI Rata-rata Departemen', report.kpi_summary.avg_kpi.toFixed(2)],
-              ['Editor Kategori Sangat Baik', String(report.kpi_summary.excellent_count)],
-              ['Editor Kategori Baik', String(report.kpi_summary.good_count)],
-              ['Editor Perlu Peningkatan', String(report.kpi_summary.needs_count)],
+              ['Staf Kategori Sangat Baik', String(report.kpi_summary.excellent_count)],
+              ['Staf Kategori Baik', String(report.kpi_summary.good_count)],
+              ['Staf Perlu Peningkatan', String(report.kpi_summary.needs_count)],
             ]}
           />
         </Section>

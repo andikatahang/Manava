@@ -134,7 +134,7 @@ departmentsRouter.post(
         .join(', ')
       throw new HttpError(
         409,
-        `Editor sudah terdaftar di departemen lain: ${detail} — satu editor hanya boleh berada di satu departemen`,
+        `Staf sudah terdaftar di departemen lain: ${detail} — satu staf hanya boleh berada di satu departemen`,
       )
     }
     await prisma.departmentMember.createMany({

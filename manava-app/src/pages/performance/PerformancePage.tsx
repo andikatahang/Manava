@@ -336,7 +336,7 @@ export default function PerformancePage({ role }: { role: UserRole; embedded?: b
         <SignalCard
           tone="amber"
           icon={AlertTriangle}
-          title={`${counts.needs} editor butuh evaluasi`}
+          title={`${counts.needs} staf butuh evaluasi`}
           hint="Buka detail untuk meninjau tren dan kirim Manager Assessment Q2 2026."
         />
       )}
@@ -344,7 +344,7 @@ export default function PerformancePage({ role }: { role: UserRole; embedded?: b
         <SignalCard
           tone="emerald"
           icon={CheckCircle2}
-          title="Tidak ada editor di band Perlu Peningkatan"
+          title="Tidak ada staf di band Perlu Peningkatan"
           hint="Tim Anda berada di band Baik atau Sangat Baik kuartal ini."
         />
       )}
@@ -356,7 +356,7 @@ export default function PerformancePage({ role }: { role: UserRole; embedded?: b
 
       {/* Stat strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatBox icon={Users} label="Total Editor" value={counts.total} tone="navy" />
+        <StatBox icon={Users} label="Total Staf" value={counts.total} tone="navy" />
         <StatBox icon={Award} label="Sangat Baik" value={counts.excellent} tone="emerald" />
         <StatBox icon={Target} label="Baik" value={counts.good} tone="navy" />
         <StatBox icon={AlertTriangle} label="Perlu Peningkatan" value={counts.needs} tone="red" />

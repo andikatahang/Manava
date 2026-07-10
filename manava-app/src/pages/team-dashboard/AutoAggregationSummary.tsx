@@ -183,7 +183,7 @@ export function AutoAggregationSummary() {
           icon={Users}
           label="Jumlah Anggota Tim"
           value={metrics.totalEditors.toString()}
-          subtitle="Editor aktif di departemen Anda"
+          subtitle="Staf aktif di departemen Anda"
           color="blue"
         />
 

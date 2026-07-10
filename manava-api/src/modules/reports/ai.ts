@@ -27,7 +27,7 @@ function heuristicNarrative(
     `Pada periode ${period}, departemen ${departmentName} mencatat tingkat kehadiran ${attendance.present_pct}%`,
     `dengan ${attendance.late_count} keterlambatan dan ${attendance.absent_count} ketidakhadiran tanpa keterangan.`,
     `Sebanyak ${leave.approved_count} pengajuan cuti/izin disetujui dan ${leave.pending_count} masih menunggu keputusan.`,
-    `Tim mengerjakan ${totalProjects} proyek (${completed} selesai) dari ${editorReports.length} editor aktif.`,
+    `Tim mengerjakan ${totalProjects} proyek (${completed} selesai) dari ${editorReports.length} staf aktif.`,
   ].join(' ')
 }
 

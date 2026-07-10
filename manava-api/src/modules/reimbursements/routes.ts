@@ -102,7 +102,7 @@ async function decide(
   if (req.user!.role === 'admin_manager') {
     const teamIds = await managedEditorUserIds(req.user!.sub)
     if (!teamIds.includes(claim.user_id)) {
-      return res.status(403).json(fail('Klaim ini bukan dari editor di departemen Anda'))
+      return res.status(403).json(fail('Klaim ini bukan dari staf di departemen Anda'))
     }
   }
   const updated = await prisma.reimbursementClaim.update({

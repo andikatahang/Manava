@@ -1,6 +1,6 @@
 // Modal permintaan revisi klien. Alur: tulis deskripsi perubahan → 1 detik
 // setelah user berhenti mengetik, analisis AI otomatis berjalan → ringkasan
-// kategori (minor/major) muncul → tombol "Kirim Revisi ke Editor" aktif.
+// kategori (minor/major) muncul → tombol "Kirim Revisi ke Staf" aktif.
 // Mengubah teks membatalkan hasil analisis (dan memicu debounce baru) supaya
 // teks yang dikirim selalu sama dengan yang dianalisis.
 
@@ -174,7 +174,7 @@ export function RevisionModal({ open, onClose, envelope, classify, submit }: {
           >
             {submit.isPending
               ? <><Loader2 className="w-4 h-4 animate-spin" /> Mengirim…</>
-              : <><RefreshCw className="w-4 h-4" /> Kirim Revisi ke Editor</>}
+              : <><RefreshCw className="w-4 h-4" /> Kirim Revisi ke Staf</>}
           </button>
         </div>
       </div>
