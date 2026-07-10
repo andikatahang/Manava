@@ -6,6 +6,7 @@ import { AppLayout } from './components/layout/AppLayout'
 import { DefaultPasswordPrompt } from './components/auth/DefaultPasswordPrompt'
 import LandingPage from './pages/landing/LandingPage'
 import LoginPage from './pages/auth/LoginPage'
+import RegisterPage from './pages/auth/RegisterPage'
 import ApplyPage from './pages/apply/ApplyPage'
 import RecruitmentPage from './pages/recruitment/RecruitmentPage'
 import ApplicantDetailPage from './pages/recruitment/ApplicantDetailPage'
@@ -68,7 +69,7 @@ function RoleGuard({ role, children }: { role: UserRole; children: React.ReactNo
 
 function AppRoutes() {
   const location = useLocation()
-  const { user, login, logout, isAuthenticated, isHydrating } = useAuth()
+  const { user, login, register, logout, isAuthenticated, isHydrating } = useAuth()
 
   // Wait for the silent refresh before deciding login vs app — avoids a
   // login-page flash on reload for users with a live session.
@@ -89,6 +90,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/apply" element={<ApplyPage />} />
         <Route path="/login" element={<LoginPage onLogin={login} />} />
+        <Route path="/register" element={<RegisterPage onRegister={register} />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     )
@@ -119,6 +121,7 @@ function AppRoutes() {
       <DefaultPasswordPrompt key={user.user_id} user={user} />
       <Routes>
         <Route path="/login" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/register" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<RoleHomePage user={user} />} />
         <Route path="/recruitment" element={<RoleGuard role={role}><RecruitmentPage role={role} /></RoleGuard>} />
         <Route path="/recruitment/jobs" element={<RoleGuard role={role}><JobPostingsPage /></RoleGuard>} />

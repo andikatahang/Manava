@@ -1,41 +1,19 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react'
 import logoLight from '../../assets/logo-light.png'
 import logoDark from '../../assets/logo-dark.png'
-import type { UserRole } from '../../types'
-
-// Demo accounts seeded by manava-api (prisma/seed.ts). Selecting one
-// pre-fills the form; authentication still goes through the real backend.
-// Mediator & finance dihilangkan sementara — hanya role aktif di database.
-// Password TIDAK di-hardcode (temuan GitGuardian): prefill hanya aktif jika
-// VITE_DEMO_PASSWORD diset di .env lokal (nilai = SEED_PASSWORD manava-api).
-const DEMO_PASSWORD: string = import.meta.env.VITE_DEMO_PASSWORD ?? ''
-const demoAccounts: { role: UserRole; email: string; label: string; desc: string }[] = [
-  { role: 'superadmin',    email: 'administrator.sistem@manava.id', label: 'Superadmin', desc: 'Akun, role, parameter sistem' },
-  { role: 'hr_admin',      email: 'andi.pratama@manava.id',   label: 'HR Admin',      desc: 'ATS, departemen, peringatan' },
-  { role: 'admin_manager', email: 'muhammad.rizki@manava.id', label: 'Admin Manager', desc: 'Tim, KPI, persetujuan cuti' },
-  { role: 'editor',        email: 'rudi.hartono@manava.id',   label: 'Staf',        desc: 'Kerjakan proyek & ESS' },
-  { role: 'client',        email: 'budi@wijayakreatif.co.id', label: 'Klien',         desc: 'Booking staf & pantau proyek' },
-]
 
 interface LoginPageProps { onLogin: (identifier: string, password: string) => Promise<unknown> }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
   const [showPassword, setShowPassword] = useState(false)
-  const [identifier, setIdentifier] = useState('andi.pratama@manava.id')
-  const [password, setPassword] = useState(DEMO_PASSWORD)
+  const [identifier, setIdentifier] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const reduceMotion = useReducedMotion()
-
-  const selectedDemo = demoAccounts.find(a => a.email === identifier)
-
-  function pickDemo(account: (typeof demoAccounts)[number]) {
-    setIdentifier(account.email)
-    setPassword(DEMO_PASSWORD)
-    setError('')
-  }
 
   async function handleSubmit() {
     if (!identifier.trim() || !password) {
@@ -137,24 +115,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               </div>
             </div>
 
-            {/* Demo account quick-fill */}
-            <div>
-              <label className="label">Akun demo <span className="text-navy/40 font-normal">(isi otomatis)</span></label>
-              <div className="grid grid-cols-2 gap-2">
-                {demoAccounts.map(a => (
-                  <button
-                    key={a.role}
-                    type="button"
-                    onClick={() => pickDemo(a)}
-                    className={`p-3 rounded-xl border text-left transition-all duration-150 ${selectedDemo?.role === a.role ? 'border-navy bg-navy-50' : 'border-border bg-white hover:border-navy/30'}`}
-                  >
-                    <p className={`text-sm font-medium ${selectedDemo?.role === a.role ? 'text-navy' : 'text-navy/80'}`}>{a.label}</p>
-                    <p className="text-xs text-navy/40 mt-0.5">{a.desc}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {error && <p className="text-sm text-red-600">{error}</p>}
 
             <button
@@ -164,13 +124,18 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             >
               {isSubmitting
                 ? <><Loader2 className="w-5 h-5 animate-spin" /> Memeriksa…</>
-                : <>Masuk{selectedDemo ? ` sebagai ${selectedDemo.label}` : ''} <ArrowRight className="w-5 h-5" /></>}
+                : <>Masuk <ArrowRight className="w-5 h-5" /></>}
             </button>
-          </form>
 
-          <p className="text-center text-sm text-navy/50 mt-6">
-            Klien baru? Hubungi tim Manava untuk pembuatan akun.
-          </p>
+            {/* Pendaftaran mandiri hanya untuk role Klien — role internal
+                (staf/admin) dibuatkan akunnya lewat rekrutmen atau superadmin. */}
+            <Link
+              to="/register"
+              className="w-full flex items-center justify-center gap-2 py-3 text-base rounded-xl border border-border bg-white text-navy font-medium hover:border-navy/30 transition-colors"
+            >
+              Daftar sebagai Klien
+            </Link>
+          </form>
         </div>
       </div>
     </div>
