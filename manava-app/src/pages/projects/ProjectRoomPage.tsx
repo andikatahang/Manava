@@ -7,7 +7,7 @@ import { useCallback, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Briefcase, Building2, CheckCircle2, Download, FileText,
-  PackageCheck, RefreshCw, Send, User, X,
+  PackageCheck, Plus, RefreshCw, Send, User, X,
 } from 'lucide-react'
 import { Modal } from '../../components/ui/Modal'
 import { StatusBadge } from '../../components/ui/Badge'
@@ -36,6 +36,7 @@ export default function ProjectRoomPage({ role: _role }: { role: UserRole }) {
   const [revisionOpen, setRevisionOpen] = useState(false)
   const [completeOpen, setCompleteOpen] = useState(false)
   const [chatInput, setChatInput] = useState('')
+  const [actionMenuOpen, setActionMenuOpen] = useState(false)
 
   const isCompleted = detailQuery.data?.status === 'completed'
   const isClientViewer = detailQuery.data?.viewer_access === 'client'
@@ -69,6 +70,12 @@ export default function ProjectRoomPage({ role: _role }: { role: UserRole }) {
   const existingReview = p.reviews[0] ?? null
   const isParticipant = access === 'client' || access === 'editor'
   const chatEnabled = isParticipant && p.status !== 'cancelled'
+  const canSendBrief = access === 'editor' && (p.status === 'draft' || p.status === 'awaiting_dp')
+  const counterpart = access === 'client'
+    ? { name: p.editor_name, role: 'Staf Editor' }
+    : access === 'editor'
+      ? { name: p.client_name, role: 'Klien' }
+      : { name: `${p.client_name} · ${p.editor_name}`, role: 'Klien & Staf' }
 
   function sendChat() {
     const body = chatInput.trim()
@@ -166,18 +173,6 @@ export default function ProjectRoomPage({ role: _role }: { role: UserRole }) {
       )}
 
       {/* Banner aksi editor */}
-      {access === 'editor' && (p.status === 'draft' || p.status === 'awaiting_dp') && (
-        <div className="card no-hover border-navy/20 flex flex-col sm:flex-row sm:items-center gap-3">
-          <p className="text-sm text-navy/75 flex-1">
-            {pendingBrief
-              ? <>Brief sudah terkirim — <strong className="text-navy">menunggu jawaban klien</strong>. Anda dapat mengirim brief baru untuk menggantikannya.</>
-              : <>Sudah sepakat dengan klien? <strong className="text-navy">Kirim brief penawaran</strong> berisi judul, deskripsi, batas revisi, dan harga.</>}
-          </p>
-          <button onClick={() => setBriefOpen(true)} className="btn-primary text-sm shrink-0">
-            <FileText className="w-4 h-4" /> {pendingBrief ? 'Kirim Brief Baru' : 'Kirim Brief'}
-          </button>
-        </div>
-      )}
       {access === 'editor' && (p.status === 'in_progress' || p.status === 'revision') && (
         <div className="card no-hover border-navy/20 flex flex-col sm:flex-row sm:items-center gap-3">
           <p className="text-sm text-navy/75 flex-1">
@@ -272,34 +267,101 @@ export default function ProjectRoomPage({ role: _role }: { role: UserRole }) {
         </>
       )}
 
-      {/* Chat */}
-      <div className="card no-hover">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-navy/45 mb-3">
-          Percakapan proyek
-        </p>
+      {/* Chat — gaya messenger: header lawan bicara, kanvas pesan, input pill */}
+      <div className="card no-hover p-0 overflow-hidden">
+        <div className="flex items-center gap-3 px-4 sm:px-5 py-3.5 border-b border-border bg-white">
+          <span
+            aria-hidden
+            className="w-10 h-10 shrink-0 rounded-full bg-navy/10 border border-navy/15 flex items-center justify-center text-xs font-semibold text-navy"
+          >
+            {avatarInitials(counterpart.name)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-navy truncate">{counterpart.name}</p>
+            <p className="text-[11px] text-navy/45">{counterpart.role}</p>
+          </div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-navy/35 shrink-0">
+            Percakapan proyek
+          </p>
+        </div>
+
         {messagesQuery.isLoading ? (
-          <p className="text-sm text-navy/50 py-10 text-center">Memuat percakapan…</p>
+          <p className="text-sm text-navy/50 py-16 text-center bg-[#f4f5f7]">Memuat percakapan…</p>
         ) : (
           <ChatThread messages={messagesQuery.data ?? []} myUserId={meQuery.data?.user_id} />
         )}
 
         {chatEnabled && (
           <form
-            className="flex gap-2 mt-3 pt-3 border-t border-border"
+            className="flex items-center gap-2 px-3 sm:px-4 py-3 border-t border-border bg-white"
             onSubmit={e => { e.preventDefault(); sendChat() }}
           >
             <input
-              className="input flex-1"
+              className="flex-1 min-w-0 px-4 py-2.5 rounded-full border border-border bg-[#f4f5f7] text-sm
+                         focus:outline-none focus:ring-2 focus:ring-navy/20 focus:border-navy/40 focus:bg-white
+                         placeholder:text-gray-400 transition-all duration-150"
               value={chatInput}
               onChange={e => setChatInput(e.target.value)}
               placeholder={access === 'client' ? 'Tulis pesan untuk staf…' : 'Tulis pesan untuk klien…'}
               maxLength={2000}
               aria-label="Pesan baru"
             />
+
+            {canSendBrief && (
+              <div className="relative shrink-0">
+                {actionMenuOpen && (
+                  <>
+                    <button
+                      type="button"
+                      className="fixed inset-0 z-10 cursor-default"
+                      aria-label="Tutup menu aksi"
+                      onClick={() => setActionMenuOpen(false)}
+                    />
+                    <div className="absolute bottom-12 right-0 z-20 w-64 rounded-2xl border border-border bg-white shadow-xl p-1.5">
+                      <button
+                        type="button"
+                        onClick={() => { setActionMenuOpen(false); setBriefOpen(true) }}
+                        className="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl text-left hover:bg-navy/5 transition-colors"
+                      >
+                        <span className="w-8 h-8 shrink-0 rounded-full bg-navy/10 flex items-center justify-center">
+                          <FileText className="w-4 h-4 text-navy" />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-navy">
+                            {pendingBrief ? 'Kirim Brief Baru' : 'Kirim Brief'}
+                          </span>
+                          <span className="block text-[11px] text-navy/50 leading-snug mt-0.5">
+                            {pendingBrief
+                              ? 'Brief sebelumnya menunggu jawaban klien — brief baru akan menggantikannya.'
+                              : 'Penawaran berisi lingkup kerja, batas revisi, dan harga.'}
+                          </span>
+                        </span>
+                      </button>
+                    </div>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActionMenuOpen(v => !v)}
+                  aria-label="Aksi lainnya"
+                  aria-expanded={actionMenuOpen}
+                  aria-haspopup="menu"
+                  className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all duration-150 ${
+                    actionMenuOpen
+                      ? 'bg-navy text-white border-navy rotate-45'
+                      : 'bg-white text-navy/60 border-border hover:text-navy hover:border-navy/30'
+                  }`}
+                >
+                  <Plus className="w-[18px] h-[18px]" />
+                </button>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={!chatInput.trim() || mutations.sendMessage.isPending}
-              className="btn-primary px-4 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-10 h-10 shrink-0 rounded-full bg-navy text-white flex items-center justify-center
+                         hover:bg-navy/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
               aria-label="Kirim pesan"
             >
               <Send className="w-4 h-4" />
@@ -307,7 +369,7 @@ export default function ProjectRoomPage({ role: _role }: { role: UserRole }) {
           </form>
         )}
         {access === 'staff' && (
-          <p className="text-[11px] text-navy/40 mt-3 pt-3 border-t border-border">
+          <p className="text-[11px] text-navy/40 px-4 sm:px-5 py-3 border-t border-border bg-white">
             Anda melihat ruang ini sebagai pemantau — hanya klien dan editor yang dapat mengirim pesan.
           </p>
         )}
@@ -347,6 +409,15 @@ export default function ProjectRoomPage({ role: _role }: { role: UserRole }) {
       </Modal>
     </div>
   )
+}
+
+function avatarInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0]?.toUpperCase() ?? '')
+    .join('')
 }
 
 function BackLink({ onClick }: { onClick: () => void }) {
