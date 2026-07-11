@@ -58,7 +58,11 @@ function SenderAvatar({ name, role }: { name: string; role: string }) {
   )
 }
 
-export function ChatThread({ messages, myUserId }: { messages: Message[]; myUserId?: string }) {
+export function ChatThread({ messages, myUserId, heightClass = 'h-[460px]' }: {
+  messages: Message[]
+  myUserId?: string
+  heightClass?: string
+}) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastId = messages[messages.length - 1]?.message_id
 
@@ -71,7 +75,7 @@ export function ChatThread({ messages, myUserId }: { messages: Message[]; myUser
   return (
     <div
       ref={scrollRef}
-      className="h-[460px] overflow-y-auto px-4 sm:px-5 py-4 space-y-4 bg-[#f4f5f7]"
+      className={`${heightClass} overflow-y-auto px-4 sm:px-5 py-4 space-y-4 bg-[#f4f5f7]`}
       aria-live="polite"
     >
       {messages.length === 0 && (
