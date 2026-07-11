@@ -8,7 +8,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Briefcase, CheckCircle2, FileText, PackageCheck, Plus,
-  RefreshCw, Send, X,
+  RefreshCw, Send,
 } from 'lucide-react'
 import { Modal } from '../../components/ui/Modal'
 import { useMe } from '../../hooks/queries/useMe'
