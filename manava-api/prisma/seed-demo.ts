@@ -310,14 +310,14 @@ const APPLICATIONS: ApplicationSpec[] = [
 ]
 
 const CLIENTS = [
-  { id: 'cl1', name: 'Budi Wijaya',      company: 'PT Wijaya Kreatif',      email: 'budi@wijayakreatif.co.id' },
-  { id: 'cl2', name: 'Sari Dewanti',     company: 'Studio Pelangi',         email: 'sari@studiopelangi.id' },
-  { id: 'cl3', name: 'Anton Salim',      company: 'CV Mitra Visual',        email: 'anton@mitravisual.co.id' },
-  { id: 'cl4', name: 'Maria Tanuwijaya', company: 'Tanu Films',             email: 'maria@tanufilms.com' },
-  { id: 'cl5', name: 'Rendra Prakoso',   company: 'Prakoso Media',          email: 'rendra@prakosomedia.id' },
-  { id: 'cl6', name: 'Lina Halim',       company: 'Halim Property',         email: 'lina@halimproperty.co.id' },
-  { id: 'cl7', name: 'Dimas Aryo',       company: 'Aryo Wedding Organizer', email: 'dimas@aryowedding.id' },
-  { id: 'cl8', name: 'Yulia Kartika',    company: 'Kartika Fashion',        email: 'yulia@kartikafashion.co.id' },
+  { id: 'cl1', name: 'Budi Wijaya',      company: 'PT Wijaya Kreatif',      email: 'budi.wijaya@manava.id' },
+  { id: 'cl2', name: 'Sari Dewanti',     company: 'Studio Pelangi',         email: 'sari.dewanti@manava.id' },
+  { id: 'cl3', name: 'Anton Salim',      company: 'CV Mitra Visual',        email: 'anton.salim@manava.id' },
+  { id: 'cl4', name: 'Maria Tanuwijaya', company: 'Tanu Films',             email: 'maria.tanuwijaya@manava.id' },
+  { id: 'cl5', name: 'Rendra Prakoso',   company: 'Prakoso Media',          email: 'rendra.prakoso@manava.id' },
+  { id: 'cl6', name: 'Lina Halim',       company: 'Halim Property',         email: 'lina.halim@manava.id' },
+  { id: 'cl7', name: 'Dimas Aryo',       company: 'Aryo Wedding Organizer', email: 'dimas.aryo@manava.id' },
+  { id: 'cl8', name: 'Yulia Kartika',    company: 'Kartika Fashion',        email: 'yulia.kartika@manava.id' },
 ]
 
 interface ProjectSpec {
