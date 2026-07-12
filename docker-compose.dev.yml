@@ -5,6 +5,8 @@
 # - Prisma Studio GUI (http://localhost:5555)
 # - Hot reload for API & Frontend
 # - Database port for external tools (localhost:5432)
+# - Mailpit mail catcher (inbox GUI: http://localhost:8025) — recruitment
+#   emails are actually delivered here instead of being skipped
 
 services:
   postgres:
@@ -17,6 +19,13 @@ services:
       target: build   # stop at the build stage so tsx + prisma CLI are present
     # Start Prisma Studio in background, then run dev server
     command: sh -c "npx prisma migrate deploy && (npx prisma studio --hostname 0.0.0.0 --port 5555 --browser none &) && npm run dev"
+    environment:
+      # Default to the local Mailpit catcher so emails are really sent in dev.
+      # Set SMTP_* in .env to route through a real provider instead.
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+    depends_on:
+      - mailpit
     ports:
       - "${API_PORT:-4000}:4000"
       - "5555:5555"  # Prisma Studio GUI
@@ -25,6 +34,18 @@ services:
       - ./manava-api/prisma:/app/prisma
       - ./manava-api/tsconfig.json:/app/tsconfig.json
       - api_node_modules:/app/node_modules
+
+  # Local SMTP catcher: accepts every email on port 1025 (no auth) and shows
+  # it in a web inbox — so HR can verify undangan interview/penolakan/kredensial
+  # tanpa provider email sungguhan.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: manava-mailpit
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"  # Web inbox GUI
+    networks:
+      - manava-net
 
   frontend:
     image: node:20-alpine

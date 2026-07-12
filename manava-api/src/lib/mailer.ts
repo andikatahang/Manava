@@ -10,7 +10,10 @@ export interface MailResult {
   error?: string
 }
 
-const isConfigured = Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS)
+// Host alone is enough: auth-less relays (Mailpit/MailHog in dev) are valid
+// SMTP servers, so credentials are only attached when both halves are set.
+const isConfigured = Boolean(env.SMTP_HOST)
+const hasAuth = Boolean(env.SMTP_USER && env.SMTP_PASS)
 
 let transporter: Transporter | null = null
 function getTransporter(): Transporter {
@@ -19,7 +22,7 @@ function getTransporter(): Transporter {
       host: env.SMTP_HOST,
       port: env.SMTP_PORT,
       secure: env.SMTP_PORT === 465, // implicit TLS; 587 upgrades via STARTTLS
-      auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
+      ...(hasAuth ? { auth: { user: env.SMTP_USER, pass: env.SMTP_PASS } } : {}),
     })
   }
   return transporter
@@ -34,8 +37,9 @@ export async function sendEmail(to: string, subject: string, body: string): Prom
   }
   try {
     await getTransporter().sendMail({
-      // `||` (not ??): compose passes unset vars as empty strings.
-      from: env.MAIL_FROM || env.SMTP_USER,
+      // `||` (not ??): compose passes unset vars as empty strings. The final
+      // fallback covers auth-less relays where SMTP_USER is also empty.
+      from: env.MAIL_FROM || env.SMTP_USER || 'Manava HR <no-reply@manava.id>',
       to,
       subject,
       text: body,
