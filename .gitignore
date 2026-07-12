@@ -33,9 +33,10 @@ coverage/
 *.log
 *.bak
 
-front-end-guidelines.md
+# Dokumen internal (.md) tidak ikut repo — hanya README.md yang di-track
+*.md
+!README.md
+
 referensi-tampilan/
-prd.md
-PROGRESS.md
 .vercel
 .env*
