@@ -8,6 +8,9 @@ import { env } from '../config/env.js'
 export interface MailResult {
   delivered: boolean
   error?: string
+  // True when the send outlived the HTTP wait budget and continues in the
+  // background — the UI shows "sedang dikirim" instead of a hard failure.
+  pending?: boolean
 }
 
 // Host alone is enough: auth-less relays (Mailpit/MailHog in dev) are valid
@@ -23,6 +26,13 @@ function getTransporter(): Transporter {
       port: env.SMTP_PORT,
       secure: env.SMTP_PORT === 465, // implicit TLS; 587 upgrades via STARTTLS
       ...(hasAuth ? { auth: { user: env.SMTP_USER, pass: env.SMTP_PASS } } : {}),
+      // Routes await sendEmail before responding, so an unreachable SMTP host
+      // (e.g. blocked egress) must fail in seconds — Nodemailer's defaults
+      // (2-minute connect, 10-minute socket) hang the whole HTTP request.
+      connectionTimeout: 5_000,
+      greetingTimeout: 5_000,
+      socketTimeout: 10_000,
+      dnsTimeout: 5_000,
     })
   }
   return transporter
@@ -50,4 +60,33 @@ export async function sendEmail(to: string, subject: string, body: string): Prom
     console.error(`📧 [email failed] to=${to} subject="${subject}": ${message}`)
     return { delivered: false, error: message }
   }
+}
+
+// HR decision endpoints (shortlist/approve/reject) must never hang on SMTP:
+// wait briefly for a fast result, otherwise let the send finish in the
+// background and tell the caller it is still in flight.
+const MAX_HTTP_WAIT_MS = 2_500
+
+export async function sendEmailBounded(
+  to: string,
+  subject: string,
+  body: string,
+): Promise<MailResult> {
+  const send = sendEmail(to, subject, body)
+  const timeout = new Promise<MailResult>(resolve => {
+    const timer = setTimeout(
+      () => resolve({ delivered: false, pending: true }),
+      MAX_HTTP_WAIT_MS,
+    )
+    // Don't keep the process alive just for this timer.
+    timer.unref?.()
+  })
+  const result = await Promise.race([send, timeout])
+  if (result.pending) {
+    // sendEmail already logs failures; log the late success for the audit trail.
+    void send.then(r => {
+      if (r.delivered) console.log(`📧 [email delivered late] to=${to} subject="${subject}"`)
+    })
+  }
+  return result
 }

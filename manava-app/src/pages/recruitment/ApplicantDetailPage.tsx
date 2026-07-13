@@ -106,6 +106,11 @@ export default function ApplicantDetailPage() {
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             Email berhasil terkirim ke {app.email}.
           </div>
+        ) : mailStatus.pending ? (
+          <div className="rounded-2xl border border-blue-200 bg-blue-50/70 px-5 py-3.5 text-[13px] text-blue-800 flex items-center gap-2">
+            <Send className="w-4 h-4 shrink-0" />
+            Email ke {app.email} sedang dikirim di latar belakang — status pelamar sudah diperbarui.
+          </div>
         ) : (
           <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-5 py-3.5 text-[13px] text-amber-800 flex items-center gap-2">
             <XCircle className="w-4 h-4 shrink-0" />

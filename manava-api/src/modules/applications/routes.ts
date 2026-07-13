@@ -7,7 +7,7 @@ import { asyncHandler } from '../../utils/asyncHandler.js'
 import { prisma } from '../../lib/prisma.js'
 import { ok, fail } from '../../lib/response.js'
 import { publicApplyLimiter } from '../../lib/rateLimit.js'
-import { sendEmail } from '../../lib/mailer.js'
+import { sendEmailBounded } from '../../lib/mailer.js'
 import { env } from '../../config/env.js'
 import {
   createEditorAccount,
@@ -278,16 +278,16 @@ applicationsRouter.patch(
     })
     const details = { interviewer: hrUser?.full_name ?? 'Tim HR Manava', mode: body.mode, location: body.location }
 
-    // Delivery failure must not block the pipeline: the transition still
-    // happens and HR sees the delivery status to follow up manually.
+    // The transition is committed first — a slow or dead SMTP server must
+    // never hold the decision hostage. The email then gets a short wait
+    // budget; past that it keeps sending in the background.
     const emailBody = renderInterviewEmail(app, details)
-    const mail = await sendEmail(app.email, 'Undangan Interview — Staf Manava', emailBody)
-
     const updated = await prisma.jobApplication.update({
       where: { application_id: app.application_id },
       data: { status: 'interview', invited_at: new Date(), interview_email: emailBody },
       select: LIST_SELECT,
     })
+    const mail = await sendEmailBounded(app.email, 'Undangan Interview — Staf Manava', emailBody)
     return res.json(ok({ application: updated, email: mail }))
   }),
 )
@@ -315,7 +315,7 @@ applicationsRouter.patch(
     const account = await createEditorAccount(app, body.department)
     // Deliver the temporary password to the new editor — previously it was
     // only shown once on the HR screen with no channel to the employee.
-    const mail = await sendEmail(
+    const mail = await sendEmailBounded(
       app.email,
       'Selamat Bergabung di Manava — Akun Staf Anda',
       renderCredentialsEmail(app.full_name, account, env.APP_URL),
@@ -342,16 +342,16 @@ applicationsRouter.patch(
       return res.status(409).json(fail('Lamaran sudah diputuskan'))
     }
 
-    const mail = await sendEmail(
-      app.email,
-      'Hasil Lamaran Anda — Staf Manava',
-      renderRejectionEmail(app),
-    )
     const updated = await prisma.jobApplication.update({
       where: { application_id: app.application_id },
       data: { status: 'rejected', decided_at: new Date() },
       select: LIST_SELECT,
     })
+    const mail = await sendEmailBounded(
+      app.email,
+      'Hasil Lamaran Anda — Staf Manava',
+      renderRejectionEmail(app),
+    )
     return res.json(ok({ application: updated, email: mail }))
   }),
 )

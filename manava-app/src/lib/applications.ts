@@ -143,6 +143,9 @@ export interface CreatedAccount {
 export interface MailResult {
   delivered: boolean
   error?: string
+  // Send outlived the API's wait budget and continues server-side — not a
+  // failure, so the UI shows an "in progress" notice instead of an error.
+  pending?: boolean
 }
 
 export interface ShortlistResult {
