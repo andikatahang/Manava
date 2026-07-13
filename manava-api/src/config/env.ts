@@ -13,6 +13,10 @@ const envSchema = z.object({
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(10),
 
   // ── Optional integrations — the API boots without them ─────────────────────
+  // Email over HTTPS API — required on hosts that block SMTP egress (Railway).
+  // When either key is set it takes priority over SMTP.
+  BREVO_API_KEY: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
   // SMTP: when unset, emails are logged to stdout and flagged email_sent:false.
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
