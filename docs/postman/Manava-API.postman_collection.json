@@ -1,0 +1,2894 @@
+{
+  "info": {
+    "name": "Manava API",
+    "description": "Dokumentasi API lengkap **Manava** — platform HRIS untuk studio jasa visual (retouching, video editing, color grading).\n\n## Base URL\n| Environment | URL |\n|---|---|\n| Local | `http://localhost:4000/api/v1` |\n| Production | `https://api.manava.andikastudio.online/api/v1` |\n\nPilih lewat Postman Environment (`Manava Local` / `Manava Production`) atau ubah variable `base_url`.\n\n## Autentikasi\nJWT Bearer. Jalankan **01 · Auth → Login** dulu — script test otomatis menyimpan `access_token` (umur ±15 menit) dan `refresh_token` ke collection variables. Semua request non-publik memakai `Authorization: Bearer {{access_token}}` dari collection auth. Saat access token kedaluwarsa, jalankan **Refresh Token**.\n\n## Role (RBAC)\n| Role | Deskripsi |\n|---|---|\n| `superadmin` | Akses penuh |\n| `hr_admin` | HR: rekrutmen, presensi, payroll, peringatan, akun |\n| `admin_manager` | Manajer departemen: tim, KPI, approve cuti/klaim, laporan MIS |\n| `editor` | Staf: presensi, cuti, slip gaji, KPI pribadi, klaim |\n| `client` | Klien: booking editor, brief, revisi, pembayaran, ulasan (folder **14 · Projects**) |\n\nRole `mediator` dan `finance` masih dinonaktifkan di gerbang auth.\n\n## Format Respons (Envelope)\nSemua endpoint JSON mengembalikan amplop konsisten:\n```json\n{ \"success\": true,  \"data\": { ... }, \"error\": null, \"metadata\": { \"total\": 10 } }\n{ \"success\": false, \"data\": null,    \"error\": \"Pesan kesalahan\" }\n```\n`metadata` (mis. `total`) hanya hadir pada endpoint list. Pengecualian non-JSON: unduhan file (CV pelamar, bukti klaim, CSV batch bank).\n\n## Kode Status Umum\n| Kode | Arti |\n|---|---|\n| 200 / 201 | Sukses / resource dibuat |\n| 400 | Validasi body/query gagal (zod) |\n| 401 | Token hilang / tidak valid / kedaluwarsa |\n| 403 | Role tidak berhak atau di luar scope |\n| 404 | Resource tidak ditemukan |\n| 409 | Konflik state (mis. klaim sudah diputuskan, rekrutmen ditutup) |\n| 429 | Rate limit (login, submit lamaran) |\n\n## Konvensi\n- Periode selalu `YYYY-MM`; tanggal `YYYY-MM-DD`; jam `HH:MM`.\n- Upload file (CV, bukti klaim, preview) dikirim sebagai **data URL base64** di body JSON (limit body 12 MB).\n- Endpoint list menyertakan `metadata.total`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:4000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "editor_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "department_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "warning_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "leave_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "attendance_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "job_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "application_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "payslip_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "batch_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "report_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "claim_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "project_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "00 · Health",
+      "description": "Health check untuk monitoring dan Docker healthcheck.",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "**Akses:** Publik (tanpa token)\n\nMengembalikan status server, environment aktif, dan timestamp. Dipakai oleh Docker healthcheck dan monitoring.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "01 · Auth",
+      "description": "Autentikasi JWT: login menghasilkan access token (umur pendek, ±15 menit) + refresh token. Access token dikirim sebagai header `Authorization: Bearer <token>` — sudah otomatis lewat collection auth.",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "**Akses:** Publik (tanpa token) — rate-limited\n\nLogin dengan email **atau** username.\n\n| Field | Tipe | Aturan |\n|---|---|---|\n| identifier | string | email atau username, wajib |\n| password | string | wajib |\n\nRespons berisi profil user + pasangan token. Script test otomatis menyimpan `access_token` & `refresh_token` ke collection variables sehingga request lain langsung terautentikasi.\n\n> Role aktif: `superadmin`, `hr_admin`, `admin_manager`, `editor`, `client`. Role `mediator` dan `finance` masih dinonaktifkan di gerbang auth.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"hr@manava.id\",\n  \"password\": \"password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 & sukses\", () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "const json = pm.response.json();",
+                  "if (json?.data?.accessToken) {",
+                  "  pm.collectionVariables.set(\"access_token\", json.data.accessToken);",
+                  "  if (json.data.refreshToken) pm.collectionVariables.set(\"refresh_token\", json.data.refreshToken);",
+                  "  console.log(\"access_token & refresh_token tersimpan ke collection variables.\");",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register (Akun Client)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "description": "**Akses:** Publik (tanpa token)\n\nPendaftaran publik — selalu membuat akun role `client` (role dikunci server-side) dan langsung login.\n\n| Field | Tipe | Aturan |\n|---|---|---|\n| email | string | email valid |\n| username | string | 3–30 karakter, hanya huruf/angka/`-`/`_` |\n| firstName | string | 1–50 |\n| lastName | string | 1–50 |\n| password | string | min. 8 karakter |",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"klien@example.com\",\n  \"username\": \"klien_baru\",\n  \"firstName\": \"Budi\",\n  \"lastName\": \"Santoso\",\n  \"password\": \"rahasia123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "**Akses:** Publik (tanpa token) — rate-limited\n\nTukar refresh token dengan pasangan token baru (rotasi). Refresh token lama dicabut. Script test menyimpan token baru otomatis.\n\nRespons 401 bila token hilang/kedaluwarsa/sudah dicabut.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200 & sukses\", () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "const json = pm.response.json();",
+                  "if (json?.data?.accessToken) {",
+                  "  pm.collectionVariables.set(\"access_token\", json.data.accessToken);",
+                  "  if (json.data.refreshToken) pm.collectionVariables.set(\"refresh_token\", json.data.refreshToken);",
+                  "  console.log(\"access_token & refresh_token tersimpan ke collection variables.\");",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "**Akses:** Publik (tanpa token)\n\nMencabut refresh token yang dikirim. Selalu merespons sukses (idempoten).",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ganti Password",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "password"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi\n\nGanti password akun sendiri (dipakai halaman Profil dan prompt password default untuk editor baru).\n\n| Field | Aturan |\n|---|---|\n| current_password | wajib |\n| new_password | min. 8 karakter |",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"password123\",\n  \"new_password\": \"passwordBaru456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Profil Saya (Me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi\n\nMengembalikan profil user dari access token aktif. Berguna untuk bootstrap aplikasi frontend."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 · Users (Manajemen Akun)",
+      "description": "Administrasi akun pengguna — hanya untuk HR Admin dan Superadmin.",
+      "item": [
+        {
+          "name": "List Semua User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nDaftar seluruh akun (user_id, nama, email, role, avatar, status aktif, tanggal dibuat), diurutkan terbaru dulu."
+          },
+          "response": []
+        },
+        {
+          "name": "Aktif/Nonaktifkan User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "{{user_id}}"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nMengaktifkan atau menonaktifkan akun. Deaktivasi mencabut semua refresh token — sesi mati saat refresh berikutnya (access token kedaluwarsa sendiri ≤15 menit).\n\n**Path:** `:id` = user_id.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 · Editors (Staf)",
+      "description": "Data staf editor beserta metrik KPI. Field gaji diredaksi sesuai role viewer.",
+      "item": [
+        {
+          "name": "List Staf",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/editors",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "editors"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi\n\nSemua staf + metrik KPI, urut status lalu nama. Field gaji diredaksi kecuali viewer adalah HR atau pemilik data."
+          },
+          "response": []
+        },
+        {
+          "name": "Detail Staf",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/editors/{{editor_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "editors",
+                "{{editor_id}}"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi\n\nDetail satu staf + metrik. 404 bila tidak ditemukan. Gaji diredaksi sesuai role."
+          },
+          "response": []
+        },
+        {
+          "name": "Ulasan Klien untuk Staf",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/editors/{{editor_id}}/reviews",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "editors",
+                "{{editor_id}}",
+                "reviews"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi\n\nUlasan klien terbaru untuk profil editor (rating, komentar, proyek) — data publik saja."
+          },
+          "response": []
+        },
+        {
+          "name": "Nilai Manager (Manager Assessment)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/editors/{{editor_id}}/metrics",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "editors",
+                "{{editor_id}}",
+                "metrics"
+              ]
+            },
+            "description": "**Akses:** `admin_manager`, `hr_admin`, `superadmin`\n\nSet `manager_rating` (1–5). Admin Manager hanya boleh menilai editor di departemen yang ia kelola; HR bebas. KPI = (rating klien + completion rate skala-5 + rating manager) / 3, dihitung ulang server-side beserta band (`excellent` ≥4.5, `good` ≥3.5, sisanya `needs_improvement`).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"manager_rating\": 4.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 · Departments",
+      "description": "Struktur departemen: manajer + anggota (editor).",
+      "item": [
+        {
+          "name": "List Departemen",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/departments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "departments"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi\n\nSemua departemen termasuk manajer dan anggota (dengan metrik editor), urut nama."
+          },
+          "response": []
+        },
+        {
+          "name": "List Admin Manager",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/departments/managers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "departments",
+                "managers"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi\n\nDirektori Admin Manager untuk picker penugasan manajer departemen."
+          },
+          "response": []
+        },
+        {
+          "name": "Buat Departemen",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/departments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "departments"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\n| Field | Aturan |\n|---|---|\n| name | 1–80 karakter |\n| manager_id | id AdminManager, wajib |",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Color Grading\",\n  \"manager_id\": \"am-001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ubah Departemen",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/departments/{{department_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "departments",
+                "{{department_id}}"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nUpdate parsial — `name` dan/atau `manager_id`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Video Editing\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Hapus Departemen",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/departments/{{department_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "departments",
+                "{{department_id}}"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nMenghapus departemen."
+          },
+          "response": []
+        },
+        {
+          "name": "Tambah Anggota",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/departments/{{department_id}}/members",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "departments",
+                "{{department_id}}",
+                "members"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nTambahkan satu atau lebih editor ke departemen.\n\n| Field | Aturan |\n|---|---|\n| editor_ids | array editor_id, min. 1 |",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"editor_ids\": [\n    \"ed-001\",\n    \"ed-002\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Keluarkan Anggota",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/departments/{{department_id}}/members/{{editor_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "departments",
+                "{{department_id}}",
+                "members",
+                "{{editor_id}}"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nMengeluarkan satu editor dari departemen."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05 · Warnings (Peringatan Kerja)",
+      "description": "Peringatan kerja (SP). Target adalah akun User nyata sehingga peringatan selalu tampil di akun bersangkutan.",
+      "item": [
+        {
+          "name": "List Peringatan",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/warnings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "warnings"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi — hasil di-scope\n\nHR melihat semua peringatan; editor dan admin manager hanya melihat peringatan yang ditujukan ke akunnya sendiri. Urut terbaru dulu, termasuk nama penerbit."
+          },
+          "response": []
+        },
+        {
+          "name": "Terbitkan Peringatan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/warnings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "warnings"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\n| Field | Aturan |\n|---|---|\n| target_user_id | user_id target (role `editor`/`admin_manager`) |\n| reason | wajib |\n| severity | `ringan` (2 bln) / `sedang` (3 bln) / `berat` (6 bln) |\n\nMasa berlaku dihitung dari severity. Nama & role target diambil server-side.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target_user_id\": \"{{user_id}}\",\n  \"reason\": \"Terlambat 3 kali dalam seminggu tanpa keterangan\",\n  \"severity\": \"ringan\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ubah Status Peringatan",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/warnings/{{warning_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "warnings",
+                "{{warning_id}}"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi\n\n`status`: `aktif` | `diakui` | `kedaluwarsa`. Target peringatan boleh mengakui (acknowledge) peringatannya sendiri; HR boleh mengubah status apa pun.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"diakui\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06 · Leave Requests (Cuti & Izin)",
+      "description": "Pengajuan cuti/izin dengan routing persetujuan satu tingkat ke atas: editor → admin_manager, admin_manager → hr_admin. Identitas pemohon diambil dari JWT.",
+      "item": [
+        {
+          "name": "List Pengajuan",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/leave-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "leave-requests"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi — hasil di-scope\n\nEditor/AM melihat pengajuannya sendiri + antrian yang berhak ia setujui; HR melihat semua."
+          },
+          "response": []
+        },
+        {
+          "name": "Ajukan Cuti/Izin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/leave-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "leave-requests"
+              ]
+            },
+            "description": "**Akses:** `editor`, `admin_manager`\n\n| Field | Aturan |\n|---|---|\n| leave_type | `cuti` / `izin` |\n| start_date | YYYY-MM-DD |\n| end_date | YYYY-MM-DD, ≥ start_date |\n| reason | opsional, maks. 500 |",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leave_type\": \"cuti\",\n  \"start_date\": \"2026-08-03\",\n  \"end_date\": \"2026-08-05\",\n  \"reason\": \"Acara keluarga\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Setujui Pengajuan",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/leave-requests/{{leave_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "leave-requests",
+                "{{leave_id}}",
+                "approve"
+              ]
+            },
+            "description": "**Akses:** `admin_manager`, `hr_admin`, `superadmin`\n\nRouting: AM menyetujui pengajuan editor; HR menyetujui pengajuan AM. `decision_note` opsional (maks. 500).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision_note\": \"Disetujui, selamat berlibur\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tolak Pengajuan",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/leave-requests/{{leave_id}}/reject",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "leave-requests",
+                "{{leave_id}}",
+                "reject"
+              ]
+            },
+            "description": "**Akses:** `admin_manager`, `hr_admin`, `superadmin`\n\nRouting sama dengan approve. `decision_note` opsional.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision_note\": \"Bentrok dengan deadline proyek\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07 · Attendance (Presensi)",
+      "description": "Presensi berbasis sesi kode: HR membuka sesi (masuk/keluar) → kode terkirim via notifikasi → staf mengetik kode untuk clock-in/clock-out. Record asli immutable; perbaikan disimpan di field adjusted_*.",
+      "item": [
+        {
+          "name": "Status Hari Ini",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/attendance/today",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "today"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi\n\nBootstrap kartu QuickAttendance: pengaturan jam kerja, sesi aktif (beserta kode untuk user terautentikasi), dan record presensi viewer hari ini."
+          },
+          "response": []
+        },
+        {
+          "name": "Clock In",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/clock-in",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "clock-in"
+              ]
+            },
+            "description": "**Akses:** `editor`, `admin_manager`, `hr_admin`, `superadmin`\n\nKonfirmasi hadir dengan kode dari sesi `masuk` yang sedang aktif. Kode wajib.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"ABC123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Clock Out",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/clock-out",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "clock-out"
+              ]
+            },
+            "description": "**Akses:** `editor`, `admin_manager`, `hr_admin`, `superadmin`\n\nKonfirmasi pulang dengan kode dari sesi `keluar`. Tanpa clock-out, record masuk antrian review HR.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"XYZ789\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Riwayat Presensi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/attendance",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance"
+              ],
+              "query": [
+                {
+                  "key": "month",
+                  "value": "2026-07",
+                  "description": "Filter bulan, format YYYY-MM",
+                  "disabled": true
+                },
+                {
+                  "key": "user_id",
+                  "value": "{{user_id}}",
+                  "description": "Filter satu user (untuk HR)",
+                  "disabled": true
+                },
+                {
+                  "key": "review",
+                  "value": "pending",
+                  "description": "pending | approved | rejected",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi — hasil di-scope\n\nRiwayat presensi. Query semuanya opsional: `month` (YYYY-MM), `user_id`, `review` (`pending`/`approved`/`rejected`)."
+          },
+          "response": []
+        },
+        {
+          "name": "Presensi Tim",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/attendance/team",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "team"
+              ]
+            },
+            "description": "**Akses:** `admin_manager`, `hr_admin`, `superadmin`\n\nRingkasan presensi hari ini per anggota tim. Admin Manager melihat anggota departemennya; HR melihat semua."
+          },
+          "response": []
+        },
+        {
+          "name": "Antrian Review (Missing Clock-Out)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/attendance/review-queue",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "review-queue"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nRecord tanpa clock-out yang menunggu keputusan HR (setelah staf mengirim penjelasan)."
+          },
+          "response": []
+        },
+        {
+          "name": "Kirim Penjelasan",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/{{attendance_id}}/explanation",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "{{attendance_id}}",
+                "explanation"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi — pemilik record\n\nStaf menjelaskan kenapa tidak clock-out dan mengusulkan jam pulang (`HH:MM`, opsional).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"explanation\": \"Lupa clock out, pulang pukul 17:10\",\n  \"proposed_clock_out\": \"17:10\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Setujui Perbaikan",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/{{attendance_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "{{attendance_id}}",
+                "approve"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nHR menetapkan `adjusted_clock_out` (HH:MM, wajib) + `note` (wajib). Record asli tetap immutable — perbaikan tersimpan di field adjusted_*.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"adjusted_clock_out\": \"17:10\",\n  \"note\": \"Sesuai log aktivitas\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Tolak Perbaikan",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/{{attendance_id}}/reject",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "{{attendance_id}}",
+                "reject"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nTolak penjelasan staf. `note` wajib.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Penjelasan tidak didukung bukti\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Lihat Pengaturan Presensi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/attendance/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "settings"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi\n\nJam masuk/pulang standar dan durasi default kode presensi."
+          },
+          "response": []
+        },
+        {
+          "name": "Ubah Pengaturan Presensi",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "settings"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\n| Field | Aturan |\n|---|---|\n| clock_in_time | HH:MM |\n| clock_out_time | HH:MM, > clock_in_time |\n| code_duration_minutes | 15–720 |",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clock_in_time\": \"09:00\",\n  \"clock_out_time\": \"17:00\",\n  \"code_duration_minutes\": 60\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Buka Sesi Presensi",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/attendance/sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "attendance",
+                "sessions"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nMembuka sesi presensi. `type`: `masuk` | `keluar`; `duration_minutes`: 5–720. Kode sesi dibagikan ke staf via notifikasi in-app.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"masuk\",\n  \"duration_minutes\": 60\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "08 · Job Postings (Lowongan)",
+      "description": "Lowongan kerja publik. Endpoint baca bersifat publik untuk halaman karier; kelola lowongan khusus HR.",
+      "item": [
+        {
+          "name": "List Lowongan (Publik)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/job-postings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "job-postings"
+              ],
+              "query": [
+                {
+                  "key": "include_closed",
+                  "value": "true",
+                  "description": "Sertakan lowongan berstatus closed",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**Akses:** Publik (tanpa token)\n\nDefault hanya lowongan `open`; tambah `?include_closed=true` untuk semua.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Detail Lowongan (Publik)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/job-postings/{{job_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "job-postings",
+                "{{job_id}}"
+              ]
+            },
+            "description": "**Akses:** Publik (tanpa token)\n\nDetail lowongan + kriteria terformat untuk form lamaran.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Buat Lowongan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/job-postings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "job-postings"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\n| Field | Aturan |\n|---|---|\n| title, department, position | wajib |\n| work_type | `fulltime` / `parttime` |\n| work_system | `remote` / `hybrid` / `onsite` |\n| description | opsional, maks. 5000 |\n| min_gpa | 0–4, opsional |\n| min_education | maks. 10 char, opsional |\n| required_skills | array string, min. 1 |\n| required_experience | opsional |\n| specialization | array string |\n| status | `open` (default) / `closed` |",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Senior Video Editor\",\n  \"department\": \"Video Editing\",\n  \"position\": \"Editor\",\n  \"work_type\": \"fulltime\",\n  \"work_system\": \"hybrid\",\n  \"description\": \"Mengedit konten video komersial untuk klien retail.\",\n  \"min_gpa\": 3,\n  \"min_education\": \"S1\",\n  \"required_skills\": [\n    \"Premiere Pro\",\n    \"After Effects\"\n  ],\n  \"required_experience\": \"2 tahun\",\n  \"specialization\": [\n    \"video\"\n  ],\n  \"status\": \"open\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ubah Lowongan",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/job-postings/{{job_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "job-postings",
+                "{{job_id}}"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nUpdate parsial — semua field dari skema create bersifat opsional.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Senior Video Editor (Revisi)\",\n  \"status\": \"open\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Status Lowongan",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/job-postings/{{job_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "job-postings",
+                "{{job_id}}",
+                "status"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\n`status`: `open` | `closed`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"closed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Hapus Lowongan",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/job-postings/{{job_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "job-postings",
+                "{{job_id}}"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nMenghapus lowongan."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "09 · Applications (Rekrutmen)",
+      "description": "Alur rekrutmen: pelamar submit CV (publik) → AI screening server-side → HR shortlist (email interview otomatis) → approve (buat akun editor + email kredensial) / reject (email penolakan).",
+      "item": [
+        {
+          "name": "Kriteria Lamaran (Publik)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/applications/criteria",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "applications",
+                "criteria"
+              ],
+              "query": [
+                {
+                  "key": "job_id",
+                  "value": "{{job_id}}",
+                  "description": "Ambil kriteria dari lowongan tertentu; tanpa ini pakai kriteria default",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**Akses:** Publik (tanpa token)\n\nKriteria yang tampil di form /apply — nilai yang sama dievaluasi screening server-side saat submit.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Status Rekrutmen (Publik)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/applications/recruitment-status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "applications",
+                "recruitment-status"
+              ]
+            },
+            "description": "**Akses:** Publik (tanpa token)\n\nApakah rekrutmen sedang dibuka (`is_open`).",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Buka/Tutup Rekrutmen",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/applications/recruitment-status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "applications",
+                "recruitment-status"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nToggle penerimaan lamaran. Saat `false`, POST /applications ditolak.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_open\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Lamaran (Publik)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/applications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "applications"
+              ]
+            },
+            "description": "**Akses:** Publik (tanpa token) — rate-limited\n\nPelamar hanya mengetik nama/email/telepon — profil (umur, pendidikan, IPK, skill) diekstrak AI dari CV server-side saat submit.\n\n| Field | Aturan |\n|---|---|\n| full_name | 2–100 |\n| email | email valid |\n| phone | 6–30 |\n| cv_name | wajib |\n| cv_data | data URL PDF/DOC/DOCX base64, maks. ±5MB file |\n| job_id | opsional, tautan ke lowongan |\n\nDitolak (409) bila rekrutmen sedang ditutup.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Rina Wulandari\",\n  \"email\": \"rina@example.com\",\n  \"phone\": \"081234567890\",\n  \"cv_name\": \"CV-Rina.pdf\",\n  \"cv_data\": \"data:application/pdf;base64,JVBERi0xLjQK...(base64 CV)...\",\n  \"job_id\": \"{{job_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Lamaran",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/applications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "applications"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nSemua lamaran + hasil AI screening (ringkasan, confidence, rekomendasi departemen, lolos kriteria). `cv_data` tidak disertakan — unduh via endpoint CV."
+          },
+          "response": []
+        },
+        {
+          "name": "Detail Lamaran",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/applications/{{application_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "applications",
+                "{{application_id}}"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nDetail satu lamaran (tanpa cv_data)."
+          },
+          "response": []
+        },
+        {
+          "name": "Unduh CV",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/applications/{{application_id}}/cv",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "applications",
+                "{{application_id}}",
+                "cv"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nStream file CV asli (PDF/DOC) sebagai binary."
+          },
+          "response": []
+        },
+        {
+          "name": "Shortlist (Undang Interview)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/applications/{{application_id}}/shortlist",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "applications",
+                "{{application_id}}",
+                "shortlist"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nUbah status ke Interview + kirim email undangan otomatis.\n\n| Field | Aturan |\n|---|---|\n| mode | `online` / `offline` |\n| location | wajib bila offline (5–200 char) |\n\nNama interviewer dikunci ke HR yang melakukan aksi (dari sesi).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"online\",\n  \"location\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Approve (Buat Akun Editor)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/applications/{{application_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "applications",
+                "{{application_id}}",
+                "approve"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nTerima pelamar: akun editor dibuat otomatis + email kredensial dikirim. `department` opsional — tanpa itu dipakai rekomendasi AI dari screening CV.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"department\": \"Video Editing\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject Lamaran",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/applications/{{application_id}}/reject",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "applications",
+                "{{application_id}}",
+                "reject"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nTolak pelamar + kirim email penolakan otomatis. Tanpa body."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "10 · KPI",
+      "description": "KPI editor: snapshot bulanan per departemen, tren rating, dan insight AI.",
+      "item": [
+        {
+          "name": "KPI Bulanan per Departemen",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/kpi/monthly",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "kpi",
+                "monthly"
+              ]
+            },
+            "description": "**Akses:** `admin_manager`, `hr_admin`, `superadmin`\n\nSnapshot KPI bulanan. Admin Manager otomatis di-scope ke departemen yang ia kelola; HR melihat semua."
+          },
+          "response": []
+        },
+        {
+          "name": "Tren Rating Ulasan",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/kpi/reviews-trend",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "kpi",
+                "reviews-trend"
+              ],
+              "query": [
+                {
+                  "key": "granularity",
+                  "value": "week",
+                  "description": "day (default) | week",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**Akses:** `admin_manager`, `hr_admin`, `superadmin`\n\nTren rating klien lintas editor. `granularity`: `day` (default) atau `week`."
+          },
+          "response": []
+        },
+        {
+          "name": "KPI Bulanan per Editor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/kpi/editors/monthly",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "kpi",
+                "editors",
+                "monthly"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi\n\nAgregasi KPI bulanan per editor (nama, departemen)."
+          },
+          "response": []
+        },
+        {
+          "name": "Tren KPI Saya",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/kpi/my-trend",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "kpi",
+                "my-trend"
+              ],
+              "query": [
+                {
+                  "key": "granularity",
+                  "value": "month",
+                  "description": "month (default) | week | day",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**Akses:** `editor`\n\nTren KPI pribadi editor yang login. `granularity`: `month` (default) / `week` / `day`."
+          },
+          "response": []
+        },
+        {
+          "name": "Insight AI Saya",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/kpi/my-insight",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "kpi",
+                "my-insight"
+              ]
+            },
+            "description": "**Akses:** `editor`\n\nGenerate insight AI atas performa pribadi. Tanpa body."
+          },
+          "response": []
+        },
+        {
+          "name": "Rekomendasi AI Departemen",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/kpi/recommendation",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "kpi",
+                "recommendation"
+              ]
+            },
+            "description": "**Akses:** `admin_manager`, `hr_admin`, `superadmin`\n\nRekomendasi AI untuk dashboard. `department` opsional — Admin Manager otomatis di-scope server-side ke departemennya sendiri.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"department\": \"Video Editing\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "11 · Payroll (Penggajian)",
+      "description": "Slip gaji berbasis presensi + pajak PPh21 & BPJS. Siklus: generate (draft) → adjust → finalize → batch pembayaran bank (CSV) / pay → void bila perlu. Periode selalu berformat YYYY-MM.",
+      "item": [
+        {
+          "name": "Generate Slip Gaji",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payroll/generate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "generate"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nGenerate slip untuk satu editor (isi `editor_id`) atau massal semua editor aktif (kosongkan). Slip yang sudah non-draft dilewati (`skipped`).\n\n| Field | Aturan |\n|---|---|\n| period | YYYY-MM, wajib |\n| editor_id | opsional |",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"period\": \"2026-07\",\n  \"editor_id\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Slip Gaji (HR)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/payroll",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "2026-07",
+                  "description": "YYYY-MM",
+                  "disabled": true
+                },
+                {
+                  "key": "editor_id",
+                  "value": "{{editor_id}}",
+                  "description": "Filter editor",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "draft",
+                  "description": "draft | finalized | paid | voided",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nDaftar slip dengan filter opsional `period`, `editor_id`, `status`."
+          },
+          "response": []
+        },
+        {
+          "name": "Slip Gaji Saya",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/payroll/mine",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "mine"
+              ]
+            },
+            "description": "**Akses:** `editor`\n\nSlip milik editor yang login — hanya yang sudah non-draft (finalized/paid), urut periode terbaru."
+          },
+          "response": []
+        },
+        {
+          "name": "Lihat Pengaturan Payroll",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/payroll/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "settings"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nTarif BPJS, bracket PPh21, dan penalti presensi yang berlaku."
+          },
+          "response": []
+        },
+        {
+          "name": "Ubah Pengaturan Payroll",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payroll/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "settings"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nSemua field opsional: `bpjs_kesehatan_rate`, `bpjs_tk_jkk_rate`, `bpjs_tk_jkm_rate`, `bpjs_tk_jht_rate`, `bpjs_tk_jp_rate` (0–1), `pph21_bracket_1_limit`, `pph21_bracket_1_rate`, `pph21_bracket_2_limit`, `pph21_bracket_2_rate`, `pph21_bracket_3_rate`, `presensi_penalty_per_day` (rupiah).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bpjs_kesehatan_rate\": 0.01,\n  \"pph21_bracket_1_limit\": 60000000,\n  \"pph21_bracket_1_rate\": 0.05,\n  \"presensi_penalty_per_day\": 100000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Buat Batch Pembayaran",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payroll/batch/create",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "batch",
+                "create"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nKumpulkan slip `finalized` pada periode tsb. ke dalam satu batch pembayaran bank.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"period\": \"2026-07\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Proses Batch",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/payroll/batch/{{batch_id}}/process",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "batch",
+                "{{batch_id}}",
+                "process"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nTandai batch diproses — slip di dalamnya berpindah status ke `paid`."
+          },
+          "response": []
+        },
+        {
+          "name": "List Batch",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/payroll/batch",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "batch"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nDaftar batch pembayaran."
+          },
+          "response": []
+        },
+        {
+          "name": "Export Batch (CSV Bank)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/payroll/batch/{{batch_id}}/export",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "batch",
+                "{{batch_id}}",
+                "export"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nUnduh CSV format transfer bank untuk batch tsb."
+          },
+          "response": []
+        },
+        {
+          "name": "Laporan Pajak",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/payroll/reports/tax",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "reports",
+                "tax"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "2026-07",
+                  "description": "YYYY-MM",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nRekap PPh21 & BPJS per periode."
+          },
+          "response": []
+        },
+        {
+          "name": "Detail Slip Gaji",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/payroll/{{payslip_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "{{payslip_id}}"
+              ]
+            },
+            "description": "**Akses:** HR, atau editor pemilik slip\n\nDetail satu slip. Editor hanya boleh membuka slip miliknya sendiri (403 bila bukan)."
+          },
+          "response": []
+        },
+        {
+          "name": "Adjust Slip (Draft)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payroll/{{payslip_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "{{payslip_id}}"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nPenyesuaian manual — hanya untuk slip berstatus `draft`; net pay dihitung ulang. Field opsional: `project_bonus`, `reimbursement_total` (int ≥ 0).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_bonus\": 500000,\n  \"reimbursement_total\": 150000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Finalize Slip",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/payroll/{{payslip_id}}/finalize",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "{{payslip_id}}",
+                "finalize"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\ndraft → finalized. Slip menjadi terlihat oleh editor."
+          },
+          "response": []
+        },
+        {
+          "name": "Tandai Terbayar",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/payroll/{{payslip_id}}/pay",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "{{payslip_id}}",
+                "pay"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nfinalized → paid (pembayaran manual di luar batch)."
+          },
+          "response": []
+        },
+        {
+          "name": "Void Slip",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/payroll/{{payslip_id}}/void",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "payroll",
+                "{{payslip_id}}",
+                "void"
+              ]
+            },
+            "description": "**Akses:** `hr_admin`, `superadmin`\n\nBatalkan slip (status `voided`)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "12 · Reports (Laporan MIS)",
+      "description": "Laporan MIS bulanan: draft otomatis teragregasi per departemen → Admin Manager meneruskan (forward) ke HR dengan catatan.",
+      "item": [
+        {
+          "name": "Draft Laporan Departemen",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/draft",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "draft"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "2026-07",
+                  "description": "YYYY-MM; default bulan berjalan",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**Akses:** `admin_manager`\n\nDraft laporan teragregasi otomatis (presensi, cuti, KPI, reimbursement) untuk departemen milik AM. `period` opsional."
+          },
+          "response": []
+        },
+        {
+          "name": "Teruskan Laporan ke HR",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/reports/forward",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "forward"
+              ]
+            },
+            "description": "**Akses:** `admin_manager`\n\nKirim laporan periode tsb. ke HR.\n\n| Field | Aturan |\n|---|---|\n| period | YYYY-MM, wajib |\n| manager_notes | opsional |",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"period\": \"2026-07\",\n  \"manager_notes\": \"Kinerja stabil; dua editor butuh pelatihan color grading.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Laporan",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports"
+              ],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "2026-07",
+                  "description": "YYYY-MM",
+                  "disabled": true
+                },
+                {
+                  "key": "department_id",
+                  "value": "{{department_id}}",
+                  "description": "Filter departemen",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "forwarded",
+                  "description": "Filter status",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi — hasil di-scope per role\n\nDaftar laporan yang sudah diteruskan. Semua query opsional."
+          },
+          "response": []
+        },
+        {
+          "name": "Detail Laporan",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reports/{{report_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reports",
+                "{{report_id}}"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi — di-scope per role\n\nDetail satu laporan."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "13 · Reimbursements (Klaim)",
+      "description": "Klaim reimbursement editor dengan bukti gambar. Scoping MIS: editor → miliknya; admin_manager → editor departemennya; HR → semua.",
+      "item": [
+        {
+          "name": "List Klaim",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reimbursements",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reimbursements"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi — hasil di-scope\n\nEditor melihat klaimnya sendiri; Admin Manager melihat klaim editor departemennya; HR melihat semua."
+          },
+          "response": []
+        },
+        {
+          "name": "Ajukan Klaim",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/reimbursements",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reimbursements"
+              ]
+            },
+            "description": "**Akses:** `editor`\n\n| Field | Aturan |\n|---|---|\n| amount | int > 0 (rupiah) |\n| purpose | 5–500 karakter |\n| proof_name | nama file |\n| proof_data | data URL gambar JPG/PNG/WebP, maks. 5MB |",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 250000,\n  \"purpose\": \"Pembelian lisensi plugin color grading\",\n  \"proof_name\": \"struk-pembelian.jpg\",\n  \"proof_data\": \"data:image/jpeg;base64,/9j/4AAQSkZJRg...(base64 bukti)...\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Lihat Bukti Klaim",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reimbursements/{{claim_id}}/proof",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reimbursements",
+                "{{claim_id}}",
+                "proof"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi — di-scope\n\nStream gambar bukti klaim."
+          },
+          "response": []
+        },
+        {
+          "name": "Setujui Klaim",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reimbursements/{{claim_id}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reimbursements",
+                "{{claim_id}}",
+                "approve"
+              ]
+            },
+            "description": "**Akses:** `admin_manager`, `superadmin`\n\nAdmin Manager hanya boleh memutuskan klaim editor di departemennya. 409 bila klaim sudah diputuskan."
+          },
+          "response": []
+        },
+        {
+          "name": "Tolak Klaim",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reimbursements/{{claim_id}}/reject",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reimbursements",
+                "{{claim_id}}",
+                "reject"
+              ]
+            },
+            "description": "**Akses:** `admin_manager`, `superadmin`\n\nSama seperti approve — hanya klaim berstatus `pending`."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "14 · Projects (Sales of Services)",
+      "description": "Modul Sales-of-Services: alur proyek klien-editor — booking → brief (kontrak) → deliverable (preview di-watermark) → revisi (klasifikasi AI minor/major) → selesai → unduh file final → ulasan.",
+      "item": [
+        {
+          "name": "List Proyek",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/projects",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "projects"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi\n\nProyek milik viewer (klien atau editor)."
+          },
+          "response": []
+        },
+        {
+          "name": "Inbox Pesan",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/projects/inbox",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "projects",
+                "inbox"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "15",
+                  "description": "1–50, default 15",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi\n\nPesan terbaru lintas proyek milik viewer."
+          },
+          "response": []
+        },
+        {
+          "name": "Mulai Booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/projects",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "projects"
+              ]
+            },
+            "description": "**Akses:** `client`\n\nKlien membuka ruang diskusi dengan editor. `note` opsional (maks. 1000).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"editor_id\": \"{{editor_id}}\",\n  \"note\": \"Butuh color grading untuk 20 foto produk\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Detail Proyek",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/projects/{{project_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "projects",
+                "{{project_id}}"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi — peserta proyek\n\nDetail proyek: kontrak, status, peserta."
+          },
+          "response": []
+        },
+        {
+          "name": "List Pesan Proyek",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/projects/{{project_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "projects",
+                "{{project_id}}",
+                "messages"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi — peserta proyek\n\nRiwayat chat proyek."
+          },
+          "response": []
+        },
+        {
+          "name": "Kirim Pesan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/projects/{{project_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "projects",
+                "{{project_id}}",
+                "messages"
+              ]
+            },
+            "description": "**Akses:** `client`, `editor`\n\n`body`: 1–2000 karakter.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Halo, apakah revisi kedua sudah bisa dilihat?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kirim Brief (Kontrak)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/projects/{{project_id}}/brief",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "projects",
+                "{{project_id}}",
+                "brief"
+              ]
+            },
+            "description": "**Akses:** `editor`\n\nEditor mengirim brief/kontrak.\n\n| Field | Aturan |\n|---|---|\n| title | 3–150 |\n| description | 10–2000 |\n| revision_limit | 0–20, default 5 |\n| price | int ≥ 1 |",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Retouch 20 Foto Produk\",\n  \"description\": \"Retouching + color grading 20 foto katalog, output TIFF.\",\n  \"revision_limit\": 5,\n  \"price\": 2500000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Respons Brief",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/projects/{{project_id}}/brief/respond",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "projects",
+                "{{project_id}}",
+                "brief",
+                "respond"
+              ]
+            },
+            "description": "**Akses:** `client`\n\nKlien menyetujui/menolak brief. `approve`: boolean.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"approve\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Kirim Deliverable",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/projects/{{project_id}}/deliverable",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "projects",
+                "{{project_id}}",
+                "deliverable"
+              ]
+            },
+            "description": "**Akses:** `editor`\n\nPreview boleh berupa gambar (data URL — di-watermark server-side, maks. ±8MB) ATAU tautan eksternal; keduanya opsional selain `note` (1–2000).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Preview batch pertama (10 foto), mohon review.\",\n  \"attachment_url\": \"https://drive.google.com/file/d/xxx\",\n  \"image\": {\n    \"data_url\": \"data:image/jpeg;base64,...(preview, di-watermark server)...\",\n    \"width\": 1920,\n    \"height\": 1080\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Klasifikasi Revisi (AI)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/projects/{{project_id}}/revisions/classify",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "projects",
+                "{{project_id}}",
+                "revisions",
+                "classify"
+              ]
+            },
+            "description": "**Akses:** `client`\n\nPra-cek AI: klasifikasi permintaan revisi menjadi `minor`/`major`/`uncertain` + confidence. `request_text`: 10–2000.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_text\": \"Tolong ubah tone warna keseluruhan jadi lebih warm dan ganti background 5 foto.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ajukan Revisi",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/projects/{{project_id}}/revisions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "projects",
+                "{{project_id}}",
+                "revisions"
+              ]
+            },
+            "description": "**Akses:** `client`\n\nKirim revisi resmi dengan hasil klasifikasi AI.\n\n| Field | Aturan |\n|---|---|\n| request_text | 10–2000 |\n| ai_label | `minor` / `major` / `uncertain` |\n| ai_confidence | 0–1 |\n| ai_summary | 1–1000 |",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_text\": \"Tolong ubah tone warna jadi lebih warm.\",\n  \"ai_label\": \"minor\",\n  \"ai_confidence\": 0.92,\n  \"ai_summary\": \"Penyesuaian tone warna — dalam cakupan.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Selesaikan Proyek",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/projects/{{project_id}}/complete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "projects",
+                "{{project_id}}",
+                "complete"
+              ]
+            },
+            "description": "**Akses:** `client`\n\nKlien menandai proyek selesai. Tanpa body."
+          },
+          "response": []
+        },
+        {
+          "name": "Unduh File Final",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/projects/{{project_id}}/download",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "projects",
+                "{{project_id}}",
+                "download"
+              ]
+            },
+            "description": "**Akses:** Semua role terautentikasi — peserta proyek\n\nDaftar file final yang dapat diunduh setelah proyek selesai."
+          },
+          "response": []
+        },
+        {
+          "name": "Beri Ulasan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/projects/{{project_id}}/review",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "projects",
+                "{{project_id}}",
+                "review"
+              ]
+            },
+            "description": "**Akses:** `client`\n\n`rating`: int 1–5; `comment`: 3–1000.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 5,\n  \"comment\": \"Hasil sangat memuaskan, komunikasi lancar.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
