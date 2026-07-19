@@ -1,8 +1,0 @@
-{
-  "enabledPlugins": {
-    "frontend-design@claude-plugins-official": true
-  },
-  "env": {
-    "ECC_GATEGUARD": "off"
-  }
-}

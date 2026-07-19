@@ -1,42 +1,47 @@
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
+# ── Dependencies ─────────────────────────────────────────────
+node_modules/
 
-# Editor
-.vscode/*
-!.vscode/extensions.json
-.idea
-*.suo
-*.sw?
+# ── Build output ─────────────────────────────────────────────
+dist/
+dist-ssr/
+build/
 
-# Environment
+# ── Environment & secrets ────────────────────────────────────
 .env
 .env.*
 !.env.example
-
-# Dependencies
-node_modules
-
-# Build output
-dist
-dist-ssr
-build
-
-# Test artifacts
-test-results/
-playwright-report/
-coverage/
-
-# Misc
 *.local
+
+# ── Logs & artefak uji ───────────────────────────────────────
 *.log
 *.bak
+coverage/
+test-results/
+playwright-report/
 
-# Dokumen internal (.md) tidak ikut repo — hanya README.md yang di-track
+# ── OS & editor ──────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+.idea/
+.vscode/
+*.suo
+*.sw?
+
+# ── Tooling internal ─────────────────────────────────────────
+.claude/
+.vercel/
+generate-secrets.sh
+headers.txt
+
+# ── Dokumen internal ─────────────────────────────────────────
+# Hanya README.md, PRD.md, dan docs/postman/ yang ikut repo.
 *.md
 !README.md
-
+!PRD.md
+!docs/postman/README.md
+*.docx
+*.pdf
+image_laporan/
 referensi-tampilan/
-.vercel
-.env*
+dokumen/
